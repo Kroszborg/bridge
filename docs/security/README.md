@@ -133,6 +133,18 @@ when that is unset.
   lifts the address check for trusted installs.
 * Webhook events contain message bodies, so they are deleted after the message retention period.
 
+## One-time passwords
+
+* Codes come from `crypto/rand`. Only an HMAC-SHA256 of each code is stored, keyed by a 256-bit
+  key generated once per installation (in `server_keys`) and bound to the verification ID. The hash
+  is erased when the verification finishes.
+* A verification allows 5 attempts (configurable, 1 to 10) and expires after 10 minutes (1 to 60).
+  Checks lock the row and compare in constant time. Each number gets a new code at most every
+  30 seconds and 5 times an hour, which bounds guessing to 25 tries per number per hour.
+* The SMS text contains the code. The API, dashboard, webhooks and event stream only ever show it
+  masked, and the stored text is erased once the code is used or the SMS has left the phone. Live
+  keys never receive the code; test keys do, because nothing is sent.
+
 ## Request logs and the event stream
 
 * Request logs store metadata only: method, path, status, error code, duration, key ID, client IP

@@ -10,6 +10,7 @@ import {
   LeftToRightListBulletIcon,
   Message01Icon,
   Moon02Icon,
+  PasswordValidationIcon,
   Search01Icon,
   SecurityCheckIcon,
   Settings02Icon,
@@ -105,6 +106,13 @@ export function CommandPalette() {
           icon: Message01Icon,
           run: go(`${base}/messages`),
           keywords: ['sms', 'history'],
+        },
+        {
+          id: 'verify',
+          label: 'Verify',
+          icon: PasswordValidationIcon,
+          run: go(`${base}/verify`),
+          keywords: ['otp', 'code', 'one-time password', '2fa'],
         },
         {
           id: 'devices',

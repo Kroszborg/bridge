@@ -9,6 +9,21 @@ they are always called out here with migration steps.
 
 ### Added
 
+- Verify (v0.4): one-time passwords that Bridge generates, sends and checks. `POST /v1/otp` sends a
+  code, `POST /v1/otp/verify` checks it (by number or verification ID), `GET /v1/otp/{id}` reads
+  it. Codes expire (10 minutes by default), allow a limited number of attempts (5), can be resent
+  after 30 seconds (which cancels the previous code), and are capped at 5 per number per hour.
+  Codes are stored only as an HMAC under a per-installation key, erased when the verification
+  finishes; OTP messages are always shown masked and their text is erased once sent.
+- Per-project message template with `{code}`, `{app}` and `{minutes}`, code length, lifetime and
+  attempts, plus autofill: an Android SMS Retriever hash per request, and a WebOTP domain line
+  (`@example.com #123456`) for browsers and iOS.
+- Test keys return the code in the response, so automated tests need no phone.
+- Dashboard Verify page: conversion, median time to verify, a send-and-check playground, settings
+  with a live preview and segment count, and recent verifications.
+- `bridge.otp.send()`, `verify()` and `get()` in the TypeScript SDK; `bridgectl otp send`,
+  `verify` (exits 1 when not valid) and `get`.
+- Messages have a `purpose` (`message` or `otp`).
 - Teams: invite people to an organization with single-use links (7 days, no email needed), roles
   (owner, admin, member) enforced by the API, role changes, removal and leaving, with at least one
   owner always kept. Sign-up through an invite joins that organization instead of creating a new
@@ -122,3 +137,5 @@ they are always called out here with migration steps.
   everything but change nothing.
 - IDs are strictly increasing within a millisecond, so timelines always list events in order.
 - Dashboard tabs are titled after the page.
+- `GET /v1/system` reports retention as `message_bodies_seconds` and `request_logs_seconds`
+  instead of Go duration strings.

@@ -217,3 +217,51 @@ describe('devices and account', () => {
     ]);
   });
 });
+
+describe('otp', () => {
+  const verification = { id: 'otp_1', status: 'pending', to: '+919876543210', code: '482913' };
+
+  it('sends a code without retrying, so users never get two', async () => {
+    const { bridge, requests } = mockClient([
+      () => json(500, { error: { code: 'internal_error', message: 'boom' } }),
+    ]);
+    await expect(bridge.otp.send({ to: '+919876543210' })).rejects.toBeInstanceOf(BridgeApiError);
+    expect(requests).toHaveLength(1);
+    expect(requests[0]?.method).toBe('POST');
+    expect(new URL(requests[0]?.url ?? '').pathname).toBe('/v1/otp');
+    expect(requests[0]?.headers.get('idempotency-key')).toBeNull();
+  });
+
+  it('sends, verifies and reads', async () => {
+    const { bridge, requests } = mockClient([
+      () => json(201, verification),
+      () => json(200, { valid: true, verification: { ...verification, status: 'verified' } }),
+      () => json(200, { ...verification, status: 'verified' }),
+    ]);
+    const sent = await bridge.otp.send({ to: '+919876543210', android_app_hash: 'FA+9qCX9VSu' });
+    expect(sent.code).toBe('482913');
+    expect(await requests[0]?.json()).toEqual({
+      to: '+919876543210',
+      android_app_hash: 'FA+9qCX9VSu',
+    });
+
+    const res = await bridge.otp.verify({ id: sent.id, code: '482913' });
+    expect(res.valid).toBe(true);
+    expect(new URL(requests[1]?.url ?? '').pathname).toBe('/v1/otp/verify');
+
+    const got = await bridge.otp.get('otp_1');
+    expect(got.status).toBe('verified');
+    expect(new URL(requests[2]?.url ?? '').pathname).toBe('/v1/otp/otp_1');
+  });
+
+  it('surfaces the resend cooldown as a rate-limit error', async () => {
+    const { bridge } = mockClient([
+      () =>
+        json(429, { error: { code: 'rate_limited', message: 'wait' } }, { 'retry-after': '25' }),
+    ]);
+    const err = await bridge.otp.send({ to: '+919876543210' }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(BridgeApiError);
+    expect((err as BridgeApiError).code).toBe('rate_limited');
+    expect((err as BridgeApiError).retryAfter).toBe(25);
+  });
+});

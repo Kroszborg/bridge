@@ -242,6 +242,16 @@ wake:     FCM high-priority data message when a job is queued for an offline dev
 - [x] Release pipeline: GoReleaser binaries (bridgectl, bridge), multi-arch images on GHCR and Docker Hub, signed APKs, provenance attestations
 - [ ] First tagged release (v0.3.0) run end to end on GitHub
 
+**Milestone 7 (v0.4):** Verify API.
+
+- [x] `otp_verifications` and `otp_settings`; codes as HMAC-SHA256 under a per-installation key, erased when finished
+- [x] Send (cooldown, hourly cap, cancels the previous code), verify by number or ID (row lock, constant-time compare, attempts), expiry in maintenance
+- [x] OTP messages: `purpose`, masked `display_body` everywhere, body erased once sent
+- [x] Templates with `{code}`, `{app}`, `{minutes}`; Android SMS Retriever hash; WebOTP domain line
+- [x] Test keys return the code; test and live verifications are separate
+- [x] SDK `bridge.otp`, `bridgectl otp`, dashboard Verify page, docs
+- [ ] Verified on a physical phone, including Android autofill
+
 **Milestone 6 (v0.3):** teams, account security and operations.
 
 - [x] Roles (owner, admin, member) enforced in the API through operation metadata; the dashboard hides what a role cannot do

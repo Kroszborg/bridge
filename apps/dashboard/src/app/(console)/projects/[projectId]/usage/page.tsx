@@ -6,6 +6,8 @@ import { DailyLine, Legend, type Series, StackedColumns } from '@/components/cha
 import { EmptyState } from '@/components/kit/empty-state';
 import { PageHeader } from '@/components/kit/page-header';
 import { SectionCard } from '@/components/kit/section-card';
+import { Segmented } from '@/components/kit/segmented';
+import { StatTile } from '@/components/kit/stat-tile';
 import { useProjectId } from '@/components/layout/console-context';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -35,50 +37,6 @@ const requests: Series<'ok' | 'errors'>[] = [
   { key: 'ok', label: 'Successful', color: 'var(--viz-1)' },
   { key: 'errors', label: 'Errors (4xx and 5xx)', color: 'var(--viz-3)' },
 ];
-
-function Segmented<T extends string | number>({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string;
-  value: T;
-  options: { value: T; label: string }[];
-  onChange: (v: T) => void;
-}) {
-  return (
-    <fieldset className="inline-flex gap-1 rounded-lg border bg-background p-1">
-      <legend className="sr-only">{label}</legend>
-      {options.map((o) => (
-        <button
-          key={String(o.value)}
-          type="button"
-          aria-pressed={value === o.value}
-          onClick={() => onChange(o.value)}
-          className={cn(
-            'rounded-md px-3 py-1 text-xs font-medium transition-colors',
-            value === o.value
-              ? 'bg-muted text-foreground ring-1 ring-border'
-              : 'text-muted-foreground',
-          )}
-        >
-          {o.label}
-        </button>
-      ))}
-    </fieldset>
-  );
-}
-
-function StatTile({ label, value, note }: { label: string; value: string; note?: string }) {
-  return (
-    <div className="flex min-w-0 flex-col gap-1 rounded-xl border bg-card p-4">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <span className="font-display text-2xl font-semibold tracking-tight">{value}</span>
-      {note ? <span className="truncate text-xs text-muted-foreground">{note}</span> : null}
-    </div>
-  );
-}
 
 function totals(days: UsageDay[]) {
   const t = {

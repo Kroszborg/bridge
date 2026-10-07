@@ -5,6 +5,7 @@
 package messaging
 
 import (
+	"cmp"
 	"context"
 	"crypto/sha256"
 	"encoding/json"
@@ -150,7 +151,21 @@ type SendRequest struct {
 	SimSlot        *int16
 	Metadata       map[string]any
 	IdempotencyKey string
+
+	// Purpose is "otp" for one-time passwords; empty means an ordinary message.
+	Purpose string
+	// DisplayBody, when set, is what the API and webhooks show instead of Body.
+	DisplayBody *string
+	// OnCreate runs inside the transaction that inserts the message, so a
+	// caller's own rows commit or roll back together with it.
+	OnCreate func(ctx context.Context, q *dbq.Queries, msg dbq.Message) error
 }
+
+// Message purposes.
+const (
+	PurposeMessage = "message"
+	PurposeOTP     = "otp"
+)
 
 // Rate limits on accepting messages. Device capacity is enforced at dispatch.
 const (
@@ -228,6 +243,7 @@ func (s *Service) Send(ctx context.Context, r SendRequest) (msg dbq.Message, rep
 		APIKeyID: r.APIKeyID, RequestedDeviceID: r.DeviceID, Recipient: to, Body: r.Body,
 		Segments: &seg, Encoding: &encoding, Metadata: meta, SimSlot: r.SimSlot,
 		BodySha256: sum[:], BodyLength: ptr(int32(len([]rune(r.Body)))),
+		Purpose: cmp.Or(r.Purpose, PurposeMessage), DisplayBody: r.DisplayBody,
 	}
 	if r.IdempotencyKey != "" {
 		params.IdempotencyKey, params.IdempotencyHash = &r.IdempotencyKey, reqHash
@@ -261,6 +277,11 @@ func (s *Service) Send(ctx context.Context, r SendRequest) (msg dbq.Message, rep
 	}
 	if err := s.event(ctx, q, msg, "queued", &created, ptr(message.Queued), nil); err != nil {
 		return msg, false, err
+	}
+	if r.OnCreate != nil {
+		if err := r.OnCreate(ctx, q, msg); err != nil {
+			return msg, false, err
+		}
 	}
 	var job river.JobArgs = DispatchArgs{MessageID: msg.ID}
 	if provider == ProviderSimulator {

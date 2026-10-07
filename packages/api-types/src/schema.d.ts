@@ -523,6 +523,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/otp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a verification code
+         * @description Generates a code, sends it by SMS and returns the verification. Sending a new code to the same number cancels the previous one. One code per number every 30 seconds, and at most 5 per hour. Test keys send nothing and return the code in `code`.
+         */
+        post: operations["sendVerification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/otp/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a verification code
+         * @description Returns `valid: true` when the code is right. A wrong code uses one attempt; when none are left the verification fails and the user needs a new code. Pass `id`, or `to` to check the latest pending code for a number.
+         */
+        post: operations["checkVerification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/otp/{otpId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a verification */
+        get: operations["getVerification"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/projects/{projectId}": {
         parameters: {
             query?: never;
@@ -703,6 +760,79 @@ export interface paths {
         get: operations["getProjectMessage"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/projects/{projectId}/otp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List verifications */
+        get: operations["listProjectVerifications"];
+        put?: never;
+        /**
+         * Send a verification code from the dashboard
+         * @description Same as `POST /v1/otp`, authenticated by the session, with the environment chosen per request.
+         */
+        post: operations["sendProjectVerification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/projects/{projectId}/otp/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get verification settings */
+        get: operations["getProjectOTPSettings"];
+        /** Update verification settings */
+        put: operations["updateProjectOTPSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/projects/{projectId}/otp/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Verification statistics for the last 30 days */
+        get: operations["getProjectVerificationStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/projects/{projectId}/otp/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Check a verification code from the dashboard */
+        post: operations["checkProjectVerification"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1422,7 +1552,7 @@ export interface components {
         Message: {
             /** Format: int32 */
             attempts: number;
-            /** @description Null once redacted after the retention period. */
+            /** @description Null once redacted after the retention period. For one-time passwords, the text with the code masked. */
             body: string | null;
             body_redacted: boolean;
             /** Format: date-time */
@@ -1454,6 +1584,11 @@ export interface components {
             };
             /** @enum {string} */
             provider: "android" | "simulator";
+            /**
+             * @description otp for codes sent by the Verify API.
+             * @enum {string}
+             */
+            purpose: "message" | "otp";
             /** Format: date-time */
             queued_at: string | null;
             /**
@@ -1478,7 +1613,7 @@ export interface components {
         MessageDetail: {
             /** Format: int32 */
             attempts: number;
-            /** @description Null once redacted after the retention period. */
+            /** @description Null once redacted after the retention period. For one-time passwords, the text with the code masked. */
             body: string | null;
             body_redacted: boolean;
             /** Format: date-time */
@@ -1511,6 +1646,11 @@ export interface components {
             };
             /** @enum {string} */
             provider: "android" | "simulator";
+            /**
+             * @description otp for codes sent by the Verify API.
+             * @enum {string}
+             */
+            purpose: "message" | "otp";
             /** Format: date-time */
             queued_at: string | null;
             /**
@@ -1552,6 +1692,60 @@ export interface components {
             /** @example Checkout */
             name: string;
         };
+        OTPSettings: {
+            /** @description Replaces {app}. Null uses the project name. */
+            app_name?: string | null;
+            /**
+             * Format: int64
+             * @default 6
+             */
+            code_length: number;
+            readonly default_template: string;
+            readonly effective_app_name: string;
+            /**
+             * Format: int64
+             * @description Wrong codes allowed before the verification fails.
+             * @default 5
+             */
+            max_attempts: number;
+            /** @description The SMS these settings produce, with an example code. */
+            readonly preview: string;
+            /** @description The SMS text with {code}, and optionally {app} and {minutes}. Null uses the default. */
+            template?: string | null;
+            /**
+             * Format: int64
+             * @description How long a code stays valid.
+             * @default 600
+             */
+            ttl_seconds: number;
+            /** @description Adds "@domain #code" as the last line so browsers can autofill the code (WebOTP). */
+            web_otp_domain?: string | null;
+        };
+        OTPSettingsInput: {
+            /** @description Replaces {app}. Null uses the project name. */
+            app_name?: string | null;
+            /**
+             * Format: int64
+             * @default 6
+             */
+            code_length: number;
+            /**
+             * Format: int64
+             * @description Wrong codes allowed before the verification fails.
+             * @default 5
+             */
+            max_attempts: number;
+            /** @description The SMS text with {code}, and optionally {app} and {minutes}. Null uses the default. */
+            template?: string | null;
+            /**
+             * Format: int64
+             * @description How long a code stays valid.
+             * @default 600
+             */
+            ttl_seconds: number;
+            /** @description Adds "@domain #code" as the last line so browsers can autofill the code (WebOTP). */
+            web_otp_domain?: string | null;
+        };
         Organization: {
             /** Format: date-time */
             created_at: string;
@@ -1566,6 +1760,30 @@ export interface components {
             role: "owner" | "admin" | "member";
             /** @example acme */
             slug: string;
+        };
+        OtpSendBody: {
+            /** @description Your Android app's 11-character SMS Retriever hash. Added as the last line so the app can read the code without SMS permission. */
+            android_app_hash?: string;
+            /** @description Your own key-value data, returned with the verification. At most 32 keys and 4 KB. */
+            metadata?: {
+                [key: string]: unknown;
+            };
+            /**
+             * @description Destination in E.164 format.
+             * @example +919876543210
+             */
+            to: string;
+        };
+        OtpVerifyBody: {
+            /** @example 482913 */
+            code: string;
+            /** @description The verification to check. Or pass to. */
+            id?: string;
+            /**
+             * @description Checks the latest pending code sent to this number. Or pass id.
+             * @example +919876543210
+             */
+            to?: string;
         };
         PairInputBody: {
             android_version?: string;
@@ -2057,6 +2275,80 @@ export interface components {
             /** @description Whether you operate this Bridge instance and can see System health. */
             operator: boolean;
         };
+        Verification: {
+            /**
+             * Format: int64
+             * @description Wrong codes entered so far, plus the right one if verified.
+             */
+            attempts: number;
+            /** Format: int64 */
+            attempts_remaining: number;
+            /** @description The code itself. Only returned for test keys, so tests can complete a verification without a phone. */
+            code?: string;
+            /** Format: date-time */
+            created_at: string;
+            /** @enum {string} */
+            environment: "live" | "test";
+            /** Format: date-time */
+            expires_at: string;
+            /** @example otp_01ja8z3k5wq2v7c9e4r2n0w6yb */
+            id: string;
+            /** @description The SMS that carries the code. */
+            message_id: string | null;
+            /**
+             * @description Delivery status of that SMS.
+             * @enum {string|null}
+             */
+            message_status: "created" | "queued" | "sending" | "sent" | "delivered" | "failed" | null;
+            metadata: {
+                [key: string]: unknown;
+            };
+            /**
+             * Format: date-time
+             * @description When a new code may be sent to this number.
+             */
+            resend_available_at: string;
+            /**
+             * @description canceled means a newer code was sent to the same number.
+             * @enum {string}
+             */
+            status: "pending" | "verified" | "expired" | "failed" | "canceled";
+            /** @example +919876543210 */
+            to: string;
+            /** Format: date-time */
+            verified_at: string | null;
+        };
+        VerificationList: {
+            data: components["schemas"]["Verification"][];
+            /** @description Pass the last verification's ID as starting_after to fetch the next page. */
+            has_more: boolean;
+        };
+        VerificationStats: {
+            /** Format: int64 */
+            canceled: number;
+            /**
+             * Format: double
+             * @description Verified / finished verifications (excluding canceled ones), 0 to 1.
+             */
+            conversion_rate: number | null;
+            /** Format: int64 */
+            expired: number;
+            /** Format: int64 */
+            failed: number;
+            /** Format: double */
+            median_seconds_to_verify: number;
+            /** Format: int64 */
+            pending: number;
+            /** Format: int64 */
+            total: number;
+            /** Format: int64 */
+            verified: number;
+        };
+        VerifyResult: {
+            /** @description true only when this request's code was right. */
+            valid: boolean;
+            verification: components["schemas"]["Verification"];
+        };
         WakeResult: {
             message: string;
             /** @enum {string} */
@@ -2165,7 +2457,11 @@ export type MessageDetail = components['schemas']['MessageDetail'];
 export type MessageEvent = components['schemas']['MessageEvent'];
 export type MessageList = components['schemas']['MessageList'];
 export type NameBody = components['schemas']['NameBody'];
+export type OtpSettings = components['schemas']['OTPSettings'];
+export type OtpSettingsInput = components['schemas']['OTPSettingsInput'];
 export type Organization = components['schemas']['Organization'];
+export type OtpSendBody = components['schemas']['OtpSendBody'];
+export type OtpVerifyBody = components['schemas']['OtpVerifyBody'];
 export type PairInputBody = components['schemas']['PairInputBody'];
 export type PairResponse = components['schemas']['PairResponse'];
 export type PairingToken = components['schemas']['PairingToken'];
@@ -2203,6 +2499,10 @@ export type UsageDay = components['schemas']['UsageDay'];
 export type UsageHistory = components['schemas']['UsageHistory'];
 export type UsagePeriod = components['schemas']['UsagePeriod'];
 export type User = components['schemas']['User'];
+export type Verification = components['schemas']['Verification'];
+export type VerificationList = components['schemas']['VerificationList'];
+export type VerificationStats = components['schemas']['VerificationStats'];
+export type VerifyResult = components['schemas']['VerifyResult'];
 export type WakeResult = components['schemas']['WakeResult'];
 export type WebhookDelivery = components['schemas']['WebhookDelivery'];
 export type WebhookEndpoint = components['schemas']['WebhookEndpoint'];
@@ -4092,6 +4392,184 @@ export interface operations {
             };
         };
     };
+    sendVerification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OtpSendBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Verification"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    checkVerification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OtpVerifyBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VerifyResult"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    getVerification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                otpId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Verification"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
     getProject: {
         parameters: {
             query?: never;
@@ -4884,6 +5362,335 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MessageDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    listProjectVerifications: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description A verification ID; returns verifications created before it. */
+                starting_after?: string;
+                status?: "pending" | "verified" | "expired" | "failed" | "canceled";
+                /** @description Filter by number (E.164). */
+                to?: string;
+                environment?: "live" | "test";
+            };
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VerificationList"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    sendProjectVerification: {
+        parameters: {
+            query?: {
+                environment?: "live" | "test";
+            };
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OtpSendBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Verification"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    getProjectOTPSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OTPSettings"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    updateProjectOTPSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OTPSettingsInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OTPSettings"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    getProjectVerificationStats: {
+        parameters: {
+            query?: {
+                environment?: "live" | "test";
+            };
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VerificationStats"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    checkProjectVerification: {
+        parameters: {
+            query?: {
+                environment?: "live" | "test";
+            };
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OtpVerifyBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VerifyResult"];
                 };
             };
             /** @description Not Found */

@@ -13,6 +13,7 @@ import (
 
 	"bridge/internal/db/dbq"
 	"bridge/internal/messaging"
+	"bridge/internal/otp"
 	"bridge/internal/status"
 	"bridge/internal/webhook"
 )
@@ -73,6 +74,14 @@ func (w *MaintenanceWorker) Work(ctx context.Context, _ *river.Job[MaintenanceAr
 	if err != nil {
 		return err
 	}
+	otpsExpired, err := w.q.ExpireOTPs(ctx)
+	if err != nil {
+		return err
+	}
+	otpsDeleted, err := w.q.DeleteOldOTPs(ctx, time.Now().Add(-otp.HistoryRetention))
+	if err != nil {
+		return err
+	}
 	var samples int64
 	if w.status != nil {
 		if samples, err = w.status.Prune(ctx); err != nil {
@@ -81,7 +90,7 @@ func (w *MaintenanceWorker) Work(ctx context.Context, _ *river.Job[MaintenanceAr
 	}
 	w.log.Info("maintenance complete", "status_samples_deleted", samples, "expired_sessions", sessions, "stale_rate_limits", counters,
 		"expired_pairing_tokens", tokens, "stale_devices_marked_offline", devices, "message_bodies_redacted", redacted,
-		"webhook_events_deleted", events, "request_logs_deleted", logs)
+		"webhook_events_deleted", events, "request_logs_deleted", logs, "otps_expired", otpsExpired, "otps_deleted", otpsDeleted)
 	return nil
 }
 

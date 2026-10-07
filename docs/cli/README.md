@@ -59,6 +59,10 @@ bridgectl messages --direction inbound --from AX-HDFCBK
 bridgectl messages get msg_06ggn…                  # one message and its timeline
 bridgectl messages tail                            # events as they happen
 
+bridgectl otp send +919876543210                   # one-time password (test keys print the code)
+bridgectl otp verify +919876543210 482913          # exit status 1 when the code is not valid
+bridgectl otp get otp_06gh…                        # a verification and its SMS
+
 bridgectl devices                                  # presence, battery, send window, forwarding
 bridgectl usage --days 30 --tz Asia/Kolkata        # daily volume and delivery rate
 ```

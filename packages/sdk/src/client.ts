@@ -5,6 +5,8 @@ import type {
   MessageList,
   operations,
   Usage,
+  Verification,
+  VerifyResult,
   WhoAmI,
 } from '@bridge/api-types';
 import { BridgeApiError, BridgeConnectionError, type BridgeErrorDetail } from './errors';
@@ -61,6 +63,14 @@ export type ListMessagesParams = NonNullable<operations['listMessages']['paramet
 export type TestDeviceParams =
   operations['testDevice']['requestBody']['content']['application/json'];
 
+/** Parameters of `bridge.otp.send`. */
+export type SendOtpParams =
+  operations['sendVerification']['requestBody']['content']['application/json'];
+
+/** Parameters of `bridge.otp.verify`: the code, and either the verification `id` or the number `to`. */
+export type VerifyOtpParams =
+  operations['checkVerification']['requestBody']['content']['application/json'];
+
 /** A sent message, with whether it was a replay of an earlier request with the same idempotency key. */
 export type SendResult = Message & {
   /** True when an earlier request with this idempotency key already created the message. */
@@ -112,6 +122,7 @@ export class Bridge {
   readonly baseUrl: string;
   readonly messages: Messages;
   readonly devices: Devices;
+  readonly otp: Otp;
   readonly webhooks: Webhooks;
   private readonly apiKey: string;
   private readonly timeoutMs: number;
@@ -148,6 +159,7 @@ export class Bridge {
     this.fetchImpl = f.bind(globalThis);
     this.messages = new Messages(this);
     this.devices = new Devices(this);
+    this.otp = new Otp(this);
     this.webhooks = new Webhooks(options.webhookSecret ?? env('BRIDGE_WEBHOOK_SECRET'));
   }
 
@@ -394,6 +406,61 @@ export class Devices {
       path: `/v1/devices/${encodeURIComponent(deviceId)}/test`,
       body: params,
       idempotent: false,
+      options,
+    });
+    return body;
+  }
+}
+
+/** `bridge.otp`: one-time passwords that Bridge generates, sends and checks. */
+export class Otp {
+  constructor(private readonly client: Bridge) {}
+
+  /**
+   * Sends a new code to a number and returns the verification. A newer code
+   * cancels the previous one. With a test key nothing is sent and the code is
+   * returned in `code`, so tests can finish the flow without a phone.
+   *
+   * Not retried automatically: a retry could send the user a second code.
+   */
+  async send(params: SendOtpParams, options?: RequestOptions): Promise<Verification> {
+    const { body } = await this.client.request<Verification>({
+      method: 'POST',
+      path: '/v1/otp',
+      body: params,
+      idempotent: false,
+      options,
+    });
+    return body;
+  }
+
+  /**
+   * Checks a code. `valid` is true only when it is right; a wrong code uses
+   * one attempt, and `verification.status` says what happened (`failed` when
+   * no attempts are left, `expired`, or `canceled` by a newer code).
+   *
+   * ```ts
+   * const { valid } = await bridge.otp.verify({ to: '+919876543210', code: '482913' });
+   * ```
+   */
+  async verify(params: VerifyOtpParams, options?: RequestOptions): Promise<VerifyResult> {
+    const { body } = await this.client.request<VerifyResult>({
+      method: 'POST',
+      path: '/v1/otp/verify',
+      body: params,
+      // A repeat would use up another attempt.
+      idempotent: false,
+      options,
+    });
+    return body;
+  }
+
+  /** A verification and the delivery status of its SMS. */
+  async get(otpId: string, options?: RequestOptions): Promise<Verification> {
+    const { body } = await this.client.request<Verification>({
+      method: 'GET',
+      path: `/v1/otp/${encodeURIComponent(otpId)}`,
+      idempotent: true,
       options,
     });
     return body;

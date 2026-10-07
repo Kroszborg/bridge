@@ -229,6 +229,51 @@ func (ns NullMessageStatus) Value() (driver.Value, error) {
 	return string(ns.MessageStatus), nil
 }
 
+type OtpStatus string
+
+const (
+	OtpStatusPending  OtpStatus = "pending"
+	OtpStatusVerified OtpStatus = "verified"
+	OtpStatusExpired  OtpStatus = "expired"
+	OtpStatusFailed   OtpStatus = "failed"
+	OtpStatusCanceled OtpStatus = "canceled"
+)
+
+func (e *OtpStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = OtpStatus(s)
+	case string:
+		*e = OtpStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for OtpStatus: %T", src)
+	}
+	return nil
+}
+
+type NullOtpStatus struct {
+	OtpStatus OtpStatus
+	Valid     bool // Valid is true if OtpStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullOtpStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.OtpStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.OtpStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullOtpStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.OtpStatus), nil
+}
+
 type APIKey struct {
 	ID          string
 	ProjectID   string
@@ -365,6 +410,9 @@ type Message struct {
 	BodyLength        *int32
 	BodyRedactedAt    *time.Time
 	Encoding          *string
+	Purpose           string
+	// Shown instead of body by the API and webhooks. Set for OTP messages, whose body contains the code.
+	DisplayBody *string
 }
 
 type MessageEvent struct {
@@ -406,6 +454,37 @@ type OrganizationMember struct {
 	UserID         string
 	Role           MemberRole
 	CreatedAt      time.Time
+}
+
+type OtpSetting struct {
+	ProjectID    string
+	AppName      *string
+	Template     *string
+	CodeLength   int16
+	TtlSeconds   int32
+	MaxAttempts  int16
+	WebOtpDomain *string
+	UpdatedAt    time.Time
+}
+
+type OtpVerification struct {
+	ID          string
+	ProjectID   string
+	Environment APIEnvironment
+	APIKeyID    *string
+	Recipient   string
+	Status      OtpStatus
+	CodeHash    []byte
+	TestCode    *string
+	CodeLength  int16
+	Attempts    int16
+	MaxAttempts int16
+	MessageID   *string
+	Metadata    json.RawMessage
+	ExpiresAt   time.Time
+	VerifiedAt  *time.Time
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 type Project struct {

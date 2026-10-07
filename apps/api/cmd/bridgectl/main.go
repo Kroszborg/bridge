@@ -29,6 +29,11 @@ Usage:
   bridgectl messages get ID                        One message and its timeline
   bridgectl messages tail [--types T,…]            Print events as they happen
 
+  bridgectl otp send TO [--android-hash H]         Send a verification code
+  bridgectl otp verify TO CODE                     Check the latest code sent to TO (exit 1 if wrong)
+  bridgectl otp verify --id ID CODE                Check one verification
+  bridgectl otp get ID                             A verification and its SMS
+
   bridgectl devices                                Paired phones and their health
   bridgectl usage [--days N] [--tz Area/City]      Daily volume and delivery rate
 
@@ -94,6 +99,8 @@ func main() {
 		err = cmdSend(ctx, args)
 	case "messages", "message", "msg":
 		err = cmdMessages(ctx, args)
+	case "otp", "verify":
+		err = cmdOTP(ctx, args)
 	case "devices", "device":
 		err = cmdDevices(ctx, args)
 	case "usage":

@@ -295,11 +295,12 @@ export default function MessagesPage() {
                       <Party m={m} />
                     </TableCell>
                     <TableCell className="max-w-[18rem] truncate text-muted-foreground">
-                      {m.body_redacted ? (
-                        <span className="italic">Removed after retention</span>
-                      ) : (
-                        m.body
-                      )}
+                      {m.purpose === 'otp' ? (
+                        <span className="mr-1.5 rounded bg-muted px-1.5 py-0.5 text-[0.65rem] font-semibold text-foreground">
+                          OTP
+                        </span>
+                      ) : null}
+                      {m.body ?? <span className="italic">Removed after retention</span>}
                     </TableCell>
                     <TableCell>
                       <MessageStatus status={m.status} />

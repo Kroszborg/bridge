@@ -1270,7 +1270,7 @@
             "type": "integer"
           },
           "body": {
-            "description": "Null once redacted after the retention period.",
+            "description": "Null once redacted after the retention period. For one-time passwords, the text with the code masked.",
             "type": [
               "string",
               "null"
@@ -1370,6 +1370,14 @@
             ],
             "type": "string"
           },
+          "purpose": {
+            "description": "otp for codes sent by the Verify API.",
+            "enum": [
+              "message",
+              "otp"
+            ],
+            "type": "string"
+          },
           "queued_at": {
             "format": "date-time",
             "type": [
@@ -1430,6 +1438,7 @@
           "id",
           "status",
           "direction",
+          "purpose",
           "environment",
           "to",
           "from",
@@ -1461,7 +1470,7 @@
             "type": "integer"
           },
           "body": {
-            "description": "Null once redacted after the retention period.",
+            "description": "Null once redacted after the retention period. For one-time passwords, the text with the code masked.",
             "type": [
               "string",
               "null"
@@ -1567,6 +1576,14 @@
             ],
             "type": "string"
           },
+          "purpose": {
+            "description": "otp for codes sent by the Verify API.",
+            "enum": [
+              "message",
+              "otp"
+            ],
+            "type": "string"
+          },
           "queued_at": {
             "format": "date-time",
             "type": [
@@ -1628,6 +1645,7 @@
           "id",
           "status",
           "direction",
+          "purpose",
           "environment",
           "to",
           "from",
@@ -1727,6 +1745,138 @@
         ],
         "type": "object"
       },
+      "OTPSettings": {
+        "additionalProperties": false,
+        "properties": {
+          "app_name": {
+            "description": "Replaces {app}. Null uses the project name.",
+            "maxLength": 40,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "code_length": {
+            "default": 6,
+            "format": "int64",
+            "maximum": 10,
+            "minimum": 4,
+            "type": "integer"
+          },
+          "default_template": {
+            "readOnly": true,
+            "type": "string"
+          },
+          "effective_app_name": {
+            "readOnly": true,
+            "type": "string"
+          },
+          "max_attempts": {
+            "default": 5,
+            "description": "Wrong codes allowed before the verification fails.",
+            "format": "int64",
+            "maximum": 10,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "preview": {
+            "description": "The SMS these settings produce, with an example code.",
+            "readOnly": true,
+            "type": "string"
+          },
+          "template": {
+            "description": "The SMS text with {code}, and optionally {app} and {minutes}. Null uses the default.",
+            "maxLength": 300,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ttl_seconds": {
+            "default": 600,
+            "description": "How long a code stays valid.",
+            "format": "int64",
+            "maximum": 3600,
+            "minimum": 60,
+            "type": "integer"
+          },
+          "web_otp_domain": {
+            "description": "Adds \"@domain #code\" as the last line so browsers can autofill the code (WebOTP).",
+            "maxLength": 253,
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "default_template",
+          "effective_app_name",
+          "preview",
+          "code_length",
+          "ttl_seconds",
+          "max_attempts"
+        ],
+        "type": "object"
+      },
+      "OTPSettingsInput": {
+        "additionalProperties": false,
+        "properties": {
+          "app_name": {
+            "description": "Replaces {app}. Null uses the project name.",
+            "maxLength": 40,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "code_length": {
+            "default": 6,
+            "format": "int64",
+            "maximum": 10,
+            "minimum": 4,
+            "type": "integer"
+          },
+          "max_attempts": {
+            "default": 5,
+            "description": "Wrong codes allowed before the verification fails.",
+            "format": "int64",
+            "maximum": 10,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "template": {
+            "description": "The SMS text with {code}, and optionally {app} and {minutes}. Null uses the default.",
+            "maxLength": 300,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ttl_seconds": {
+            "default": 600,
+            "description": "How long a code stays valid.",
+            "format": "int64",
+            "maximum": 3600,
+            "minimum": 60,
+            "type": "integer"
+          },
+          "web_otp_domain": {
+            "description": "Adds \"@domain #code\" as the last line so browsers can autofill the code (WebOTP).",
+            "maxLength": 253,
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "code_length",
+          "ttl_seconds",
+          "max_attempts"
+        ],
+        "type": "object"
+      },
       "Organization": {
         "additionalProperties": false,
         "properties": {
@@ -1768,6 +1918,64 @@
           "slug",
           "role",
           "created_at"
+        ],
+        "type": "object"
+      },
+      "OtpSendBody": {
+        "additionalProperties": false,
+        "properties": {
+          "android_app_hash": {
+            "description": "Your Android app's 11-character SMS Retriever hash. Added as the last line so the app can read the code without SMS permission.",
+            "pattern": "^[A-Za-z0-9+/]{11}$",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": {},
+            "description": "Your own key-value data, returned with the verification. At most 32 keys and 4 KB.",
+            "type": "object"
+          },
+          "to": {
+            "description": "Destination in E.164 format.",
+            "examples": [
+              "+919876543210"
+            ],
+            "maxLength": 32,
+            "minLength": 3,
+            "type": "string"
+          }
+        },
+        "required": [
+          "to"
+        ],
+        "type": "object"
+      },
+      "OtpVerifyBody": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "examples": [
+              "482913"
+            ],
+            "maxLength": 10,
+            "minLength": 4,
+            "type": "string"
+          },
+          "id": {
+            "description": "The verification to check. Or pass to.",
+            "pattern": "^otp_[0-9a-z]{26}$",
+            "type": "string"
+          },
+          "to": {
+            "description": "Checks the latest pending code sent to this number. Or pass id.",
+            "examples": [
+              "+919876543210"
+            ],
+            "maxLength": 32,
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
         ],
         "type": "object"
       },
@@ -3248,6 +3456,205 @@
           "name",
           "email_verified",
           "created_at"
+        ],
+        "type": "object"
+      },
+      "Verification": {
+        "additionalProperties": false,
+        "properties": {
+          "attempts": {
+            "description": "Wrong codes entered so far, plus the right one if verified.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "attempts_remaining": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "code": {
+            "description": "The code itself. Only returned for test keys, so tests can complete a verification without a phone.",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "environment": {
+            "enum": [
+              "live",
+              "test"
+            ],
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "examples": [
+              "otp_01ja8z3k5wq2v7c9e4r2n0w6yb"
+            ],
+            "type": "string"
+          },
+          "message_id": {
+            "description": "The SMS that carries the code.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "message_status": {
+            "description": "Delivery status of that SMS.",
+            "enum": [
+              "created",
+              "queued",
+              "sending",
+              "sent",
+              "delivered",
+              "failed"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "metadata": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "resend_available_at": {
+            "description": "When a new code may be sent to this number.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "status": {
+            "description": "canceled means a newer code was sent to the same number.",
+            "enum": [
+              "pending",
+              "verified",
+              "expired",
+              "failed",
+              "canceled"
+            ],
+            "type": "string"
+          },
+          "to": {
+            "examples": [
+              "+919876543210"
+            ],
+            "type": "string"
+          },
+          "verified_at": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "to",
+          "environment",
+          "attempts",
+          "attempts_remaining",
+          "expires_at",
+          "resend_available_at",
+          "verified_at",
+          "message_id",
+          "message_status",
+          "metadata",
+          "created_at"
+        ],
+        "type": "object"
+      },
+      "VerificationList": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/Verification"
+            },
+            "type": "array"
+          },
+          "has_more": {
+            "description": "Pass the last verification's ID as starting_after to fetch the next page.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "data",
+          "has_more"
+        ],
+        "type": "object"
+      },
+      "VerificationStats": {
+        "additionalProperties": false,
+        "properties": {
+          "canceled": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "conversion_rate": {
+            "description": "Verified / finished verifications (excluding canceled ones), 0 to 1.",
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "expired": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "failed": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "median_seconds_to_verify": {
+            "format": "double",
+            "type": "number"
+          },
+          "pending": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "total": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "verified": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "verified",
+          "pending",
+          "expired",
+          "failed",
+          "canceled",
+          "conversion_rate",
+          "median_seconds_to_verify"
+        ],
+        "type": "object"
+      },
+      "VerifyResult": {
+        "additionalProperties": false,
+        "properties": {
+          "valid": {
+            "description": "true only when this request's code was right.",
+            "type": "boolean"
+          },
+          "verification": {
+            "$ref": "#/components/schemas/Verification"
+          }
+        },
+        "required": [
+          "valid",
+          "verification"
         ],
         "type": "object"
       },
@@ -6147,6 +6554,240 @@
         ]
       }
     },
+    "/v1/otp": {
+      "post": {
+        "description": "Generates a code, sends it by SMS and returns the verification. Sending a new code to the same number cancels the previous one. One code per number every 30 seconds, and at most 5 per hour. Test keys send nothing and return the code in `code`.",
+        "operationId": "sendVerification",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OtpSendBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Verification"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Send a verification code",
+        "tags": [
+          "Developer API"
+        ]
+      }
+    },
+    "/v1/otp/verify": {
+      "post": {
+        "description": "Returns `valid: true` when the code is right. A wrong code uses one attempt; when none are left the verification fails and the user needs a new code. Pass `id`, or `to` to check the latest pending code for a number.",
+        "operationId": "checkVerification",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OtpVerifyBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifyResult"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Check a verification code",
+        "tags": [
+          "Developer API"
+        ]
+      }
+    },
+    "/v1/otp/{otpId}": {
+      "get": {
+        "operationId": "getVerification",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "otpId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "otp_01ja8z3k5wq2v7c9e4r2n0w6yb"
+              ],
+              "pattern": "^otp_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Verification"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get a verification",
+        "tags": [
+          "Developer API"
+        ]
+      }
+    },
     "/v1/projects/{projectId}": {
       "delete": {
         "description": "Permanently deletes the project with its messages, API keys, phones, webhooks and logs. Paired phones are disconnected. Owners only.",
@@ -7491,6 +8132,561 @@
         "summary": "Get a message",
         "tags": [
           "Messages"
+        ]
+      }
+    },
+    "/v1/projects/{projectId}/otp": {
+      "get": {
+        "operationId": "listProjectVerifications",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 25,
+              "format": "int64",
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "A verification ID; returns verifications created before it.",
+            "explode": false,
+            "in": "query",
+            "name": "starting_after",
+            "schema": {
+              "description": "A verification ID; returns verifications created before it.",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "enum": [
+                "pending",
+                "verified",
+                "expired",
+                "failed",
+                "canceled"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter by number (E.164).",
+            "explode": false,
+            "in": "query",
+            "name": "to",
+            "schema": {
+              "description": "Filter by number (E.164).",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "environment",
+            "schema": {
+              "enum": [
+                "live",
+                "test"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerificationList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "List verifications",
+        "tags": [
+          "Verify"
+        ]
+      },
+      "post": {
+        "description": "Same as `POST /v1/otp`, authenticated by the session, with the environment chosen per request.",
+        "operationId": "sendProjectVerification",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "environment",
+            "schema": {
+              "default": "test",
+              "enum": [
+                "live",
+                "test"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OtpSendBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Verification"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Send a verification code from the dashboard",
+        "tags": [
+          "Verify"
+        ]
+      }
+    },
+    "/v1/projects/{projectId}/otp/settings": {
+      "get": {
+        "operationId": "getProjectOTPSettings",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OTPSettings"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Get verification settings",
+        "tags": [
+          "Verify"
+        ]
+      },
+      "put": {
+        "operationId": "updateProjectOTPSettings",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OTPSettingsInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OTPSettings"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Update verification settings",
+        "tags": [
+          "Verify"
+        ]
+      }
+    },
+    "/v1/projects/{projectId}/otp/stats": {
+      "get": {
+        "operationId": "getProjectVerificationStats",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "environment",
+            "schema": {
+              "default": "live",
+              "enum": [
+                "live",
+                "test"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerificationStats"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Verification statistics for the last 30 days",
+        "tags": [
+          "Verify"
+        ]
+      }
+    },
+    "/v1/projects/{projectId}/otp/verify": {
+      "post": {
+        "operationId": "checkProjectVerification",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "environment",
+            "schema": {
+              "default": "test",
+              "enum": [
+                "live",
+                "test"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OtpVerifyBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifyResult"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Check a verification code from the dashboard",
+        "tags": [
+          "Verify"
         ]
       }
     },
@@ -9013,6 +10209,10 @@
     {
       "description": "Message history for the dashboard.",
       "name": "Messages"
+    },
+    {
+      "description": "One-time passwords for the dashboard.",
+      "name": "Verify"
     },
     {
       "description": "Service health for the public status page and operators.",

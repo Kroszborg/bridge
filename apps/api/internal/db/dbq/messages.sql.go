@@ -14,7 +14,7 @@ import (
 const assignMessage = `-- name: AssignMessage :one
 UPDATE messages SET device_id = $1, assigned_at = now(), attempts = attempts + 1, updated_at = now()
 WHERE id = $2 AND status = 'queued' AND device_id IS NULL
-RETURNING id, project_id, environment, direction, status, provider, device_id, api_key_id, recipient, sender, body, segments, attempts, provider_message_id, error_code, error_message, metadata, idempotency_key, created_at, queued_at, sending_at, sent_at, delivered_at, failed_at, updated_at, requested_device_id, sim_slot, assigned_at, idempotency_hash, body_sha256, body_length, body_redacted_at, encoding
+RETURNING id, project_id, environment, direction, status, provider, device_id, api_key_id, recipient, sender, body, segments, attempts, provider_message_id, error_code, error_message, metadata, idempotency_key, created_at, queued_at, sending_at, sent_at, delivered_at, failed_at, updated_at, requested_device_id, sim_slot, assigned_at, idempotency_hash, body_sha256, body_length, body_redacted_at, encoding, purpose, display_body
 `
 
 type AssignMessageParams struct {
@@ -59,6 +59,8 @@ func (q *Queries) AssignMessage(ctx context.Context, arg AssignMessageParams) (M
 		&i.BodyLength,
 		&i.BodyRedactedAt,
 		&i.Encoding,
+		&i.Purpose,
+		&i.DisplayBody,
 	)
 	return i, err
 }
@@ -312,7 +314,7 @@ func (q *Queries) DispatchCandidates(ctx context.Context, projectID string) ([]D
 }
 
 const getMessage = `-- name: GetMessage :one
-SELECT id, project_id, environment, direction, status, provider, device_id, api_key_id, recipient, sender, body, segments, attempts, provider_message_id, error_code, error_message, metadata, idempotency_key, created_at, queued_at, sending_at, sent_at, delivered_at, failed_at, updated_at, requested_device_id, sim_slot, assigned_at, idempotency_hash, body_sha256, body_length, body_redacted_at, encoding FROM messages WHERE id = $1 AND project_id = $2
+SELECT id, project_id, environment, direction, status, provider, device_id, api_key_id, recipient, sender, body, segments, attempts, provider_message_id, error_code, error_message, metadata, idempotency_key, created_at, queued_at, sending_at, sent_at, delivered_at, failed_at, updated_at, requested_device_id, sim_slot, assigned_at, idempotency_hash, body_sha256, body_length, body_redacted_at, encoding, purpose, display_body FROM messages WHERE id = $1 AND project_id = $2
 `
 
 type GetMessageParams struct {
@@ -357,12 +359,14 @@ func (q *Queries) GetMessage(ctx context.Context, arg GetMessageParams) (Message
 		&i.BodyLength,
 		&i.BodyRedactedAt,
 		&i.Encoding,
+		&i.Purpose,
+		&i.DisplayBody,
 	)
 	return i, err
 }
 
 const getMessageByID = `-- name: GetMessageByID :one
-SELECT id, project_id, environment, direction, status, provider, device_id, api_key_id, recipient, sender, body, segments, attempts, provider_message_id, error_code, error_message, metadata, idempotency_key, created_at, queued_at, sending_at, sent_at, delivered_at, failed_at, updated_at, requested_device_id, sim_slot, assigned_at, idempotency_hash, body_sha256, body_length, body_redacted_at, encoding FROM messages WHERE id = $1
+SELECT id, project_id, environment, direction, status, provider, device_id, api_key_id, recipient, sender, body, segments, attempts, provider_message_id, error_code, error_message, metadata, idempotency_key, created_at, queued_at, sending_at, sent_at, delivered_at, failed_at, updated_at, requested_device_id, sim_slot, assigned_at, idempotency_hash, body_sha256, body_length, body_redacted_at, encoding, purpose, display_body FROM messages WHERE id = $1
 `
 
 func (q *Queries) GetMessageByID(ctx context.Context, id string) (Message, error) {
@@ -402,12 +406,14 @@ func (q *Queries) GetMessageByID(ctx context.Context, id string) (Message, error
 		&i.BodyLength,
 		&i.BodyRedactedAt,
 		&i.Encoding,
+		&i.Purpose,
+		&i.DisplayBody,
 	)
 	return i, err
 }
 
 const getMessageByIdempotencyKey = `-- name: GetMessageByIdempotencyKey :one
-SELECT id, project_id, environment, direction, status, provider, device_id, api_key_id, recipient, sender, body, segments, attempts, provider_message_id, error_code, error_message, metadata, idempotency_key, created_at, queued_at, sending_at, sent_at, delivered_at, failed_at, updated_at, requested_device_id, sim_slot, assigned_at, idempotency_hash, body_sha256, body_length, body_redacted_at, encoding FROM messages WHERE project_id = $1 AND idempotency_key = $2
+SELECT id, project_id, environment, direction, status, provider, device_id, api_key_id, recipient, sender, body, segments, attempts, provider_message_id, error_code, error_message, metadata, idempotency_key, created_at, queued_at, sending_at, sent_at, delivered_at, failed_at, updated_at, requested_device_id, sim_slot, assigned_at, idempotency_hash, body_sha256, body_length, body_redacted_at, encoding, purpose, display_body FROM messages WHERE project_id = $1 AND idempotency_key = $2
 `
 
 type GetMessageByIdempotencyKeyParams struct {
@@ -452,6 +458,8 @@ func (q *Queries) GetMessageByIdempotencyKey(ctx context.Context, arg GetMessage
 		&i.BodyLength,
 		&i.BodyRedactedAt,
 		&i.Encoding,
+		&i.Purpose,
+		&i.DisplayBody,
 	)
 	return i, err
 }
@@ -460,13 +468,13 @@ const insertMessage = `-- name: InsertMessage :one
 INSERT INTO messages (
     id, project_id, environment, direction, status, provider, api_key_id, requested_device_id,
     recipient, body, segments, encoding, metadata, idempotency_key, idempotency_hash, sim_slot,
-    body_sha256, body_length, queued_at
+    body_sha256, body_length, purpose, display_body, queued_at
 ) VALUES (
     $1, $2, $3, 'outbound', 'queued', $4, $5, $6,
     $7, $8, $9, $10, $11, $12, $13, $14,
-    $15, $16, now()
+    $15, $16, $17, $18, now()
 )
-RETURNING id, project_id, environment, direction, status, provider, device_id, api_key_id, recipient, sender, body, segments, attempts, provider_message_id, error_code, error_message, metadata, idempotency_key, created_at, queued_at, sending_at, sent_at, delivered_at, failed_at, updated_at, requested_device_id, sim_slot, assigned_at, idempotency_hash, body_sha256, body_length, body_redacted_at, encoding
+RETURNING id, project_id, environment, direction, status, provider, device_id, api_key_id, recipient, sender, body, segments, attempts, provider_message_id, error_code, error_message, metadata, idempotency_key, created_at, queued_at, sending_at, sent_at, delivered_at, failed_at, updated_at, requested_device_id, sim_slot, assigned_at, idempotency_hash, body_sha256, body_length, body_redacted_at, encoding, purpose, display_body
 `
 
 type InsertMessageParams struct {
@@ -486,6 +494,8 @@ type InsertMessageParams struct {
 	SimSlot           *int16
 	BodySha256        []byte
 	BodyLength        *int32
+	Purpose           string
+	DisplayBody       *string
 }
 
 func (q *Queries) InsertMessage(ctx context.Context, arg InsertMessageParams) (Message, error) {
@@ -506,6 +516,8 @@ func (q *Queries) InsertMessage(ctx context.Context, arg InsertMessageParams) (M
 		arg.SimSlot,
 		arg.BodySha256,
 		arg.BodyLength,
+		arg.Purpose,
+		arg.DisplayBody,
 	)
 	var i Message
 	err := row.Scan(
@@ -542,6 +554,8 @@ func (q *Queries) InsertMessage(ctx context.Context, arg InsertMessageParams) (M
 		&i.BodyLength,
 		&i.BodyRedactedAt,
 		&i.Encoding,
+		&i.Purpose,
+		&i.DisplayBody,
 	)
 	return i, err
 }
@@ -608,7 +622,7 @@ func (q *Queries) ListMessageEvents(ctx context.Context, messageID string) ([]Me
 }
 
 const listMessages = `-- name: ListMessages :many
-SELECT id, project_id, environment, direction, status, provider, device_id, api_key_id, recipient, sender, body, segments, attempts, provider_message_id, error_code, error_message, metadata, idempotency_key, created_at, queued_at, sending_at, sent_at, delivered_at, failed_at, updated_at, requested_device_id, sim_slot, assigned_at, idempotency_hash, body_sha256, body_length, body_redacted_at, encoding FROM messages
+SELECT id, project_id, environment, direction, status, provider, device_id, api_key_id, recipient, sender, body, segments, attempts, provider_message_id, error_code, error_message, metadata, idempotency_key, created_at, queued_at, sending_at, sent_at, delivered_at, failed_at, updated_at, requested_device_id, sim_slot, assigned_at, idempotency_hash, body_sha256, body_length, body_redacted_at, encoding, purpose, display_body FROM messages
 WHERE project_id = $1
   AND ($2::api_environment IS NULL OR environment = $2)
   AND ($3::message_status IS NULL OR status = $3)
@@ -689,6 +703,8 @@ func (q *Queries) ListMessages(ctx context.Context, arg ListMessagesParams) ([]M
 			&i.BodyLength,
 			&i.BodyRedactedAt,
 			&i.Encoding,
+			&i.Purpose,
+			&i.DisplayBody,
 		); err != nil {
 			return nil, err
 		}
@@ -742,7 +758,7 @@ func (q *Queries) MessageStats(ctx context.Context, arg MessageStatsParams) (Mes
 }
 
 const pendingForDevice = `-- name: PendingForDevice :many
-SELECT id, project_id, environment, direction, status, provider, device_id, api_key_id, recipient, sender, body, segments, attempts, provider_message_id, error_code, error_message, metadata, idempotency_key, created_at, queued_at, sending_at, sent_at, delivered_at, failed_at, updated_at, requested_device_id, sim_slot, assigned_at, idempotency_hash, body_sha256, body_length, body_redacted_at, encoding FROM messages
+SELECT id, project_id, environment, direction, status, provider, device_id, api_key_id, recipient, sender, body, segments, attempts, provider_message_id, error_code, error_message, metadata, idempotency_key, created_at, queued_at, sending_at, sent_at, delivered_at, failed_at, updated_at, requested_device_id, sim_slot, assigned_at, idempotency_hash, body_sha256, body_length, body_redacted_at, encoding, purpose, display_body FROM messages
 WHERE device_id = $1 AND status IN ('queued', 'sending')
 ORDER BY created_at
 LIMIT 100
@@ -791,6 +807,8 @@ func (q *Queries) PendingForDevice(ctx context.Context, deviceID *string) ([]Mes
 			&i.BodyLength,
 			&i.BodyRedactedAt,
 			&i.Encoding,
+			&i.Purpose,
+			&i.DisplayBody,
 		); err != nil {
 			return nil, err
 		}
@@ -805,7 +823,8 @@ func (q *Queries) PendingForDevice(ctx context.Context, deviceID *string) ([]Mes
 const redactMessageBodies = `-- name: RedactMessageBodies :execrows
 UPDATE messages SET body = '', body_redacted_at = now(), updated_at = now()
 WHERE body_redacted_at IS NULL
-  AND created_at < $1
+  -- OTP bodies contain the code, so they go as soon as the phone is done with them.
+  AND (created_at < $1 OR purpose = 'otp')
   AND status IN ('sent', 'delivered', 'failed', 'received')
 `
 
@@ -820,7 +839,7 @@ func (q *Queries) RedactMessageBodies(ctx context.Context, before time.Time) (in
 const releaseMessage = `-- name: ReleaseMessage :one
 UPDATE messages SET device_id = NULL, assigned_at = NULL, updated_at = now()
 WHERE id = $1 AND status = 'queued' AND device_id = $2
-RETURNING id, project_id, environment, direction, status, provider, device_id, api_key_id, recipient, sender, body, segments, attempts, provider_message_id, error_code, error_message, metadata, idempotency_key, created_at, queued_at, sending_at, sent_at, delivered_at, failed_at, updated_at, requested_device_id, sim_slot, assigned_at, idempotency_hash, body_sha256, body_length, body_redacted_at, encoding
+RETURNING id, project_id, environment, direction, status, provider, device_id, api_key_id, recipient, sender, body, segments, attempts, provider_message_id, error_code, error_message, metadata, idempotency_key, created_at, queued_at, sending_at, sent_at, delivered_at, failed_at, updated_at, requested_device_id, sim_slot, assigned_at, idempotency_hash, body_sha256, body_length, body_redacted_at, encoding, purpose, display_body
 `
 
 type ReleaseMessageParams struct {
@@ -866,12 +885,14 @@ func (q *Queries) ReleaseMessage(ctx context.Context, arg ReleaseMessageParams) 
 		&i.BodyLength,
 		&i.BodyRedactedAt,
 		&i.Encoding,
+		&i.Purpose,
+		&i.DisplayBody,
 	)
 	return i, err
 }
 
 const staleAssignments = `-- name: StaleAssignments :many
-SELECT id, project_id, environment, direction, status, provider, device_id, api_key_id, recipient, sender, body, segments, attempts, provider_message_id, error_code, error_message, metadata, idempotency_key, created_at, queued_at, sending_at, sent_at, delivered_at, failed_at, updated_at, requested_device_id, sim_slot, assigned_at, idempotency_hash, body_sha256, body_length, body_redacted_at, encoding FROM messages
+SELECT id, project_id, environment, direction, status, provider, device_id, api_key_id, recipient, sender, body, segments, attempts, provider_message_id, error_code, error_message, metadata, idempotency_key, created_at, queued_at, sending_at, sent_at, delivered_at, failed_at, updated_at, requested_device_id, sim_slot, assigned_at, idempotency_hash, body_sha256, body_length, body_redacted_at, encoding, purpose, display_body FROM messages
 WHERE status = 'queued' AND device_id IS NOT NULL AND assigned_at < $1
 ORDER BY assigned_at
 LIMIT 200
@@ -920,6 +941,8 @@ func (q *Queries) StaleAssignments(ctx context.Context, before *time.Time) ([]Me
 			&i.BodyLength,
 			&i.BodyRedactedAt,
 			&i.Encoding,
+			&i.Purpose,
+			&i.DisplayBody,
 		); err != nil {
 			return nil, err
 		}
@@ -947,7 +970,7 @@ UPDATE messages SET
     assigned_at   = CASE WHEN $1::message_status = 'queued' THEN NULL ELSE assigned_at END,
     updated_at    = now()
 WHERE id = $5 AND status::text = ANY($6::text[])
-RETURNING id, project_id, environment, direction, status, provider, device_id, api_key_id, recipient, sender, body, segments, attempts, provider_message_id, error_code, error_message, metadata, idempotency_key, created_at, queued_at, sending_at, sent_at, delivered_at, failed_at, updated_at, requested_device_id, sim_slot, assigned_at, idempotency_hash, body_sha256, body_length, body_redacted_at, encoding
+RETURNING id, project_id, environment, direction, status, provider, device_id, api_key_id, recipient, sender, body, segments, attempts, provider_message_id, error_code, error_message, metadata, idempotency_key, created_at, queued_at, sending_at, sent_at, delivered_at, failed_at, updated_at, requested_device_id, sim_slot, assigned_at, idempotency_hash, body_sha256, body_length, body_redacted_at, encoding, purpose, display_body
 `
 
 type TransitionMessageParams struct {
@@ -1005,6 +1028,8 @@ func (q *Queries) TransitionMessage(ctx context.Context, arg TransitionMessagePa
 		&i.BodyLength,
 		&i.BodyRedactedAt,
 		&i.Encoding,
+		&i.Purpose,
+		&i.DisplayBody,
 	)
 	return i, err
 }

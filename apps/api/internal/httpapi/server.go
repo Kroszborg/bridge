@@ -19,6 +19,7 @@ import (
 	"bridge/internal/events"
 	"bridge/internal/gateway"
 	"bridge/internal/messaging"
+	"bridge/internal/otp"
 	"bridge/internal/push"
 	"bridge/internal/ratelimit"
 	"bridge/internal/reqlog"
@@ -35,6 +36,7 @@ type Server struct {
 	hub     *gateway.Hub
 	push    *push.Service
 	msgs    *messaging.Service
+	otp     *otp.Service
 	hooks   *webhook.Service
 	reqlog  *reqlog.Recorder
 	events  *events.Broker
@@ -66,7 +68,11 @@ func New(o Options) *Server {
 	if limiter == nil {
 		limiter = ratelimit.NewPostgres(q)
 	}
-	return &Server{cfg: o.Config, pool: o.Pool, q: q, log: o.Logger, limiter: limiter, hub: o.Hub, push: o.Push, msgs: o.Messaging, hooks: o.Webhooks, reqlog: o.RequestLog, events: o.Events, status: o.Status, version: o.Version}
+	s := &Server{cfg: o.Config, pool: o.Pool, q: q, log: o.Logger, limiter: limiter, hub: o.Hub, push: o.Push, msgs: o.Messaging, hooks: o.Webhooks, reqlog: o.RequestLog, events: o.Events, status: o.Status, version: o.Version}
+	if o.Messaging != nil {
+		s.otp = otp.New(o.Pool, o.Messaging, limiter, o.Logger)
+	}
+	return s
 }
 
 // Handler returns the complete HTTP handler.
@@ -115,6 +121,7 @@ func (s *Server) register(api huma.API) {
 	s.registerTeams(api)
 	s.registerAccount(api)
 	s.registerStatus(api)
+	s.registerOTP(api)
 }
 
 func (s *Server) ready(w http.ResponseWriter, r *http.Request) {
@@ -168,6 +175,7 @@ func newAPI(r chi.Router, version, serverURL string, logger *slog.Logger) huma.A
 		{Name: "Devices", Description: "Paired Android gateways."},
 		{Name: "Gateway", Description: "Endpoints used by the Bridge Android app itself."},
 		{Name: "Messages", Description: "Message history for the dashboard."},
+		{Name: "Verify", Description: "One-time passwords for the dashboard."},
 		{Name: "Status", Description: "Service health for the public status page and operators."},
 		{Name: "Logs", Description: "Developer API request logs for the dashboard."},
 		{Name: "Webhooks", Description: "Endpoints that receive signed event notifications (Standard Webhooks)."},

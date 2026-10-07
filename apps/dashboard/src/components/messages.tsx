@@ -206,7 +206,7 @@ export function MessageDialog({
               <h3 className="text-[0.68rem] font-semibold uppercase tracking-wide text-muted-foreground">
                 Body
               </h3>
-              {m.body_redacted ? (
+              {m.body == null ? (
                 <p className="rounded-lg border border-dashed px-3 py-2 text-xs text-muted-foreground">
                   The text was removed after the retention period. Status and timeline are kept.
                 </p>
@@ -215,6 +215,12 @@ export function MessageDialog({
                   {m.body}
                 </p>
               )}
+              {m.purpose === 'otp' ? (
+                <p className="text-xs text-muted-foreground">
+                  A one-time password from Verify. The code is never shown, and the stored text is
+                  erased once the code is used or the SMS has left the phone.
+                </p>
+              ) : null}
             </div>
 
             <div className="flex flex-col gap-3">

@@ -287,18 +287,30 @@ func messagingError(err error) error {
 	case errors.As(err, &ve):
 		return huma.Error422UnprocessableEntity("validation failed", &huma.ErrorDetail{Location: "body." + ve.Field, Message: ve.Message})
 	case errors.As(err, &rl):
-		secs := max(1, int(rl.RetryAfter.Seconds()))
-		msg := "This project queued too many messages in the last hour."
-		if rl.Scope == "destination" {
-			msg = "Too many messages to this number in the last hour. This limit protects recipients from floods."
-		}
-		return huma.ErrorWithHeaders(
-			Errorf(http.StatusTooManyRequests, CodeRateLimited, msg+" Retry after "+strconv.Itoa(secs)+" seconds."),
-			http.Header{"Retry-After": {strconv.Itoa(secs)}})
+		return rateLimitedError(rl)
 	case errors.Is(err, messaging.ErrIdempotencyConflict):
 		return Errorf(http.StatusConflict, CodeConflict, "This Idempotency-Key was already used with a different request. Use a new key for a new message.")
 	}
 	return err
+}
+
+// rateLimitedError explains which sending limit was hit and when to retry.
+func rateLimitedError(rl *messaging.RateLimitError) error {
+	secs := max(1, int(rl.RetryAfter.Seconds()))
+	var msg string
+	switch rl.Scope {
+	case "destination":
+		msg = "Too many messages to this number in the last hour. This limit protects recipients from floods."
+	case "otp_resend":
+		msg = "A code was sent to this number moments ago. Wait before sending another."
+	case "otp_destination":
+		msg = "Too many codes to this number in the last hour."
+	default:
+		msg = "This project queued too many messages in the last hour."
+	}
+	return huma.ErrorWithHeaders(
+		Errorf(http.StatusTooManyRequests, CodeRateLimited, msg+" Retry after "+strconv.Itoa(secs)+" seconds."),
+		http.Header{"Retry-After": {strconv.Itoa(secs)}})
 }
 
 func (s *Server) listMessages(ctx context.Context, projectID string, env dbq.APIEnvironment, in *ListMessagesQuery) (*struct{ Body MessageList }, error) {

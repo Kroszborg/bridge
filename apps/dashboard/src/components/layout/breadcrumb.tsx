@@ -14,6 +14,7 @@ const LABELS: Record<string, string> = {
   usage: 'Usage',
   logs: 'Logs',
   playground: 'Playground',
+  verify: 'Verify',
   account: 'Account',
   team: 'Team',
   audit: 'Audit log',

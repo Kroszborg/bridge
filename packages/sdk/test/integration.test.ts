@@ -60,6 +60,18 @@ describe.skipIf(!url || !key)('against a Bridge server', () => {
     expect((err as BridgeApiError).requestId).toMatch(/^req_/);
   });
 
+  it('sends and checks a one-time password', async () => {
+    const to = `+9198${String(Date.now()).slice(-8)}`;
+    const sent = await bridge.otp.send({ to });
+    expect(sent.status).toBe('pending');
+    expect(sent.code).toMatch(/^\d{6}$/);
+    const wrong = sent.code === '000000' ? '111111' : '000000';
+    expect((await bridge.otp.verify({ to, code: wrong })).valid).toBe(false);
+    const res = await bridge.otp.verify({ id: sent.id, code: sent.code ?? '' });
+    expect(res.valid).toBe(true);
+    expect(res.verification.status).toBe('verified');
+  });
+
   it('reads usage and devices', async () => {
     const usage = await bridge.usage();
     expect(usage.environment).toBe('test');

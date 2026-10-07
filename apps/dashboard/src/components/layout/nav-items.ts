@@ -6,6 +6,7 @@ import {
   Key01Icon,
   LeftToRightListBulletIcon,
   Message01Icon,
+  PasswordValidationIcon,
   SecurityCheckIcon,
   ServerStack01Icon,
   Settings02Icon,
@@ -53,6 +54,7 @@ export function buildNav({
       items: [
         { href: base, label: 'Overview', icon: DashboardSquare01Icon, exact: true },
         { href: `${base}/messages`, label: 'Messages', icon: Message01Icon },
+        { href: `${base}/verify`, label: 'Verify', icon: PasswordValidationIcon },
         { href: `${base}/devices`, label: 'Devices', icon: SmartPhone01Icon },
         { href: `${base}/usage`, label: 'Usage', icon: ChartHistogramIcon },
         { href: `${base}/settings`, label: 'Settings', icon: Settings02Icon },

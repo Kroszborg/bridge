@@ -12,10 +12,11 @@ type Message struct {
 	ID           string         `json:"id" example:"msg_01ja8z3k5wq2v7c9e4r2n0w6yb"`
 	Status       string         `json:"status" enum:"created,queued,sending,sent,delivered,failed,received"`
 	Direction    string         `json:"direction" enum:"outbound,inbound"`
+	Purpose      string         `json:"purpose" enum:"message,otp" doc:"otp for codes sent by the Verify API."`
 	Environment  string         `json:"environment" enum:"live,test"`
 	To           string         `json:"to" example:"+919876543210" doc:"Recipient of an outbound message; empty for inbound messages."`
 	From         *string        `json:"from" nullable:"true" example:"+919876543210" doc:"Sender of an inbound message: a number or an alphanumeric sender ID."`
-	Body         *string        `json:"body" nullable:"true" doc:"Null once redacted after the retention period."`
+	Body         *string        `json:"body" nullable:"true" doc:"Null once redacted after the retention period. For one-time passwords, the text with the code masked."`
 	BodyRedacted bool           `json:"body_redacted"`
 	Encoding     *string        `json:"encoding" nullable:"true" enum:"gsm7,ucs2"`
 	Segments     *int16         `json:"segments" nullable:"true" doc:"SMS segments the message occupies; carriers bill per segment."`
@@ -37,14 +38,19 @@ type Message struct {
 // View renders a message for the API and webhooks.
 func View(m dbq.Message) Message {
 	out := Message{
-		ID: m.ID, Status: string(m.Status), Direction: string(m.Direction), Environment: string(m.Environment),
+		ID: m.ID, Status: string(m.Status), Direction: string(m.Direction), Purpose: m.Purpose, Environment: string(m.Environment),
 		To: m.Recipient, From: m.Sender, BodyRedacted: m.BodyRedactedAt != nil, Encoding: m.Encoding, Segments: m.Segments,
 		Provider: m.Provider, DeviceID: m.DeviceID, SimSlot: m.SimSlot, Attempts: m.Attempts,
 		ErrorCode: m.ErrorCode, ErrorMessage: m.ErrorMessage, Metadata: map[string]any{},
 		CreatedAt: m.CreatedAt, QueuedAt: m.QueuedAt, SendingAt: m.SendingAt, SentAt: m.SentAt,
 		DeliveredAt: m.DeliveredAt, FailedAt: m.FailedAt,
 	}
-	if m.BodyRedactedAt == nil {
+	switch {
+	case m.DisplayBody != nil:
+		// The real body holds a one-time code; it is never shown.
+		body := *m.DisplayBody
+		out.Body = &body
+	case m.BodyRedactedAt == nil:
 		body := m.Body
 		out.Body = &body
 	}

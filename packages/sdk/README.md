@@ -53,6 +53,23 @@ for await (const m of bridge.messages.listAll({ direction: 'inbound', from: 'AX-
 
 Polling is fine for scripts. In production, use [webhooks](#webhooks) instead.
 
+## One-time passwords
+
+Bridge generates, sends and checks the code; you never store it.
+
+```ts
+await bridge.otp.send({ to: '+919876543210' });
+
+const { valid, verification } = await bridge.otp.verify({ to: '+919876543210', code: input });
+if (!valid) {
+  // verification.status: 'pending' (wrong code, attempts_remaining left), 'failed', 'expired', …
+}
+```
+
+With a test key nothing is sent and `send` returns the code in `code`. `send` and `verify` are not
+retried automatically, because a retry could send a second code or use an attempt. See
+[docs/otp](../../docs/otp/README.md).
+
 ## Devices, usage and your key
 
 ```ts

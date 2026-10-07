@@ -24,7 +24,7 @@ phone today, a messaging provider later) can change without rewriting your code.
 > dashboard, Docker self-hosting, the Android gateway, sending SMS through paired phones with
 > delivery tracking, forwarding of incoming SMS, signed webhooks with retries, the TypeScript SDK,
 > the `bridgectl` CLI, usage charts, request logs, a playground, teams with roles and invite links,
-> an audit log, and a public status page. It has not yet been verified on enough real phones to call it stable. See the [Era 0 plan](docs/architecture/era-0-plan.md) for exactly what works today.
+> an audit log, a public status page, and the Verify API for one-time passwords. It has not yet been verified on enough real phones to call it stable. See the [Era 0 plan](docs/architecture/era-0-plan.md) for exactly what works today.
 > Do not run it in production yet.
 
 ## Run it
@@ -64,7 +64,8 @@ curl http://localhost:8080/v1/messages \
 
 Follow it under **Messages**, or with `GET /v1/messages/{id}`, which includes the full delivery timeline.
 To be told when it is delivered, or when a phone receives an SMS, add a webhook endpoint. See
-[Sending messages](docs/messages/README.md) and [Webhooks](docs/webhooks/README.md).
+[Sending messages](docs/messages/README.md) and [Webhooks](docs/webhooks/README.md). For login and
+sign-up codes, use [Verify](docs/otp/README.md): `POST /v1/otp`, then `POST /v1/otp/verify`.
 
 From a terminal, use [`bridgectl`](docs/cli/README.md): `bridgectl send +919876543210 "Hello" --wait`.
 From TypeScript, use the [SDK](packages/sdk/README.md):
@@ -121,7 +122,7 @@ one binary and one database.
 | 0.1 | Android gateway: pair a phone, send SMS through its SIM, delivery status, message timeline |
 | 0.2 | Inbound SMS, webhooks, TypeScript SDK |
 | 0.3 | Developer platform: playground, CLI, usage, request logs, teams, audit log, status page (in progress) |
-| 0.4 | OTP API: `bridge.otp.send()` / `bridge.otp.verify()` with a zero-cost development simulator |
+| 0.4 | Verify API: `bridge.otp.send()` / `bridge.otp.verify()` with a zero-cost test mode (in progress, see [docs/otp](docs/otp/README.md)) |
 | 0.5+ | Provider layer (MSG91, Twilio, …) and routing, driven by what users ask for |
 
 Bridge is not a bulk-SMS or marketing tool, and it does not help you bypass carrier rules, DLT

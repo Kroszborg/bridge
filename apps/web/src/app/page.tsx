@@ -117,7 +117,12 @@ const roadmap = [
     body: 'Playground, CLI, usage, request logs, status.',
     state: 'Shipping now',
   },
-  { v: '0.4', title: 'OTP API', body: 'Send and verify codes in one call each.', state: 'Next' },
+  {
+    v: '0.4',
+    title: 'Verify API',
+    body: 'Send and check codes in one call each.',
+    state: 'In progress',
+  },
   {
     v: '0.5',
     title: 'Providers',

@@ -34,6 +34,7 @@ const (
 	Delivery     = "dlv"
 	RequestLog   = "log"
 	Invite       = "inv"
+	OTP          = "otp"
 	Request      = "req"
 )
 

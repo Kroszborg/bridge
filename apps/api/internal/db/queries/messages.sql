@@ -2,11 +2,11 @@
 INSERT INTO messages (
     id, project_id, environment, direction, status, provider, api_key_id, requested_device_id,
     recipient, body, segments, encoding, metadata, idempotency_key, idempotency_hash, sim_slot,
-    body_sha256, body_length, queued_at
+    body_sha256, body_length, purpose, display_body, queued_at
 ) VALUES (
     @id, @project_id, @environment, 'outbound', 'queued', @provider, sqlc.narg(api_key_id), sqlc.narg(requested_device_id),
     @recipient, @body, @segments, @encoding, @metadata, sqlc.narg(idempotency_key), sqlc.narg(idempotency_hash), sqlc.narg(sim_slot),
-    @body_sha256, @body_length, now()
+    @body_sha256, @body_length, @purpose, sqlc.narg(display_body), now()
 )
 RETURNING *;
 
@@ -99,7 +99,8 @@ LIMIT 200;
 -- name: RedactMessageBodies :execrows
 UPDATE messages SET body = '', body_redacted_at = now(), updated_at = now()
 WHERE body_redacted_at IS NULL
-  AND created_at < @before
+  -- OTP bodies contain the code, so they go as soon as the phone is done with them.
+  AND (created_at < @before OR purpose = 'otp')
   AND status IN ('sent', 'delivered', 'failed', 'received');
 
 -- name: DeviceWindowCounts :many

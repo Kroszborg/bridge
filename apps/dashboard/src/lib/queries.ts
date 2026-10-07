@@ -1,6 +1,13 @@
 'use client';
 
-import type { ApiKey, Message, Organization, Project, WebhookEventType } from '@bridge/api-types';
+import type {
+  ApiKey,
+  Message,
+  Organization,
+  OtpSettingsInput,
+  Project,
+  WebhookEventType,
+} from '@bridge/api-types';
 import {
   useInfiniteQuery,
   useMutation,
@@ -649,4 +656,101 @@ export function useSystemHealth() {
     queryFn: () => unwrap(api.GET('/v1/system')),
     refetchInterval: 10_000,
   });
+}
+
+// ---- verify (one-time passwords) ------------------------------------------
+
+export type VerifyEnvironment = 'live' | 'test';
+
+export type VerificationFilters = {
+  environment: VerifyEnvironment;
+  status?: 'pending' | 'verified' | 'expired' | 'failed' | 'canceled';
+  to?: string;
+};
+
+export function useVerifications(projectId: string, filters: VerificationFilters) {
+  return useInfiniteQuery({
+    queryKey: ['projects', projectId, 'otp', filters],
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam }) =>
+      unwrap(
+        api.GET('/v1/projects/{projectId}/otp', {
+          params: {
+            path: { projectId },
+            query: { ...filters, limit: 25, starting_after: pageParam },
+          },
+        }),
+      ),
+    getNextPageParam: (last) => (last.has_more ? last.data.at(-1)?.id : undefined),
+    refetchInterval: 5_000,
+  });
+}
+
+export function useVerificationStats(projectId: string, environment: VerifyEnvironment) {
+  return useQuery({
+    queryKey: ['projects', projectId, 'otp', 'stats', environment],
+    queryFn: () =>
+      unwrap(
+        api.GET('/v1/projects/{projectId}/otp/stats', {
+          params: { path: { projectId }, query: { environment } },
+        }),
+      ),
+    refetchInterval: 15_000,
+  });
+}
+
+export function useOtpSettings(projectId: string) {
+  return useQuery({
+    queryKey: ['projects', projectId, 'otp', 'settings'],
+    queryFn: () =>
+      unwrap(api.GET('/v1/projects/{projectId}/otp/settings', { params: { path: { projectId } } })),
+  });
+}
+
+export function useUpdateOtpSettings(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: OtpSettingsInput) =>
+      unwrap(
+        api.PUT('/v1/projects/{projectId}/otp/settings', {
+          params: { path: { projectId } },
+          body,
+        }),
+      ),
+    onSuccess: (data) => qc.setQueryData(['projects', projectId, 'otp', 'settings'], data),
+  });
+}
+
+export function useOtpPlayground(projectId: string) {
+  const qc = useQueryClient();
+  const refresh = () => qc.invalidateQueries({ queryKey: ['projects', projectId, 'otp'] });
+  const send = useMutation({
+    mutationFn: ({ environment, to }: { environment: VerifyEnvironment; to: string }) =>
+      unwrap(
+        api.POST('/v1/projects/{projectId}/otp', {
+          params: { path: { projectId }, query: { environment } },
+          body: { to },
+        }),
+      ),
+    onSuccess: refresh,
+  });
+  const verify = useMutation({
+    mutationFn: ({
+      environment,
+      id,
+      code,
+    }: {
+      environment: VerifyEnvironment;
+      id: string;
+      code: string;
+    }) =>
+      unwrap(
+        api.POST('/v1/projects/{projectId}/otp/verify', {
+          params: { path: { projectId }, query: { environment } },
+          body: { id, code },
+        }),
+      ),
+    onSuccess: refresh,
+  });
+  return { send, verify };
 }

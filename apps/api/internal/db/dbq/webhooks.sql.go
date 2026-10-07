@@ -178,7 +178,7 @@ INSERT INTO messages (
     $6, $7, $8, $9, $10, $11, $12
 )
 ON CONFLICT (project_id, idempotency_key) DO NOTHING
-RETURNING id, project_id, environment, direction, status, provider, device_id, api_key_id, recipient, sender, body, segments, attempts, provider_message_id, error_code, error_message, metadata, idempotency_key, created_at, queued_at, sending_at, sent_at, delivered_at, failed_at, updated_at, requested_device_id, sim_slot, assigned_at, idempotency_hash, body_sha256, body_length, body_redacted_at, encoding
+RETURNING id, project_id, environment, direction, status, provider, device_id, api_key_id, recipient, sender, body, segments, attempts, provider_message_id, error_code, error_message, metadata, idempotency_key, created_at, queued_at, sending_at, sent_at, delivered_at, failed_at, updated_at, requested_device_id, sim_slot, assigned_at, idempotency_hash, body_sha256, body_length, body_redacted_at, encoding, purpose, display_body
 `
 
 type InsertInboundMessageParams struct {
@@ -246,6 +246,8 @@ func (q *Queries) InsertInboundMessage(ctx context.Context, arg InsertInboundMes
 		&i.BodyLength,
 		&i.BodyRedactedAt,
 		&i.Encoding,
+		&i.Purpose,
+		&i.DisplayBody,
 	)
 	return i, err
 }

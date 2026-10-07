@@ -7,6 +7,8 @@ export type {
   MessageList,
   Usage,
   UsagePeriod,
+  Verification,
+  VerifyResult,
   WhoAmI,
 } from '@bridge/api-types';
 export {
@@ -15,12 +17,15 @@ export {
   Devices,
   type ListMessagesParams,
   Messages,
+  Otp,
   type RequestOptions,
   type SendMessageParams,
   type SendOptions,
+  type SendOtpParams,
   type SendResult,
   type TestDeviceParams,
   VERSION,
+  type VerifyOtpParams,
   Webhooks,
 } from './client';
 export {
