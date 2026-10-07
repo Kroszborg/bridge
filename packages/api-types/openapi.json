@@ -94,6 +94,51 @@
         ],
         "type": "object"
       },
+      "AddProviderRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "config": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Replaces the whole config.",
+            "type": "object"
+          },
+          "credentials": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Replaces every stored credential. Write-only.",
+            "type": "object"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "kind": {
+            "enum": [
+              "msg91",
+              "twilio",
+              "vonage",
+              "plivo"
+            ],
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 60,
+            "type": "string"
+          },
+          "priority": {
+            "format": "int32",
+            "maximum": 100,
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "type": "object"
+      },
       "AuditActor": {
         "additionalProperties": false,
         "properties": {
@@ -229,6 +274,22 @@
         ],
         "type": "object"
       },
+      "CheckProviderResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "type": "string"
+          },
+          "ok": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok",
+          "detail"
+        ],
+        "type": "object"
+      },
       "CreateAPIKeyInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -259,6 +320,29 @@
         "required": [
           "name",
           "environment"
+        ],
+        "type": "object"
+      },
+      "CreateIntegrationRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "environment": {
+            "default": "live",
+            "enum": [
+              "live",
+              "test"
+            ],
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "supabase_send_sms"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind"
         ],
         "type": "object"
       },
@@ -1034,6 +1118,67 @@
         ],
         "type": "object"
       },
+      "Integration": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "environment": {
+            "description": "test sends nothing: messages go to the simulator.",
+            "enum": [
+              "live",
+              "test"
+            ],
+            "type": "string"
+          },
+          "hook_url": {
+            "description": "Paste this into the other service.",
+            "type": "string"
+          },
+          "id": {
+            "examples": [
+              "int_06ghc2…"
+            ],
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "supabase_send_sms"
+            ],
+            "type": "string"
+          },
+          "last_error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "last_used_at": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "secret_set": {
+            "description": "Whether the other service's signing secret is stored. Requests are refused until it is.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "environment",
+          "hook_url",
+          "secret_set",
+          "last_used_at",
+          "last_error",
+          "created_at"
+        ],
+        "type": "object"
+      },
       "Invite": {
         "additionalProperties": false,
         "properties": {
@@ -1370,9 +1515,15 @@
             "type": "object"
           },
           "provider": {
+            "description": "What sends the message: a phone (android), the test simulator, or an SMS provider. fallback means waiting for a provider to accept it.",
             "enum": [
               "android",
-              "simulator"
+              "simulator",
+              "fallback",
+              "msg91",
+              "twilio",
+              "vonage",
+              "plivo"
             ],
             "type": "string"
           },
@@ -1576,9 +1727,15 @@
             "type": "object"
           },
           "provider": {
+            "description": "What sends the message: a phone (android), the test simulator, or an SMS provider. fallback means waiting for a provider to accept it.",
             "enum": [
               "android",
-              "simulator"
+              "simulator",
+              "fallback",
+              "msg91",
+              "twilio",
+              "vonage",
+              "plivo"
             ],
             "type": "string"
           },
@@ -2147,6 +2304,194 @@
         ],
         "type": "object"
       },
+      "ProviderAccount": {
+        "additionalProperties": false,
+        "properties": {
+          "callback_url": {
+            "description": "Where the provider sends delivery reports. Bridge passes it with each message, except MSG91: set it there as the delivery-report webhook.",
+            "type": "string"
+          },
+          "callbacks": {
+            "enum": [
+              "per_message",
+              "account"
+            ],
+            "type": "string"
+          },
+          "config": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Non-secret settings such as the sender and templates.",
+            "type": "object"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "credential_hint": {
+            "description": "For example the Twilio account SID; never a secret.",
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "id": {
+            "examples": [
+              "prv_06ghc2…"
+            ],
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "msg91",
+              "twilio",
+              "vonage",
+              "plivo"
+            ],
+            "type": "string"
+          },
+          "last_error": {
+            "description": "The last refusal, cleared by the next success.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "last_used_at": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "priority": {
+            "description": "Lower is tried first.",
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "name",
+          "enabled",
+          "priority",
+          "config",
+          "credential_hint",
+          "callback_url",
+          "callbacks",
+          "last_used_at",
+          "last_error",
+          "created_at"
+        ],
+        "type": "object"
+      },
+      "ProviderField": {
+        "additionalProperties": false,
+        "properties": {
+          "help": {
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "secret": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "secret",
+          "required"
+        ],
+        "type": "object"
+      },
+      "ProviderInput": {
+        "additionalProperties": false,
+        "properties": {
+          "config": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Replaces the whole config.",
+            "type": "object"
+          },
+          "credentials": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Replaces every stored credential. Write-only.",
+            "type": "object"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "name": {
+            "maxLength": 60,
+            "type": "string"
+          },
+          "priority": {
+            "format": "int32",
+            "maximum": 100,
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "ProviderSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "callbacks": {
+            "enum": [
+              "per_message",
+              "account"
+            ],
+            "type": "string"
+          },
+          "config": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderField"
+            },
+            "type": "array"
+          },
+          "credentials": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderField"
+            },
+            "type": "array"
+          },
+          "description": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "name",
+          "description",
+          "credentials",
+          "config",
+          "callbacks"
+        ],
+        "type": "object"
+      },
       "PushConfig": {
         "additionalProperties": false,
         "properties": {
@@ -2325,6 +2670,38 @@
         },
         "required": [
           "revoked"
+        ],
+        "type": "object"
+      },
+      "Routing": {
+        "additionalProperties": false,
+        "properties": {
+          "fallback_after_seconds": {
+            "description": "With phones_then_providers, how long a message may wait for a phone before a provider takes it.",
+            "format": "int64",
+            "maximum": 3600,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "mode": {
+            "description": "phones: never use providers. phones_then_providers: providers take messages no phone can send. providers: providers send everything.",
+            "enum": [
+              "phones",
+              "phones_then_providers",
+              "providers"
+            ],
+            "type": "string"
+          },
+          "secret_key_set": {
+            "description": "Whether this server can store provider credentials (BRIDGE_SECRET_KEY).",
+            "readOnly": true,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "mode",
+          "fallback_after_seconds",
+          "secret_key_set"
         ],
         "type": "object"
       },
@@ -3156,6 +3533,24 @@
             "maximum": 10000,
             "minimum": 1,
             "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "UpdateIntegrationRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "environment": {
+            "enum": [
+              "live",
+              "test"
+            ],
+            "type": "string"
+          },
+          "secret": {
+            "description": "Supabase's hook secret, v1,whsec_…. Write-only.",
+            "maxLength": 200,
+            "type": "string"
           }
         },
         "type": "object"
@@ -7776,6 +8171,337 @@
         ]
       }
     },
+    "/v1/projects/{projectId}/integrations": {
+      "get": {
+        "operationId": "listIntegrations",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Integration"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "List integrations",
+        "tags": [
+          "Integrations"
+        ]
+      },
+      "post": {
+        "operationId": "createIntegration",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateIntegrationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Integration"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Create an integration",
+        "tags": [
+          "Integrations"
+        ]
+      }
+    },
+    "/v1/projects/{projectId}/integrations/{integrationId}": {
+      "delete": {
+        "operationId": "deleteIntegration",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "integrationId",
+            "required": true,
+            "schema": {
+              "pattern": "^int_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Delete an integration",
+        "tags": [
+          "Integrations"
+        ]
+      },
+      "patch": {
+        "description": "Set the signing secret the other service generated, or switch between live and test.",
+        "operationId": "updateIntegration",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "integrationId",
+            "required": true,
+            "schema": {
+              "pattern": "^int_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateIntegrationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Integration"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Update an integration",
+        "tags": [
+          "Integrations"
+        ]
+      }
+    },
     "/v1/projects/{projectId}/messages": {
       "get": {
         "operationId": "listProjectMessages",
@@ -8783,6 +9509,427 @@
         ]
       }
     },
+    "/v1/projects/{projectId}/providers": {
+      "get": {
+        "operationId": "listProviders",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProviderAccount"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "List providers",
+        "tags": [
+          "Providers"
+        ]
+      },
+      "post": {
+        "description": "One account per provider kind. Credentials are encrypted with BRIDGE_SECRET_KEY and never returned.",
+        "operationId": "addProvider",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddProviderRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderAccount"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Add a provider",
+        "tags": [
+          "Providers"
+        ]
+      }
+    },
+    "/v1/projects/{projectId}/providers/{providerId}": {
+      "delete": {
+        "operationId": "removeProvider",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "providerId",
+            "required": true,
+            "schema": {
+              "pattern": "^prv_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Remove a provider",
+        "tags": [
+          "Providers"
+        ]
+      },
+      "patch": {
+        "operationId": "updateProvider",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "providerId",
+            "required": true,
+            "schema": {
+              "pattern": "^prv_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProviderInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderAccount"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Update a provider",
+        "tags": [
+          "Providers"
+        ]
+      }
+    },
+    "/v1/projects/{projectId}/providers/{providerId}/check": {
+      "post": {
+        "description": "Asks the provider about the account (name or balance) without sending anything.",
+        "operationId": "checkProvider",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "providerId",
+            "required": true,
+            "schema": {
+              "pattern": "^prv_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckProviderResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Check a provider's credentials",
+        "tags": [
+          "Providers"
+        ]
+      }
+    },
     "/v1/projects/{projectId}/request-logs": {
       "get": {
         "description": "Requests made with the project's API keys, newest first. Kept for BRIDGE_REQUEST_LOG_RETENTION (default 14 days).",
@@ -8938,6 +10085,154 @@
         "summary": "List API requests",
         "tags": [
           "Logs"
+        ]
+      }
+    },
+    "/v1/projects/{projectId}/routing": {
+      "get": {
+        "operationId": "getRouting",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Routing"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Get routing",
+        "tags": [
+          "Providers"
+        ]
+      },
+      "put": {
+        "operationId": "updateRouting",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Routing"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Routing"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Update routing",
+        "tags": [
+          "Providers"
         ]
       }
     },
@@ -9910,6 +11205,45 @@
         ]
       }
     },
+    "/v1/provider-kinds": {
+      "get": {
+        "operationId": "listProviderKinds",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProviderSpec"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Supported SMS providers and their settings",
+        "tags": [
+          "Providers"
+        ]
+      }
+    },
     "/v1/request-logs": {
       "get": {
         "description": "Requests made with the project's keys of this key's environment, newest first: method, path, status, error code, duration and the resource they touched. Never bodies or headers.",
@@ -10358,6 +11692,14 @@
     {
       "description": "One-time passwords for the dashboard.",
       "name": "Verify"
+    },
+    {
+      "description": "Connections to other services, such as Supabase Auth's Send SMS hook.",
+      "name": "Integrations"
+    },
+    {
+      "description": "SMS providers (MSG91, Twilio, Vonage, Plivo) and routing between them and your phones.",
+      "name": "Providers"
     },
     {
       "description": "Service health for the public status page and operators.",

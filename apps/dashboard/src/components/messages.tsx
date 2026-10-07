@@ -35,9 +35,43 @@ export function MessageStatus({ status }: { status: Message['status'] }) {
   );
 }
 
+/** Display names for SMS providers, keyed by the API's provider value. */
+export const PROVIDER_NAMES: Record<string, string> = {
+  msg91: 'MSG91',
+  twilio: 'Twilio',
+  vonage: 'Vonage',
+  plivo: 'Plivo',
+};
+
+/**
+ * What sent or received a message: an SMS provider, the phone's name, or the
+ * simulator. `fallback` means the message is queued for a provider.
+ */
+export function viaLabel(provider: Message['provider'], deviceName: string | undefined): string {
+  const name = PROVIDER_NAMES[provider];
+  if (name) return name;
+  if (provider === 'fallback') return 'Waiting for a provider';
+  if (deviceName) return deviceName;
+  if (provider === 'simulator') return 'Simulator';
+  return '—';
+}
+
+const FALLBACK_REASONS: Record<string, string> = {
+  no_paired_phone: 'No phone paired; handed to a provider',
+  no_phone_available: 'No phone available; handed to a provider',
+  no_phone_in_time: 'No phone took it in time; handed to a provider',
+  providers_only: 'Routed to a provider',
+  phone_failed: 'Phone could not send; handed to a provider',
+  phone_unresponsive: 'Phone did not respond; handed to a provider',
+};
+
 function eventLabel(e: MessageEvent): string {
   const d = e.detail as Record<string, unknown>;
   switch (e.type) {
+    case 'provider_fallback':
+      return FALLBACK_REASONS[String(d.reason)] ?? 'Handed to a provider';
+    case 'provider_accepted':
+      return `Accepted by ${PROVIDER_NAMES[String(d.provider)] ?? 'the provider'}`;
     case 'created':
       return 'Created';
     case 'received':
@@ -71,6 +105,10 @@ function eventTone(e: MessageEvent): string {
   if (e.to_status === 'failed') return 'bg-destructive';
   if (e.to_status === 'delivered') return 'bg-success';
   if (e.type === 'send_failed_retrying' || e.type === 'assignment_timed_out') return 'bg-warning';
+  if (e.type === 'provider_fallback') {
+    const reason = (e.detail as Record<string, unknown>).reason;
+    if (reason === 'phone_failed' || reason === 'phone_unresponsive') return 'bg-warning';
+  }
   return 'bg-primary';
 }
 
@@ -146,6 +184,7 @@ export function MessageDialog({
 }) {
   const { data: m, isPending } = useMessage(projectId, messageId);
   const device = devices.find((d) => d.id === m?.device_id);
+  const viaProvider = m ? m.provider === 'fallback' || m.provider in PROVIDER_NAMES : false;
 
   return (
     <Dialog open={messageId !== null} onOpenChange={(o) => !o && onClose()}>
@@ -176,11 +215,13 @@ export function MessageDialog({
                   <span className="font-mono">{m.to}</span>
                 </Fact>
               )}
-              <Fact label="Phone">
-                {device?.name ?? (m.provider === 'simulator' ? 'Simulator' : '—')}
-              </Fact>
+              <Fact label="Via">{viaLabel(m.provider, device?.name)}</Fact>
               <Fact label="SIM">
-                {m.sim_slot ? `SIM ${m.sim_slot}` : m.direction === 'inbound' ? '—' : 'Default'}
+                {m.sim_slot
+                  ? `SIM ${m.sim_slot}`
+                  : m.direction === 'inbound' || viaProvider
+                    ? '—'
+                    : 'Default'}
               </Fact>
               <Fact label="Segments">
                 {m.segments ?? '—'}{' '}
@@ -230,10 +271,14 @@ export function MessageDialog({
               <MessageTimeline events={m.events} />
               {m.status === 'sent' ? (
                 <p className="text-xs text-muted-foreground">
-                  Waiting for the carrier&apos;s delivery report. Some carriers never send one.
+                  {m.provider === 'msg91'
+                    ? "Waiting for MSG91's delivery report. MSG91 sends it only if its delivery-report webhook is set to the callback URL shown on the Providers page."
+                    : viaProvider
+                      ? `Waiting for ${viaLabel(m.provider, undefined)}'s delivery report. Some carriers never send one.`
+                      : "Waiting for the carrier's delivery report. Some carriers never send one."}
                 </p>
               ) : null}
-              {m.status === 'sending' ? (
+              {m.status === 'sending' && !viaProvider ? (
                 <p className="text-xs text-muted-foreground">
                   The phone is handing the message to Android. If Android asks for permission to
                   send many messages, approve it on the phone.

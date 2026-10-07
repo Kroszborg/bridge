@@ -106,5 +106,5 @@ RETURNING *;
 
 -- name: RedactMessage :exec
 -- Erases an OTP message's body once it has left the phone.
-UPDATE messages SET body = '', body_redacted_at = now(), updated_at = now()
+UPDATE messages SET body = '', body_vars = NULL, body_redacted_at = now(), updated_at = now()
 WHERE id = @id AND body_redacted_at IS NULL AND status IN ('sent', 'delivered', 'failed');

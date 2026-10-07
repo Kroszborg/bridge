@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Red_Hat_Display, Red_Hat_Mono, Red_Hat_Text } from 'next/font/google';
 import { ThemeProvider } from '@/components/theme';
+import { MAKER, SITE, SITE_URL } from '@/lib/site';
 import './globals.css';
 
 const display = Red_Hat_Display({ subsets: ['latin'], variable: '--font-redhat-display' });
@@ -8,15 +9,50 @@ const text = Red_Hat_Text({ subsets: ['latin'], variable: '--font-redhat-text' }
 const mono = Red_Hat_Mono({ subsets: ['latin'], variable: '--font-redhat-mono' });
 
 export const metadata: Metadata = {
-  title: 'Bridge: send SMS through phones you already own',
-  description:
-    'Open-source SMS infrastructure. Pair an Android phone, call one API, get signed webhooks and delivery reports. Self-host with Docker.',
+  metadataBase: new URL(SITE_URL),
+  title: SITE.title,
+  description: SITE.description,
+  applicationName: SITE.name,
+  authors: [{ name: MAKER.name, url: MAKER.portfolio }],
+  creator: MAKER.name,
+  keywords: [
+    'SMS API',
+    'SMS gateway',
+    'Android SMS gateway',
+    'self-hosted SMS',
+    'open-source SMS',
+    'OTP API',
+    'phone verification',
+    'Twilio alternative',
+    'MSG91',
+    'Supabase SMS hook',
+  ],
+  alternates: { canonical: '/' },
   openGraph: {
-    title: 'Bridge',
-    description:
-      'Send SMS through phones you already own. One API, delivery reports, webhooks. Open source.',
     type: 'website',
+    url: '/',
+    siteName: SITE.name,
+    title: SITE.title,
+    description:
+      'Send SMS and one-time codes through Android phones you own, with delivery reports and signed webhooks. Open source and self-hosted.',
+    images: [
+      {
+        url: '/og.png',
+        width: 1200,
+        height: 630,
+        alt: 'Bridge: send SMS through phones you already own',
+      },
+    ],
   },
+  twitter: {
+    card: 'summary_large_image',
+    creator: MAKER.xHandle,
+    title: SITE.title,
+    description:
+      'Send SMS and one-time codes through Android phones you own. Open source and self-hosted.',
+    images: ['/og.png'],
+  },
+  robots: { index: true, follow: true },
 };
 
 export const viewport: Viewport = {

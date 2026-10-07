@@ -5,8 +5,9 @@
   "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
-    "dev": "next dev --port 3001",
-    "build": "next build",
+    "dev": "node scripts/llms-full.mjs && next dev --port 3001",
+    "build": "node scripts/llms-full.mjs && next build",
+    "llms": "node scripts/llms-full.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

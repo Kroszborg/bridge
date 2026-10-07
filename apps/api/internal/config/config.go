@@ -3,6 +3,8 @@
 package config
 
 import (
+	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -40,7 +42,10 @@ type Config struct {
 	RequestLogRetention time.Duration
 	// OperatorEmails may see System health. Empty: the first account.
 	OperatorEmails []string
-	FCM            *FCMConfig
+	// SecretKey encrypts provider credentials and integration secrets
+	// (BRIDGE_SECRET_KEY, 32 bytes as base64 or hex). Nil: they cannot be saved.
+	SecretKey []byte
+	FCM       *FCMConfig
 }
 
 // FCMConfig enables Firebase Cloud Messaging wake-ups for the gateway app's
@@ -178,6 +183,14 @@ func load(get func(string) string) (*Config, error) {
 		}
 	}
 
+	if raw := str("BRIDGE_SECRET_KEY", ""); raw != "" {
+		key, err := parseSecretKey(raw)
+		if err != nil {
+			errs = append(errs, err)
+		}
+		c.SecretKey = key
+	}
+
 	fcm := FCMConfig{
 		CredentialsFile: str("BRIDGE_FCM_CREDENTIALS_FILE", ""),
 		ProjectID:       str("BRIDGE_FCM_PROJECT_ID", ""),
@@ -212,4 +225,18 @@ func load(get func(string) string) (*Config, error) {
 // DashboardOrigin returns the scheme://host[:port] origin of the dashboard.
 func (c *Config) DashboardOrigin() string {
 	return c.DashboardURL.Scheme + "://" + c.DashboardURL.Host
+}
+
+// parseSecretKey accepts 32 bytes as base64 (standard or URL-safe) or hex,
+// e.g. the output of `openssl rand -base64 32`.
+func parseSecretKey(raw string) ([]byte, error) {
+	for _, dec := range []func(string) ([]byte, error){
+		hex.DecodeString, base64.StdEncoding.DecodeString, base64.RawStdEncoding.DecodeString,
+		base64.URLEncoding.DecodeString, base64.RawURLEncoding.DecodeString,
+	} {
+		if key, err := dec(raw); err == nil && len(key) == 32 {
+			return key, nil
+		}
+	}
+	return nil, errors.New("BRIDGE_SECRET_KEY must be 32 random bytes as base64 or hex; generate one with: openssl rand -base64 32")
 }

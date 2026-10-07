@@ -554,7 +554,7 @@ func (q *Queries) OTPStats(ctx context.Context, arg OTPStatsParams) (OTPStatsRow
 }
 
 const redactMessage = `-- name: RedactMessage :exec
-UPDATE messages SET body = '', body_redacted_at = now(), updated_at = now()
+UPDATE messages SET body = '', body_vars = NULL, body_redacted_at = now(), updated_at = now()
 WHERE id = $1 AND body_redacted_at IS NULL AND status IN ('sent', 'delivered', 'failed')
 `
 

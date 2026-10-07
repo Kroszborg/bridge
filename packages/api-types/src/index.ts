@@ -53,3 +53,7 @@ export type VerificationStats = Schemas['VerificationStats'];
 export type VerifyResult = Schemas['VerifyResult'];
 export type OtpSettings = Schemas['OTPSettings'];
 export type OtpSettingsInput = Schemas['OTPSettingsInput'];
+export type ProviderAccount = Schemas['ProviderAccount'];
+export type ProviderSpec = Schemas['ProviderSpec'];
+export type Routing = Schemas['Routing'];
+export type Integration = Schemas['Integration'];

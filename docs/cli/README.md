@@ -66,6 +66,7 @@ bridgectl otp get otp_06gh…                        # a verification and its SM
 bridgectl logs --status error                      # API requests made with this environment's keys
 bridgectl logs --path /v1/otp --limit 50
 
+bridgectl mcp                                      # MCP server for AI assistants, see docs/mcp
 bridgectl devices                                  # presence, battery, send window, forwarding
 bridgectl usage --days 30 --tz Asia/Kolkata        # daily volume and delivery rate
 ```

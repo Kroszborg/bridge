@@ -42,6 +42,8 @@ Usage:
   bridgectl listen --forward-to URL [--types T,…] [--secret whsec_…]
                                                    Forward live events to a local webhook endpoint
 
+  bridgectl mcp                                    Run an MCP server on stdio for AI assistants
+
   bridgectl version
 
 Global flags (any command):
@@ -105,6 +107,8 @@ func main() {
 		err = cmdOTP(ctx, args)
 	case "devices", "device":
 		err = cmdDevices(ctx, args)
+	case "mcp":
+		err = cmdMCP(ctx, args)
 	case "logs", "log":
 		err = cmdLogs(ctx, args)
 	case "usage":

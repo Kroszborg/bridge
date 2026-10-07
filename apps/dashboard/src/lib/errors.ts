@@ -13,3 +13,18 @@ export function showError(err: unknown) {
   }
   toast.error('Something went wrong. Try again.');
 }
+
+/**
+ * Per-field messages from a 422, keyed by location without the "body."
+ * prefix: "body.credentials.auth_token" becomes "credentials.auth_token".
+ */
+export function fieldErrors(err: unknown): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!(err instanceof BridgeApiError) || err.status !== 422) return out;
+  for (const d of err.details ?? []) {
+    if (!d.location) continue;
+    const key = d.location.replace(/^body\./, '');
+    out[key] ??= d.message ?? 'Check this value.';
+  }
+  return out;
+}

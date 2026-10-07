@@ -199,11 +199,13 @@ func ValidateTemplate(tpl string) error {
 	return nil
 }
 
+func minutesOf(ttl time.Duration) int { return int((ttl + time.Minute - 1) / time.Minute) }
+
 // Render builds the SMS text. An Android app hash (SMS Retriever) goes on the
 // last line; otherwise a WebOTP domain adds "@domain #code" for browser
 // autofill. Both require being last, so the app hash wins.
 func Render(tpl, app, code string, ttl time.Duration, androidHash, domain string) string {
-	minutes := int((ttl + time.Minute - 1) / time.Minute)
+	minutes := minutesOf(ttl)
 	body := strings.NewReplacer("{code}", code, "{app}", app, "{minutes}", strconv.Itoa(minutes)).Replace(tpl)
 	switch {
 	case androidHash != "":
@@ -287,6 +289,7 @@ func (s *Service) Send(ctx context.Context, r SendRequest) (Verification, error)
 	msg, _, err := s.msgs.Send(ctx, messaging.SendRequest{
 		ProjectID: r.ProjectID, Environment: r.Environment, APIKeyID: r.APIKeyID, To: to, Body: body,
 		Purpose: messaging.PurposeOTP, DisplayBody: &masked, Metadata: map[string]any{"otp_id": otpID},
+		BodyVars: map[string]string{"code": code, "app": app, "minutes": strconv.Itoa(minutesOf(settings.TTL))},
 		OnCreate: func(ctx context.Context, q *dbq.Queries, m dbq.Message) error {
 			if err := q.CancelPendingOTPs(ctx, dbq.CancelPendingOTPsParams{ProjectID: r.ProjectID, Environment: r.Environment, Recipient: to}); err != nil {
 				return err
@@ -307,6 +310,42 @@ func (s *Service) Send(ctx context.Context, r SendRequest) (Verification, error)
 	s.log.Info("verification code queued", "otp_id", otpID, "project_id", r.ProjectID, "environment", r.Environment, "message_id", msg.ID)
 	status := msg.Status
 	return s.view(row, &status), nil
+}
+
+// DeliverRequest sends a code that another system generated and will check,
+// such as Supabase Auth's phone login.
+type DeliverRequest struct {
+	ProjectID   string
+	ProjectName string
+	Environment dbq.APIEnvironment
+	To          string
+	Code        string
+	Metadata    map[string]any
+}
+
+var externalCodePattern = regexp.MustCompile(`^[0-9A-Za-z]{4,12}$`)
+
+// DeliverCode sends an externally generated code with the project's message
+// template. The message is masked like Bridge's own codes; nothing is stored
+// to verify it.
+func (s *Service) DeliverCode(ctx context.Context, r DeliverRequest) (dbq.Message, error) {
+	if !externalCodePattern.MatchString(r.Code) {
+		return dbq.Message{}, &messaging.ValidationError{Field: "code", Message: "The code must be 4 to 12 letters or digits."}
+	}
+	settings, err := s.LoadSettings(ctx, r.ProjectID)
+	if err != nil {
+		return dbq.Message{}, err
+	}
+	app := settings.EffectiveAppName(r.ProjectName)
+	tpl := settings.EffectiveTemplate()
+	body := Render(tpl, app, r.Code, settings.TTL, "", settings.WebOTPDomain)
+	masked := Render(tpl, app, strings.Repeat("•", len(r.Code)), settings.TTL, "", settings.WebOTPDomain)
+	msg, _, err := s.msgs.Send(ctx, messaging.SendRequest{
+		ProjectID: r.ProjectID, Environment: r.Environment, To: r.To, Body: body,
+		Purpose: messaging.PurposeOTP, DisplayBody: &masked, Metadata: r.Metadata,
+		BodyVars: map[string]string{"code": r.Code, "app": app, "minutes": strconv.Itoa(minutesOf(settings.TTL))},
+	})
+	return msg, err
 }
 
 // ---- Verifying -------------------------------------------------------------

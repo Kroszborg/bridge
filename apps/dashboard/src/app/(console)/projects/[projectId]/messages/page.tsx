@@ -14,7 +14,7 @@ import { CodeBlock } from '@/components/kit/code-block';
 import { EmptyState } from '@/components/kit/empty-state';
 import { PageHeader } from '@/components/kit/page-header';
 import { useConsole, useProjectId } from '@/components/layout/console-context';
-import { MessageDialog, MessageStatus } from '@/components/messages';
+import { MessageDialog, MessageStatus, viaLabel } from '@/components/messages';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -277,7 +277,7 @@ export default function MessagesPage() {
                   <TableHead className="pl-5">Number</TableHead>
                   <TableHead>Message</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Phone</TableHead>
+                  <TableHead>Via</TableHead>
                   <TableHead className="text-right">Segments</TableHead>
                   <TableHead className="pr-5 text-right">Created</TableHead>
                 </TableRow>
@@ -311,7 +311,7 @@ export default function MessagesPage() {
                       ) : null}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {deviceName(m.device_id) ?? (m.provider === 'simulator' ? 'Simulator' : '—')}
+                      {viaLabel(m.provider, deviceName(m.device_id))}
                     </TableCell>
                     <TableCell className="text-right tabular-nums text-muted-foreground">
                       {m.segments ?? '—'}

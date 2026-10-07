@@ -32,8 +32,10 @@ import (
 	"bridge/internal/gateway"
 	"bridge/internal/httpapi"
 	"bridge/internal/messaging"
+	"bridge/internal/provider"
 	"bridge/internal/push"
 	"bridge/internal/reqlog"
+	"bridge/internal/secretbox"
 	"bridge/internal/status"
 	"bridge/internal/webhook"
 	"bridge/internal/worker"
@@ -135,9 +137,13 @@ func serve(ctx context.Context, args []string) error {
 	}
 	hooks := webhook.New(webhook.Options{Pool: pool, Logger: logger, AllowPrivate: cfg.WebhookAllowPrivate})
 	hooks.SetJobInserter(jobs)
+	providers, err := providerRouter(cfg, pool)
+	if err != nil {
+		return err
+	}
 	msgs := messaging.New(messaging.Options{
 		Pool: pool, Logger: logger, Publisher: hub.Send, Waker: pushService, Emitter: hooks,
-		Config: messaging.Config{Retention: cfg.MessageRetention},
+		Providers: providers, Config: messaging.Config{Retention: cfg.MessageRetention},
 	})
 	msgs.SetJobInserter(jobs)
 	hub.SetHandler(msgs)
@@ -148,7 +154,7 @@ func serve(ctx context.Context, args []string) error {
 	srv := &http.Server{
 		Addr: cfg.HTTPAddr,
 		Handler: httpapi.New(httpapi.Options{
-			Config: cfg, Pool: pool, Logger: logger, Version: version, Hub: hub, Push: pushService, Messaging: msgs, Webhooks: hooks,
+			Config: cfg, Pool: pool, Logger: logger, Version: version, Hub: hub, Push: pushService, Messaging: msgs, Webhooks: hooks, Providers: providers,
 			RequestLog: requests, Events: broker, Status: health,
 		}).Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
@@ -201,8 +207,12 @@ func runWorker(ctx context.Context) error {
 		return err
 	}
 	hooks := webhook.New(webhook.Options{Pool: pool, Logger: logger, AllowPrivate: cfg.WebhookAllowPrivate})
+	providers, err := providerRouter(cfg, pool)
+	if err != nil {
+		return err
+	}
 	msgs := messaging.New(messaging.Options{
-		Pool: pool, Logger: logger, Waker: pushService, Emitter: hooks,
+		Pool: pool, Logger: logger, Waker: pushService, Emitter: hooks, Providers: providers,
 		// The worker holds no device connections; frames go through NOTIFY.
 		Publisher: func(ctx context.Context, deviceID string, f gateway.Outbound) error {
 			return gateway.Publish(ctx, pool, deviceID, f)
@@ -277,4 +287,14 @@ func healthcheck(args []string) error {
 		return fmt.Errorf("health check returned %s", resp.Status)
 	}
 	return nil
+}
+
+// providerRouter manages SMS provider accounts. Without BRIDGE_SECRET_KEY it
+// works, but refuses to store or read credentials.
+func providerRouter(cfg *config.Config, pool *pgxpool.Pool) (*provider.Router, error) {
+	box, err := secretbox.New(cfg.SecretKey)
+	if err != nil {
+		return nil, err
+	}
+	return provider.NewRouter(dbq.New(pool), box, provider.RouterOptions{PublicURL: cfg.PublicURL.String()}), nil
 }

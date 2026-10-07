@@ -81,7 +81,7 @@ and the header is read right to left so clients cannot spoof their address.
 * Server errors return a generic message plus the request ID; the cause is logged, never sent.
 * The `audit_logs` table records sign-ups, organization and project changes, API keys, phones,
   webhooks and their secrets being revealed or rotated, invites, role changes, member removal,
-  password changes and session revocations, with actor, target and IP. Owners and admins read it on
+  password changes, session revocations, SMS providers, routing and integrations, with actor, target and IP. Owners and admins read it on
   the Audit log page. Metadata never contains secrets.
 
 ## Status data
@@ -115,6 +115,10 @@ when that is unset.
   others' routes.
 * Removing a device revokes its credential and closes its live connection on whichever API instance
   holds it.
+* Android retries a send only when it is sure nothing reached the network (radio off, no service,
+  modem not ready, an explicit retry). Ambiguous failures such as `generic_failure` can arrive after
+  the carrier accepted the SMS, so they are final and are never retried automatically, to avoid
+  sending a code twice.
 * Push endpoints are supplied by devices, so the server treats them as untrusted: it only connects
   to public addresses (checked after DNS resolution), never follows redirects, and encrypts every
   WebPush message (RFC 8291) with VAPID authentication (RFC 8292). A wake-up carries no data.
@@ -144,6 +148,29 @@ when that is unset.
 * The SMS text contains the code. The API, dashboard, webhooks and event stream only ever show it
   masked, and the stored text is erased once the code is used or the SMS has left the phone. Live
   keys never receive the code; test keys do, because nothing is sent.
+
+## SMS providers and integrations
+
+* Provider credentials (auth tokens, API secrets, MSG91 auth keys) and integration signing secrets
+  are encrypted with AES-256-GCM under `BRIDGE_SECRET_KEY` (32 bytes, set by the operator). Each
+  value has a random 12-byte nonce and is bound to its row's ID as additional data, so a value
+  copied to another row does not decrypt. Without the key, Bridge refuses to store them. Losing or
+  changing the key makes stored credentials unreadable; they must be entered again.
+* Credentials are write-only. The API and dashboard never return them, only a hint (the Twilio
+  account SID, the Vonage API key, the Plivo Auth ID, or the last 4 characters of an MSG91 auth
+  key). Audit entries record that credentials changed, never their values.
+* Each provider account's delivery-report URL contains a random 32-character token. Bridge looks up
+  the account by ID and compares the token in constant time; a wrong token gets `404`. Anyone with
+  the URL can mark that account's messages delivered or failed, so treat it as a secret.
+* Only owners and admins can add, change, check or remove providers, change routing, or manage
+  integrations.
+* The Supabase Send SMS hook verifies Supabase's Standard Webhooks signature with the stored secret
+  and rejects timestamps more than 5 minutes off. Requests are refused (`503`) until a secret is
+  stored. At most 64 KB of a request body is read.
+* Codes delivered for an integration (the Supabase hook) are one-time-password messages: masked in
+  the API, dashboard and webhooks, with the stored text and template variables erased once the SMS
+  is finished, like Verify's own codes.
+* Test keys and test integrations never reach a provider, so tests cannot spend money.
 
 ## Request logs and the event stream
 

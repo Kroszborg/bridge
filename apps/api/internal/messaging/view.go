@@ -20,7 +20,7 @@ type Message struct {
 	BodyRedacted bool           `json:"body_redacted"`
 	Encoding     *string        `json:"encoding" nullable:"true" enum:"gsm7,ucs2"`
 	Segments     *int16         `json:"segments" nullable:"true" doc:"SMS segments the message occupies; carriers bill per segment."`
-	Provider     string         `json:"provider" enum:"android,simulator"`
+	Provider     string         `json:"provider" enum:"android,simulator,fallback,msg91,twilio,vonage,plivo" doc:"What sends the message: a phone (android), the test simulator, or an SMS provider. fallback means waiting for a provider to accept it."`
 	DeviceID     *string        `json:"device_id" nullable:"true" doc:"The phone currently or finally responsible for the message."`
 	SimSlot      *int16         `json:"sim_slot" nullable:"true"`
 	Attempts     int32          `json:"attempts"`

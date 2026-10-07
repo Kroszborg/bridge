@@ -41,11 +41,18 @@ func (s *Service) Dispatch(ctx context.Context, messageID string) (time.Duration
 	if err != nil {
 		return 0, err
 	}
-	if m.Status != message.Queued || m.DeviceID != nil {
-		return 0, nil // already assigned or finished
+	if m.Status != message.Queued || m.DeviceID != nil || m.Provider != ProviderAndroid {
+		return 0, nil // already assigned, handed to a provider, or finished
 	}
 	now := s.now()
+	rt := s.routeFor(ctx, m)
+	if rt.only {
+		return 0, s.handoff(ctx, m, "providers_only")
+	}
 	if now.Sub(m.CreatedAt) > s.cfg.QueueTimeout {
+		if rt.fallback {
+			return 0, s.handoff(ctx, m, "no_phone_in_time")
+		}
 		_, _, err := s.transition(ctx, s.q, m, message.Failed, "failed", nil, "no_device_available",
 			"No phone could send this message within "+s.cfg.QueueTimeout.String()+". Check that a paired phone is online.", nil)
 		return 0, err
@@ -70,6 +77,9 @@ func (s *Service) Dispatch(ctx context.Context, messageID string) (time.Duration
 	sel := choose(cands, m.RequestedDeviceID, now)
 	switch sel.Reason {
 	case "no_device":
+		if rt.fallback {
+			return 0, s.handoff(ctx, m, "no_paired_phone")
+		}
 		_, _, err := s.transition(ctx, s.q, m, message.Failed, "failed", nil, "no_device",
 			"This project has no paired phones. Pair one under Devices.", nil)
 		return 0, err
@@ -79,6 +89,14 @@ func (s *Service) Dispatch(ctx context.Context, messageID string) (time.Duration
 		return 0, err
 	}
 	if sel.Device == nil {
+		if rt.fallback {
+			waited := now.Sub(m.CreatedAt)
+			if waited >= rt.wait {
+				return 0, s.handoff(ctx, m, "no_phone_available")
+			}
+			s.wakeOffline(ctx, sel.Offline)
+			return min(sel.RetryIn, rt.wait-waited), nil
+		}
 		s.wakeOffline(ctx, sel.Offline)
 		return sel.RetryIn, nil
 	}
@@ -237,6 +255,13 @@ func (s *Service) DeviceReport(ctx context.Context, deviceID string, in gateway.
 		if in.Retryable && int(m.Attempts) < s.cfg.MaxAttempts {
 			return s.requeue(ctx, m, "send_failed_retrying", map[string]any{"device_id": deviceID, "error_code": code, "error_message": msg})
 		}
+		// Hand over to a provider only when the phone certainly did not send:
+		// its retries ran out, or the failure is the phone's own (SIM, SMS
+		// centre, fixed dialing). After an ambiguous failure the SMS may have
+		// gone out, and a provider send would deliver it twice.
+		if (in.Retryable || phoneSideFailures[code]) && s.routeFor(ctx, m).fallback {
+			return s.handoff(ctx, m, "phone_failed")
+		}
 		_, _, err = s.transition(ctx, s.q, m, message.Failed, "failed", detail, code, msg, nil)
 		return err
 
@@ -258,17 +283,31 @@ func (s *Service) DeviceReport(ctx context.Context, deviceID string, in gateway.
 
 // requeue returns a message to the queue for another device and schedules a dispatch.
 func (s *Service) requeue(ctx context.Context, m dbq.Message, eventType string, detail map[string]any) error {
+	return s.requeueWith(ctx, m, eventType, detail, DispatchArgs{MessageID: m.ID}, nil)
+}
+
+// requeueWith releases a message from its phone, records eventType, runs
+// extra in the same transaction, and schedules job.
+func (s *Service) requeueWith(ctx context.Context, m dbq.Message, eventType string, detail map[string]any,
+	job river.JobArgs, extra func(q *dbq.Queries) error,
+) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback(ctx)
 	q := s.q.WithTx(tx)
-	if m.Status == message.Sending {
+	switch {
+	case m.Status == message.Queued && m.DeviceID == nil:
+		// Not with any phone: nothing to release.
+		if err := s.event(ctx, q, m, eventType, nil, nil, detail); err != nil {
+			return err
+		}
+	case m.Status == message.Sending:
 		if _, ok, err := s.transition(ctx, q, m, message.Queued, eventType, detail, "", "", nil); err != nil || !ok {
 			return err
 		}
-	} else {
+	default:
 		released, err := q.ReleaseMessage(ctx, dbq.ReleaseMessageParams{ID: m.ID, DeviceID: m.DeviceID})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
@@ -280,7 +319,12 @@ func (s *Service) requeue(ctx context.Context, m dbq.Message, eventType string, 
 			return err
 		}
 	}
-	if _, err := s.jobs.InsertTx(ctx, tx, DispatchArgs{MessageID: m.ID}, &river.InsertOpts{ScheduledAt: s.now().Add(2 * time.Second)}); err != nil {
+	if extra != nil {
+		if err := extra(q); err != nil {
+			return err
+		}
+	}
+	if _, err := s.jobs.InsertTx(ctx, tx, job, &river.InsertOpts{ScheduledAt: s.now().Add(2 * time.Second)}); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)
@@ -295,6 +339,12 @@ func (s *Service) SweepAssignments(ctx context.Context) error {
 	}
 	for _, m := range stale {
 		if int(m.Attempts) >= s.cfg.MaxAttempts {
+			if s.routeFor(ctx, m).fallback {
+				if err := s.handoff(ctx, m, "phone_unresponsive"); err != nil {
+					return err
+				}
+				continue
+			}
 			if _, _, err := s.transition(ctx, s.q, m, message.Failed, "failed", map[string]any{"device_id": deref(m.DeviceID)},
 				"device_unresponsive", "Phones did not accept this message after several attempts.", nil); err != nil {
 				return err
@@ -337,4 +387,12 @@ func deref(s *string) string {
 		return ""
 	}
 	return *s
+}
+
+// phoneSideFailures are refusals by the phone or its SIM that say nothing
+// about the destination, so another route can still deliver the message.
+var phoneSideFailures = map[string]bool{
+	"sim_absent": true, "sim_unavailable": true, "permission_denied": true, "invalid_smsc_address": true,
+	"fdn_check_failure": true, "operation_not_allowed": true, "access_barred": true, "not_supported": true,
+	"blocked_during_emergency": true, "null_pdu": true, "encoding_error": true,
 }

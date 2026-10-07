@@ -20,9 +20,11 @@ import (
 	"bridge/internal/gateway"
 	"bridge/internal/messaging"
 	"bridge/internal/otp"
+	"bridge/internal/provider"
 	"bridge/internal/push"
 	"bridge/internal/ratelimit"
 	"bridge/internal/reqlog"
+	"bridge/internal/secretbox"
 	"bridge/internal/status"
 	"bridge/internal/webhook"
 )
@@ -37,11 +39,14 @@ type Server struct {
 	push    *push.Service
 	msgs    *messaging.Service
 	otp     *otp.Service
-	hooks   *webhook.Service
-	reqlog  *reqlog.Recorder
-	events  *events.Broker
-	status  *status.Service
-	version string
+	// providers manages SMS provider accounts; always set (it refuses to store
+	// credentials without BRIDGE_SECRET_KEY).
+	providers *provider.Router
+	hooks     *webhook.Service
+	reqlog    *reqlog.Recorder
+	events    *events.Broker
+	status    *status.Service
+	version   string
 }
 
 type Options struct {
@@ -57,6 +62,8 @@ type Options struct {
 	RequestLog *reqlog.Recorder
 	// Events serves the live event stream; nil disables it.
 	Events *events.Broker
+	// Providers manages SMS provider accounts and integrations' secrets.
+	Providers *provider.Router
 	// Status serves /v1/status and /v1/system; nil disables them.
 	Status  *status.Service
 	Limiter ratelimit.Limiter // defaults to the Postgres limiter
@@ -69,6 +76,11 @@ func New(o Options) *Server {
 		limiter = ratelimit.NewPostgres(q)
 	}
 	s := &Server{cfg: o.Config, pool: o.Pool, q: q, log: o.Logger, limiter: limiter, hub: o.Hub, push: o.Push, msgs: o.Messaging, hooks: o.Webhooks, reqlog: o.RequestLog, events: o.Events, status: o.Status, version: o.Version}
+	s.providers = o.Providers
+	if s.providers == nil {
+		box, _ := secretbox.New(o.Config.SecretKey)
+		s.providers = provider.NewRouter(q, box, provider.RouterOptions{PublicURL: o.Config.PublicURL.String()})
+	}
 	if o.Messaging != nil {
 		var emitter otp.Emitter
 		if o.Webhooks != nil { // a nil *webhook.Service must not become a non-nil interface
@@ -97,6 +109,11 @@ func (s *Server) Handler() http.Handler {
 	r.Get("/readyz", s.ready)
 	r.Get("/v1/device/connect", s.deviceConnect)
 	r.Get("/v1/events/stream", s.eventStream)
+	// Provider delivery reports: unauthenticated, the URL carries the account's secret.
+	r.Post("/v1/provider-callbacks/{providerId}/{token}", s.providerCallback)
+	r.Get("/v1/provider-callbacks/{providerId}/{token}", s.providerCallback)
+	// Supabase Auth's Send SMS hook, signed with the integration's secret.
+	r.Post("/v1/hooks/supabase/{integrationId}", s.supabaseSendSMS)
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
 		writeRawError(w, r, http.StatusNotFound, CodeNotFound, "No route matches "+r.Method+" "+r.URL.Path+". See /docs for the API reference.")
 	})
@@ -126,6 +143,8 @@ func (s *Server) register(api huma.API) {
 	s.registerAccount(api)
 	s.registerStatus(api)
 	s.registerOTP(api)
+	s.registerProviders(api)
+	s.registerIntegrations(api)
 }
 
 func (s *Server) ready(w http.ResponseWriter, r *http.Request) {
@@ -180,6 +199,8 @@ func newAPI(r chi.Router, version, serverURL string, logger *slog.Logger) huma.A
 		{Name: "Gateway", Description: "Endpoints used by the Bridge Android app itself."},
 		{Name: "Messages", Description: "Message history for the dashboard."},
 		{Name: "Verify", Description: "One-time passwords for the dashboard."},
+		{Name: "Integrations", Description: "Connections to other services, such as Supabase Auth's Send SMS hook."},
+		{Name: "Providers", Description: "SMS providers (MSG91, Twilio, Vonage, Plivo) and routing between them and your phones."},
 		{Name: "Status", Description: "Service health for the public status page and operators."},
 		{Name: "Logs", Description: "Developer API request logs for the dashboard."},
 		{Name: "Webhooks", Description: "Endpoints that receive signed event notifications (Standard Webhooks)."},

@@ -125,6 +125,21 @@ notification.
 
 Both must be the last line, so when you pass an app hash, the domain line is left out of that SMS.
 
+## iPhones
+
+An iPhone cannot be a Bridge gateway: iOS does not let apps send SMS in the background, only through
+a compose screen the user confirms. Pair Android phones to send, or use an
+[SMS provider](../providers/README.md).
+
+iPhones are fine on the receiving end. iOS reads the code from the SMS and offers it above the
+keyboard:
+
+- **Native apps:** iOS suggests codes from incoming SMS in fields marked for one-time codes
+  (`textContentType = .oneTimeCode` in UIKit). Nothing to configure in Bridge.
+- **Websites:** set the WebOTP domain under **Verify → Message and limits**. The `@example.com
+  #482913` line lets Safari offer the code on that domain only. Mark the input with
+  `autocomplete="one-time-code"`.
+
 ## Testing without a phone
 
 With a `bk_test_` key nothing is sent, the SMS goes through the simulator, and the response

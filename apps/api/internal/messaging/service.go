@@ -86,8 +86,10 @@ type Service struct {
 	waker   Waker
 	emitter Emitter
 	limiter ratelimit.Limiter
-	cfg     Config
-	now     func() time.Time
+	// providers is nil when the server cannot use SMS providers.
+	providers Providers
+	cfg       Config
+	now       func() time.Time
 }
 
 type Options struct {
@@ -97,6 +99,7 @@ type Options struct {
 	Waker     Waker   // optional
 	Emitter   Emitter // optional: webhook events
 	Limiter   ratelimit.Limiter
+	Providers Providers // optional: SMS providers as a fallback for phones
 	Config    Config
 }
 
@@ -107,7 +110,7 @@ func New(o Options) *Service {
 		limiter = ratelimit.NewPostgres(q)
 	}
 	return &Service{
-		pool: o.Pool, q: q, log: o.Logger, publish: o.Publisher, waker: o.Waker, emitter: o.Emitter,
+		pool: o.Pool, q: q, log: o.Logger, publish: o.Publisher, waker: o.Waker, emitter: o.Emitter, providers: o.Providers,
 		limiter: limiter, cfg: o.Config.withDefaults(), now: time.Now,
 	}
 }
@@ -156,6 +159,9 @@ type SendRequest struct {
 	Purpose string
 	// DisplayBody, when set, is what the API and webhooks show instead of Body.
 	DisplayBody *string
+	// BodyVars are template variables for providers that send registered
+	// templates (MSG91), such as {"code": "482913"}. Redacted with the body.
+	BodyVars map[string]string
 	// OnCreate runs inside the transaction that inserts the message, so a
 	// caller's own rows commit or roll back together with it.
 	OnCreate func(ctx context.Context, q *dbq.Queries, msg dbq.Message) error
@@ -244,6 +250,9 @@ func (s *Service) Send(ctx context.Context, r SendRequest) (msg dbq.Message, rep
 		Segments: &seg, Encoding: &encoding, Metadata: meta, SimSlot: r.SimSlot,
 		BodySha256: sum[:], BodyLength: ptr(int32(len([]rune(r.Body)))),
 		Purpose: cmp.Or(r.Purpose, PurposeMessage), DisplayBody: r.DisplayBody,
+	}
+	if len(r.BodyVars) > 0 {
+		params.BodyVars, _ = json.Marshal(r.BodyVars)
 	}
 	if r.IdempotencyKey != "" {
 		params.IdempotencyKey, params.IdempotencyHash = &r.IdempotencyKey, reqHash

@@ -11,21 +11,24 @@ Application
   Bridge  ──  queue · retries · delivery status · logs
      │
      ▼
-Android phone + SIM   (later: MSG91, Twilio, …)
+Android phone + SIM   or   MSG91 · Twilio · Vonage · Plivo
      │
      ▼
     SMS
 ```
 
 Your application talks to one stable API. What delivers the message underneath (your own Android
-phone today, a messaging provider later) can change without rewriting your code.
+phone, or a messaging provider as a fallback or instead) can change without rewriting your code.
 
-> **Status: pre-release (v0.4.0-rc.1).** Working today: accounts, projects, API keys, the
-> dashboard, Docker self-hosting, the Android gateway, sending SMS through paired phones with
+> **Status: pre-release.** v0.4.0-rc.1 is released. Working in it: accounts, projects, API keys,
+> the dashboard, Docker self-hosting, the Android gateway, sending SMS through paired phones with
 > delivery tracking, forwarding of incoming SMS, signed webhooks with retries, the TypeScript SDK,
 > the `bridgectl` CLI, usage charts, request logs, a playground, teams with roles and invite links,
-> an audit log, a public status page, and the Verify API for one-time passwords. It has not yet been verified on enough real phones to call it stable. See the [Era 0 plan](docs/architecture/era-0-plan.md) for exactly what works today.
-> Do not run it in production yet.
+> an audit log, a public status page, and the Verify API for one-time passwords. In progress for
+> 0.5: SMS providers (MSG91, Twilio, Vonage, Plivo) with fallback routing, and integrations such as
+> the Supabase Send SMS hook. Bridge has not yet been verified on enough real phones and provider
+> accounts to call it stable. See the [Era 0 plan](docs/architecture/era-0-plan.md) for exactly
+> what works today. Do not run it in production yet.
 
 ## Run it
 
@@ -67,6 +70,12 @@ To be told when it is delivered, or when a phone receives an SMS, add a webhook 
 [Sending messages](docs/messages/README.md) and [Webhooks](docs/webhooks/README.md). For login and
 sign-up codes, use [Verify](docs/otp/README.md): `POST /v1/otp`, then `POST /v1/otp/verify`.
 
+**Use Bridge with** [Supabase Auth](docs/integrations/supabase.md),
+[Better Auth](docs/integrations/better-auth.md), [Auth0](docs/integrations/auth0.md),
+[Firebase and Clerk](docs/integrations/firebase-clerk.md), and
+[n8n, Zapier or Make](docs/integrations/no-code.md). No phone, or need a fallback? Add an
+[SMS provider](docs/providers/README.md).
+
 From a terminal, use [`bridgectl`](docs/cli/README.md): `bridgectl send +919876543210 "Hello" --wait`.
 From TypeScript, use the [SDK](packages/sdk/README.md):
 
@@ -93,7 +102,8 @@ curl http://localhost:8080/v1/whoami -H "Authorization: Bearer $BRIDGE_API_KEY"
 }
 ```
 
-`bk_test_` keys use the full API but never send a real SMS. `bk_live_` keys send through your paired devices.
+`bk_test_` keys use the full API but never send a real SMS. `bk_live_` keys send through your paired devices
+(or your SMS providers, if the project routes to them).
 
 Configuration lives in environment variables; see [`.env.example`](.env.example) and the
 [self-hosting guide](docs/self-hosting/README.md).
@@ -110,7 +120,7 @@ Configuration lives in environment variables; see [`.env.example`](.env.example)
 | `packages/api-types` | TypeScript types generated from the API's OpenAPI document |
 | `examples` | [curl](examples/curl/README.md) and [Node.js](examples/node/README.md) examples |
 | `android/gateway` | Android gateway app (Kotlin, `foss` and `gms` builds), see [docs/android](docs/android/README.md) |
-| `docs` | Architecture, security model, self-hosting, [releasing](docs/releasing.md) |
+| `docs` | Guides ([messages](docs/messages/README.md), [Verify](docs/otp/README.md), [providers](docs/providers/README.md), [integrations](docs/integrations/README.md)), architecture, security model, self-hosting, [releasing](docs/releasing.md) |
 
 The stack is deliberately boring: Go, PostgreSQL (data and job queue), Next.js. Self-hosting needs
 one binary and one database.
@@ -121,9 +131,9 @@ one binary and one database.
 | --- | --- |
 | 0.1 | Android gateway: pair a phone, send SMS through its SIM, delivery status, message timeline |
 | 0.2 | Inbound SMS, webhooks, TypeScript SDK |
-| 0.3 | Developer platform: playground, CLI, usage, request logs, teams, audit log, status page (in progress) |
-| 0.4 | Verify API: `bridge.otp.send()` / `bridge.otp.verify()` with a zero-cost test mode (in progress, see [docs/otp](docs/otp/README.md)) |
-| 0.5+ | Provider layer (MSG91, Twilio, …) and routing, driven by what users ask for |
+| 0.3 | Developer platform: playground, CLI, usage, request logs, teams, audit log, status page |
+| 0.4 | Verify API: `bridge.otp.send()` / `bridge.otp.verify()` with a zero-cost test mode (done, released as v0.4.0-rc.1; see [docs/otp](docs/otp/README.md)) |
+| 0.5 | [SMS providers](docs/providers/README.md) (MSG91, Twilio, Vonage, Plivo) with fallback routing, and [integrations](docs/integrations/README.md) (Supabase hook, Better Auth, Auth0, no-code tools) (in progress) |
 
 Bridge is not a bulk-SMS or marketing tool, and it does not help you bypass carrier rules, DLT
 registration or provider policies. Throughput is limited by your SIM and carrier, and Bridge

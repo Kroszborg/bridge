@@ -1,0 +1,48 @@
+# Bridge
+
+> Bridge is open-source, self-hosted infrastructure for SMS and phone verification. Your application calls one REST API; Bridge sends each message through Android phones you own (or, from 0.5, through MSG91, Twilio, Vonage or Plivo as a fallback) and reports delivery from the carrier.
+
+Bridge runs as one Go binary (API, worker and migrations) plus PostgreSQL, usually with Docker Compose. The server, dashboard and Android gateway app are licensed under AGPL-3.0; the TypeScript SDK `@kroszborg/bridge` is MIT and has zero dependencies. Bridge is pre-release (0.4.0-rc.1) and is maintained by Abhiman Panwar (https://www.kroszborg.co/).
+
+Key facts:
+
+- Send SMS with `POST /v1/messages` and follow it with `GET /v1/messages/{id}`, which includes a delivery timeline. An `Idempotency-Key` header prevents duplicate sends.
+- The Android gateway app has two builds: `foss` (wake-ups through UnifiedPush) and `gms` (Firebase Cloud Messaging). Phones pair by scanning a QR code in the dashboard.
+- Incoming SMS can be forwarded to your webhooks. Webhooks are signed per the Standard Webhooks specification and retried for about three days.
+- The Verify API sends and checks one-time passwords: `POST /v1/otp` and `POST /v1/otp/verify`, or `bridge.otp.send()` and `bridge.otp.verify()` in the SDK. Codes are stored only as an HMAC, with limits on attempts, expiry and resends. Test keys (`bk_test_`) return the code instead of sending it. Autofill works with Android's SMS Retriever (app hash) and WebOTP or Safari (domain line).
+- Provider fallback (0.5, in progress): a project routes through phones only, phones then providers after a wait, or providers only. Provider credentials are encrypted with AES-256-GCM under `BRIDGE_SECRET_KEY`. MSG91 sends DLT-registered templates for India.
+- Integrations (0.5, in progress): Supabase Auth's Send SMS hook can point at Bridge (`POST /v1/hooks/supabase/{integrationId}`), so Supabase phone login sends codes through your own phones.
+- iPhones cannot act as gateways because iOS does not let apps send SMS in the background. iPhones still receive Bridge messages and can autofill codes.
+- Bridge is free. Carriers charge for SMS sent from your SIM cards, and providers charge their own rates.
+- Bridge is not a bulk or marketing SMS tool and does not help bypass carrier rules or DLT registration.
+
+## Docs
+
+- [Sending messages](https://github.com/kroszborg/bridge/blob/main/docs/messages/README.md): the messages API, statuses, delivery timeline, idempotency and test numbers
+- [Webhooks](https://github.com/kroszborg/bridge/blob/main/docs/webhooks/README.md): event types, Standard Webhooks signatures, retries and incoming SMS
+- [Verify API (one-time passwords)](https://github.com/kroszborg/bridge/blob/main/docs/otp/README.md): sending and checking codes, limits, autofill and test mode
+- [Providers](https://github.com/kroszborg/bridge/blob/main/docs/providers/README.md): MSG91, Twilio, Vonage and Plivo as fallback or primary routes
+- [Integrations](https://github.com/kroszborg/bridge/blob/main/docs/integrations/README.md): overview of auth and workflow integrations
+- [Supabase Auth](https://github.com/kroszborg/bridge/blob/main/docs/integrations/supabase.md): phone login through the Send SMS hook
+- [Better Auth](https://github.com/kroszborg/bridge/blob/main/docs/integrations/better-auth.md): sending Better Auth phone codes through Bridge
+- [Auth0](https://github.com/kroszborg/bridge/blob/main/docs/integrations/auth0.md): delivering Auth0 SMS through Bridge
+- [n8n, Zapier and Make](https://github.com/kroszborg/bridge/blob/main/docs/integrations/no-code.md): sending SMS and reacting to replies from no-code workflows
+- [Firebase and Clerk](https://github.com/kroszborg/bridge/blob/main/docs/integrations/firebase-clerk.md): notes for Firebase Auth and Clerk users
+- [Android gateway](https://github.com/kroszborg/bridge/blob/main/docs/android/README.md): installing the app, pairing, foss and gms builds, wake-ups and send limits
+- [Self-hosting](https://github.com/kroszborg/bridge/blob/main/docs/self-hosting/README.md): Docker Compose, environment variables, HTTPS and backups
+- [MCP server for AI assistants](https://github.com/kroszborg/bridge/blob/main/docs/mcp/README.md): `bridgectl mcp` lets Claude, Cursor and other MCP clients send SMS and run verifications
+- [CLI (bridgectl)](https://github.com/kroszborg/bridge/blob/main/docs/cli/README.md): sending, following messages and forwarding webhooks to localhost
+- [Security model](https://github.com/kroszborg/bridge/blob/main/docs/security/README.md): keys, secrets, device trust and data retention
+
+## API
+
+- [OpenAPI document](https://github.com/kroszborg/bridge/blob/main/packages/api-types/openapi.json): the OpenAPI 3.1 description of the REST API; every running Bridge server also serves it at `/openapi.json` and an API reference at `/docs`
+- [TypeScript SDK](https://github.com/kroszborg/bridge/blob/main/packages/sdk/README.md): `@kroszborg/bridge`, zero dependencies, MIT
+
+## Optional
+
+- [Full documentation in one file](https://bridge.kroszborg.co/llms-full.txt): README, every guide and the SDK README concatenated
+- [README](https://github.com/kroszborg/bridge/blob/main/README.md): quick start and repository layout
+- [Changelog](https://github.com/kroszborg/bridge/blob/main/CHANGELOG.md): release notes
+- [Releasing](https://github.com/kroszborg/bridge/blob/main/docs/releasing.md): how versions are built and published
+- [Source code](https://github.com/kroszborg/bridge): the GitHub repository

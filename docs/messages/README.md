@@ -9,7 +9,8 @@ curl "$BRIDGE_URL/v1/messages" \
 ```
 
 The response is `202 Accepted` with the message in status `queued`. Bridge then delivers it
-through a paired phone and records every step.
+through a paired phone (or an [SMS provider](../providers/README.md), if the project routes to one)
+and records every step.
 
 | Field | Required | Notes |
 | --- | --- | --- |
@@ -65,6 +66,25 @@ A phone that does not accept a job within 2 minutes loses it, and the job goes t
 retried. Failures the phone marks as retryable (no service, radio off) are retried up to 3 attempts.
 Phones de-duplicate jobs by message and attempt, so a redelivered job is never sent twice.
 
+## Phones and providers
+
+Every message has a `provider` field saying what sends it:
+
+| `provider` | Meaning |
+| --- | --- |
+| `android` | A paired phone. |
+| `simulator` | The test-mode simulator (`bk_test_` keys). |
+| `fallback` | Handed to the project's SMS providers; waiting for one to accept it. |
+| `msg91`, `twilio`, `vonage`, `plivo` | That SMS provider accepted it. |
+
+By default projects use only their phones. A project can route to an SMS provider when no phone can
+send a message (`phones_then_providers`), or send everything through providers (`providers`). The
+timeline then shows `provider_fallback` with a `reason` (such as `no_phone_available` or
+`phone_failed`) and `provider_accepted`. A provider accepting a message counts as `sent`; its
+delivery report, if any, moves it to `delivered` or `failed`. Messages sent with a `device_id` or a
+test key never go to a provider. See [SMS providers](../providers/README.md) for setup, exactly when
+fallback happens, and provider error codes (`twilio_21211`, `msg91_no_template`, …).
+
 ## Android's sending limit
 
 Android asks the phone's owner to approve each SMS beyond about **30 per 30 minutes** from one
@@ -108,7 +128,8 @@ sent and it costs nothing. These numbers produce specific outcomes:
 | `no_service`, `radio_off`, `network_error` | The phone could not reach the mobile network |
 | `limit_exceeded` | Android's sending limit was hit; see above |
 | `delivery_failed` | The carrier reported the message undelivered |
-| `android_error_<n>` | Another Android send failure |
+| `generic_failure`, `android_error_<n>` | Android could not confirm sending. Not retried, because the SMS may have gone out |
+| `<provider>_<code>` | An SMS provider refused or failed the message; see [SMS providers](../providers/README.md#error-codes) |
 
 ## Incoming messages
 

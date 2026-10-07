@@ -11,6 +11,8 @@ build/
 next-env.d.ts
 .turbo/
 /apps/api/bin/
+# Generated from README.md and docs/ by apps/web/scripts/llms-full.mjs
+/apps/web/public/llms-full.txt
 
 # Env and secrets — never commit real credentials
 .env

@@ -265,6 +265,22 @@ wake:     FCM high-priority data message when a job is queued for an offline dev
 - [x] Public website (`apps/web`, static export)
 - [x] Browser pass in Chrome over every new page, in dark and light mode
 
+**Milestone 8 (v0.5):** SMS providers and integrations.
+
+- [x] Provider layer: MSG91 (Flow API v5, DLT OTP and message templates, configurable variables, sender ID), Twilio (From or Messaging Service, `StatusCallback`), Vonage (SMS API, `callback`), Plivo (Message API, `url`); clients never retry, errors are retryable or permanent with `<provider>_<code>` codes
+- [x] `BRIDGE_SECRET_KEY` and `secretbox`: AES-256-GCM, row-bound, credentials write-only with a display hint
+- [x] Routing per project (`phones`, `phones_then_providers`, `providers`, `fallback_after_seconds`); fallback on no paired phone, no phone in time, queue timeout, final phone failure (except `invalid_destination`), unresponsive phones; never for test keys or `device_id`
+- [x] Provider send job: priority order, up to 6 attempts while errors are retryable, accepted = `sent`, timeline events `provider_fallback` and `provider_accepted`
+- [x] Delivery-report callbacks at `/v1/provider-callbacks/{id}/{token}` (constant-time token check) for all four providers, including MSG91's numeric statuses
+- [x] Provider management API (add, update, remove, check credentials), routing API, audit entries
+- [x] Integrations: Supabase Send SMS hook (Standard Webhooks verification, Verify template, masked OTP messages, live or test)
+- [x] Android: ambiguous send failures are not retried (duplicate prevention); RIL result codes mapped; modem cause code reported
+- [x] Docs: providers, integrations (Supabase, Better Auth, Auth0, n8n/Zapier/Make, Firebase and Clerk), iPhones
+- [ ] Real provider accounts tested end to end (send, delivery report, failure codes) for MSG91, Twilio, Vonage and Plivo
+- [ ] MSG91 delivery-report format confirmed with a live account (`requestId` matching the Flow API's request ID)
+- [ ] Supabase hook tested against hosted Supabase and the Supabase CLI
+- [ ] Decide whether an ambiguous phone failure should fall back to a provider (it can duplicate the SMS)
+
 ### v0.1 acceptance (from the brief)
 
 1. Start Bridge locally. 2. Start the Android gateway. 3. Pair the device. 4. The device shows online.

@@ -9,16 +9,58 @@ they are always called out here with migration steps.
 
 ### Added
 
+- `bridgectl mcp`: a Model Context Protocol server on stdio (official Go SDK) so AI assistants
+  can send SMS, run verifications and read message status with an API key. See
+  [docs/mcp](docs/mcp/README.md).
+
 - `GET /v1/request-logs` for API keys: the project's requests in the key's environment.
 - SDK: `bridge.events.stream()` (live events with reconnects), `bridge.requestLogs.list()` and
   `listAll()`, and `bridge.usageHistory()`. The SDK is published to npm as `@kroszborg/bridge`.
 - `bridgectl logs` with status, method and path filters.
+- SMS providers (v0.5, in progress): MSG91 (DLT templates through the Flow API, with separate OTP
+  and message templates and configurable variables), Twilio (From number or Messaging Service),
+  Vonage (SMS API) and Plivo, one account of each per project, tried in priority order. Retryable
+  errors (timeouts, `429`, `5xx`) are retried up to 6 attempts; others fail the message with a
+  `<provider>_<code>` error. A provider accepting a message counts as `sent`. See
+  [docs/providers](docs/providers/README.md).
+- Per-project routing: `phones` (default), `phones_then_providers` and `providers`, with
+  `fallback_after_seconds` (default 60). A message falls back when there is no paired phone, no
+  phone can take it in time, it reaches the queue timeout, a phone fails it for good (except
+  `invalid_destination`), or phones do not accept it. Never for test keys or messages sent with a
+  `device_id`.
+- Provider delivery reports at `/v1/provider-callbacks/{id}/{token}`: Bridge passes the URL with
+  each message to Twilio, Vonage and Plivo; for MSG91 you set it once as the delivery-report webhook.
+  Reports move messages to `delivered` or `failed`.
+- `BRIDGE_SECRET_KEY` (32 bytes, base64 or hex): encrypts provider credentials and integration
+  secrets with AES-256-GCM, bound to their row. Without it, they cannot be saved.
+- Provider management for owners and admins: add, edit, enable, prioritise, remove and check
+  credentials without sending (`POST …/providers/{id}/check`). Credentials are never returned; a
+  hint such as the Twilio account SID is shown. Audited as `provider.added`, `provider.updated`,
+  `provider.removed` and `routing.updated`.
+- Integrations, starting with the Supabase Auth Send SMS hook at
+  `POST /v1/hooks/supabase/{integrationId}`: verifies Supabase's Standard Webhooks signature
+  (`v1,whsec_…` secret) and sends Supabase's code with the project's Verify template, masked like
+  Bridge's own codes. Live or test (simulator). Audited as `integration.created`, `.updated` and
+  `.deleted`. See [docs/integrations](docs/integrations/README.md), with guides for Better Auth,
+  Auth0, n8n, Zapier, Make, Firebase and Clerk.
+- Message timeline events `provider_fallback` (with a `reason`) and `provider_accepted`.
+- Docs: iPhones as recipients (code autofill) and why they cannot be gateways.
 
 ### Changed
 
 - The SDK package is renamed from the `@bridge/sdk` placeholder to `@kroszborg/bridge`.
 - The dashboard's request log endpoint's operation ID is now `listProjectRequestLogs`;
   `listRequestLogs` is the API-key endpoint.
+- A message's `provider` can now be `fallback` (waiting for an SMS provider) or `msg91`, `twilio`,
+  `vonage` or `plivo`, besides `android` and `simulator`.
+
+### Fixed
+
+- Android: ambiguous send failures (such as `generic_failure` and unknown result codes) are no
+  longer retried, because the carrier may already have accepted the SMS; retrying sent duplicate
+  codes in a real-phone test. Only failures where nothing left the phone (radio off, no service,
+  modem not ready, explicit retry) are retried. More radio (RIL) result codes are mapped to stable
+  error codes, and the modem's cause code is included in the error message.
 
 ## [0.4.0-rc.1] - 2026-10-07
 

@@ -25,8 +25,10 @@ import (
 	"bridge/internal/gateway"
 	"bridge/internal/httpapi"
 	"bridge/internal/messaging"
+	"bridge/internal/provider"
 	"bridge/internal/push"
 	"bridge/internal/reqlog"
+	"bridge/internal/secretbox"
 	"bridge/internal/status"
 	"bridge/internal/testutil"
 	"bridge/internal/webhook"
@@ -63,8 +65,13 @@ func testConfig() *config.Config {
 		TrustedProxies: []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8"), netip.MustParsePrefix("::1/128")},
 		SessionTTL:     24 * time.Hour, AllowSignup: true, LogFormat: "text",
 		VAPIDSubject: "mailto:test@example.com", PushAllowPrivate: true,
+		SecretKey: bytes.Repeat([]byte{42}, 32),
 	}
 }
+
+// fakeProviders points provider clients at test servers. Tests set it before
+// newServer; they do not run in parallel.
+var fakeProviders map[provider.Kind]string
 
 func newServer(t *testing.T, mutate ...func(*config.Config)) *httptest.Server {
 	t.Helper()
@@ -88,8 +95,13 @@ func newServer(t *testing.T, mutate ...func(*config.Config)) *httptest.Server {
 	hub := gateway.NewHub(ctx, testDB.Pool, logger)
 	go func() { _ = hub.Run(ctx) }()
 	hooks := webhook.New(webhook.Options{Pool: testDB.Pool, Logger: logger, AllowPrivate: true})
+	box, err := secretbox.New(cfg.SecretKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	providers := provider.NewRouter(dbq.New(testDB.Pool), box, provider.RouterOptions{PublicURL: cfg.PublicURL.String(), BaseURLs: fakeProviders})
 	msgs := messaging.New(messaging.Options{
-		Pool: testDB.Pool, Logger: logger, Publisher: hub.Send, Waker: pushService, Emitter: hooks,
+		Pool: testDB.Pool, Logger: logger, Publisher: hub.Send, Waker: pushService, Emitter: hooks, Providers: providers,
 		Config: messaging.Config{AssignTimeout: testAssignTimeout},
 	})
 	hub.SetHandler(msgs)
@@ -110,7 +122,7 @@ func newServer(t *testing.T, mutate ...func(*config.Config)) *httptest.Server {
 	go func() { _ = broker.Run(ctx) }()
 	srv := httptest.NewServer(httpapi.New(httpapi.Options{
 		Config: cfg, Pool: testDB.Pool, Logger: logger, Version: "test", Hub: hub, Push: pushService, Messaging: msgs, Webhooks: hooks,
-		RequestLog: requests, Events: broker, Status: health,
+		RequestLog: requests, Events: broker, Status: health, Providers: providers,
 	}).Handler())
 	t.Cleanup(func() {
 		stopCtx, stop := context.WithTimeout(context.Background(), 5*time.Second)

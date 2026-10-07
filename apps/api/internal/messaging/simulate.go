@@ -155,4 +155,5 @@ func Register(workers *river.Workers, s *Service) {
 	river.AddWorker(workers, &DispatchWorker{Service: s})
 	river.AddWorker(workers, &SimulateWorker{Service: s})
 	river.AddWorker(workers, &SweepWorker{Service: s})
+	river.AddWorker(workers, &ProviderSendWorker{Service: s})
 }

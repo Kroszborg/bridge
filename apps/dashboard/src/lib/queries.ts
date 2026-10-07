@@ -2,10 +2,14 @@
 
 import type {
   ApiKey,
+  components,
+  Integration,
   Message,
   Organization,
   OtpSettingsInput,
   Project,
+  ProviderAccount,
+  Routing,
   WebhookEventType,
 } from '@bridge/api-types';
 import {
@@ -26,6 +30,9 @@ export const keys = {
   messages: (projectId: string) => ['projects', projectId, 'messages'] as const,
   usage: (projectId: string, env: string) => ['projects', projectId, 'usage', env] as const,
   webhooks: (projectId: string) => ['projects', projectId, 'webhooks'] as const,
+  routing: (projectId: string) => ['projects', projectId, 'routing'] as const,
+  providers: (projectId: string) => ['projects', projectId, 'providers'] as const,
+  integrations: (projectId: string) => ['projects', projectId, 'integrations'] as const,
 };
 
 export function useProject(projectId: string) {
@@ -753,4 +760,171 @@ export function useOtpPlayground(projectId: string) {
     onSuccess: refresh,
   });
   return { send, verify };
+}
+
+// ---- providers and routing --------------------------------------------------
+
+/** Supported SMS providers and the settings each one needs. Static per server. */
+export function useProviderKinds() {
+  return useQuery({
+    queryKey: ['provider-kinds'],
+    queryFn: () => unwrap(api.GET('/v1/provider-kinds')),
+    staleTime: Number.POSITIVE_INFINITY,
+  });
+}
+
+export function useRouting(projectId: string) {
+  return useQuery({
+    queryKey: keys.routing(projectId),
+    queryFn: () =>
+      unwrap(api.GET('/v1/projects/{projectId}/routing', { params: { path: { projectId } } })),
+    enabled: projectId !== '',
+  });
+}
+
+export type RoutingInput = Pick<Routing, 'mode' | 'fallback_after_seconds'>;
+
+export function useUpdateRouting(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: RoutingInput) =>
+      unwrap(
+        api.PUT('/v1/projects/{projectId}/routing', {
+          params: { path: { projectId } },
+          // secret_key_set is read-only: the server ignores it on writes.
+          body: body as Routing,
+        }),
+      ),
+    onSuccess: (data) => qc.setQueryData(keys.routing(projectId), data),
+  });
+}
+
+export function useProviders(projectId: string) {
+  return useQuery({
+    queryKey: keys.providers(projectId),
+    queryFn: () =>
+      unwrap(api.GET('/v1/projects/{projectId}/providers', { params: { path: { projectId } } })),
+    enabled: projectId !== '',
+    refetchInterval: 15_000,
+  });
+}
+
+export type NewProvider = components['schemas']['AddProviderRequest'];
+export type ProviderUpdate = components['schemas']['ProviderInput'];
+
+export function useAddProvider(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: NewProvider) =>
+      unwrap(
+        api.POST('/v1/projects/{projectId}/providers', { params: { path: { projectId } }, body }),
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.providers(projectId) }),
+  });
+}
+
+export function useUpdateProvider(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ providerId, ...body }: ProviderUpdate & { providerId: string }) =>
+      unwrap(
+        api.PATCH('/v1/projects/{projectId}/providers/{providerId}', {
+          params: { path: { projectId, providerId } },
+          body,
+        }),
+      ),
+    onSuccess: (updated) =>
+      qc.setQueryData<ProviderAccount[]>(keys.providers(projectId), (list) =>
+        list?.map((p) => (p.id === updated.id ? updated : p)),
+      ),
+    onSettled: () => qc.invalidateQueries({ queryKey: keys.providers(projectId) }),
+  });
+}
+
+export function useRemoveProvider(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (providerId: string) =>
+      unwrap(
+        api.DELETE('/v1/projects/{projectId}/providers/{providerId}', {
+          params: { path: { projectId, providerId } },
+        }),
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.providers(projectId) }),
+  });
+}
+
+/** Asks the provider about the account without sending anything. */
+export function useCheckProvider(projectId: string) {
+  return useMutation({
+    mutationFn: (providerId: string) =>
+      unwrap(
+        api.POST('/v1/projects/{projectId}/providers/{providerId}/check', {
+          params: { path: { projectId, providerId } },
+        }),
+      ),
+  });
+}
+
+// ---- integrations -------------------------------------------------------------
+
+export function useIntegrations(projectId: string) {
+  return useQuery({
+    queryKey: keys.integrations(projectId),
+    queryFn: () =>
+      unwrap(api.GET('/v1/projects/{projectId}/integrations', { params: { path: { projectId } } })),
+    enabled: projectId !== '',
+    refetchInterval: 15_000,
+  });
+}
+
+export function useCreateIntegration(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { kind: Integration['kind']; environment: Integration['environment'] }) =>
+      unwrap(
+        api.POST('/v1/projects/{projectId}/integrations', {
+          params: { path: { projectId } },
+          body,
+        }),
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.integrations(projectId) }),
+  });
+}
+
+export function useUpdateIntegration(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      integrationId,
+      ...body
+    }: {
+      integrationId: string;
+      secret?: string;
+      environment?: Integration['environment'];
+    }) =>
+      unwrap(
+        api.PATCH('/v1/projects/{projectId}/integrations/{integrationId}', {
+          params: { path: { projectId, integrationId } },
+          body,
+        }),
+      ),
+    onSuccess: (updated) =>
+      qc.setQueryData<Integration[]>(keys.integrations(projectId), (list) =>
+        list?.map((i) => (i.id === updated.id ? updated : i)),
+      ),
+  });
+}
+
+export function useDeleteIntegration(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (integrationId: string) =>
+      unwrap(
+        api.DELETE('/v1/projects/{projectId}/integrations/{integrationId}', {
+          params: { path: { projectId, integrationId } },
+        }),
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.integrations(projectId) }),
+  });
 }

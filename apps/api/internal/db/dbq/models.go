@@ -376,6 +376,18 @@ type InstanceHeartbeat struct {
 	SeenAt     time.Time
 }
 
+type Integration struct {
+	ID          string
+	ProjectID   string
+	Kind        string
+	Environment APIEnvironment
+	Secret      []byte
+	LastUsedAt  *time.Time
+	LastError   *string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
 type Message struct {
 	ID                string
 	ProjectID         string
@@ -412,7 +424,9 @@ type Message struct {
 	Encoding          *string
 	Purpose           string
 	// Shown instead of body by the API and webhooks. Set for OTP messages, whose body contains the code.
-	DisplayBody *string
+	DisplayBody       *string
+	ProviderAccountID *string
+	BodyVars          []byte
 }
 
 type MessageEvent struct {
@@ -492,6 +506,30 @@ type Project struct {
 	OrganizationID string
 	Name           string
 	Slug           string
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+}
+
+type ProjectRouting struct {
+	ProjectID            string
+	Mode                 string
+	FallbackAfterSeconds int32
+	UpdatedAt            time.Time
+}
+
+type ProviderAccount struct {
+	ID             string
+	ProjectID      string
+	Kind           string
+	Name           string
+	Enabled        bool
+	Priority       int32
+	Credentials    []byte
+	Config         json.RawMessage
+	CredentialHint string
+	CallbackToken  string
+	LastUsedAt     *time.Time
+	LastError      *string
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 }

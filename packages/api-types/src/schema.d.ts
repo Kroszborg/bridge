@@ -728,6 +728,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/projects/{projectId}/integrations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List integrations */
+        get: operations["listIntegrations"];
+        put?: never;
+        /** Create an integration */
+        post: operations["createIntegration"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/projects/{projectId}/integrations/{integrationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete an integration */
+        delete: operations["deleteIntegration"];
+        options?: never;
+        head?: never;
+        /**
+         * Update an integration
+         * @description Set the signing secret the other service generated, or switch between live and test.
+         */
+        patch: operations["updateIntegration"];
+        trace?: never;
+    };
     "/v1/projects/{projectId}/messages": {
         parameters: {
             query?: never;
@@ -859,6 +898,65 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/projects/{projectId}/providers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List providers */
+        get: operations["listProviders"];
+        put?: never;
+        /**
+         * Add a provider
+         * @description One account per provider kind. Credentials are encrypted with BRIDGE_SECRET_KEY and never returned.
+         */
+        post: operations["addProvider"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/projects/{projectId}/providers/{providerId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a provider */
+        delete: operations["removeProvider"];
+        options?: never;
+        head?: never;
+        /** Update a provider */
+        patch: operations["updateProvider"];
+        trace?: never;
+    };
+    "/v1/projects/{projectId}/providers/{providerId}/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a provider's credentials
+         * @description Asks the provider about the account (name or balance) without sending anything.
+         */
+        post: operations["checkProvider"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/projects/{projectId}/request-logs": {
         parameters: {
             query?: never;
@@ -872,6 +970,24 @@ export interface paths {
          */
         get: operations["listProjectRequestLogs"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/projects/{projectId}/routing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get routing */
+        get: operations["getRouting"];
+        /** Update routing */
+        put: operations["updateRouting"];
         post?: never;
         delete?: never;
         options?: never;
@@ -1039,6 +1155,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/provider-kinds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Supported SMS providers and their settings */
+        get: operations["listProviderKinds"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/request-logs": {
         parameters: {
             query?: never;
@@ -1193,6 +1326,22 @@ export interface components {
             /** @enum {string} */
             status: "active" | "revoked" | "expired";
         };
+        AddProviderRequest: {
+            /** @description Replaces the whole config. */
+            config?: {
+                [key: string]: string;
+            };
+            /** @description Replaces every stored credential. Write-only. */
+            credentials?: {
+                [key: string]: string;
+            };
+            enabled?: boolean;
+            /** @enum {string} */
+            kind: "msg91" | "twilio" | "vonage" | "plivo";
+            name?: string;
+            /** Format: int32 */
+            priority?: number;
+        };
         AuditActor: {
             email?: string;
             id: string | null;
@@ -1224,6 +1373,10 @@ export interface components {
             current_password: string;
             new_password: string;
         };
+        CheckProviderResponse: {
+            detail: string;
+            ok: boolean;
+        };
         CreateAPIKeyInputBody: {
             /**
              * @description Test keys never send real SMS.
@@ -1237,6 +1390,15 @@ export interface components {
             expires_in_days?: number;
             /** @example Production server */
             name: string;
+        };
+        CreateIntegrationRequest: {
+            /**
+             * @default live
+             * @enum {string}
+             */
+            environment: "live" | "test";
+            /** @enum {string} */
+            kind: "supabase_send_sms";
         };
         CreateInviteRequest: {
             /** @description Optional note of who the link is for. */
@@ -1506,6 +1668,26 @@ export interface components {
              */
             on_battery_seconds: number;
         };
+        Integration: {
+            /** Format: date-time */
+            created_at: string;
+            /**
+             * @description test sends nothing: messages go to the simulator.
+             * @enum {string}
+             */
+            environment: "live" | "test";
+            /** @description Paste this into the other service. */
+            hook_url: string;
+            /** @example int_06ghc2… */
+            id: string;
+            /** @enum {string} */
+            kind: "supabase_send_sms";
+            last_error: string | null;
+            /** Format: date-time */
+            last_used_at: string | null;
+            /** @description Whether the other service's signing secret is stored. Requests are refused until it is. */
+            secret_set: boolean;
+        };
         Invite: {
             /** Format: date-time */
             created_at: string;
@@ -1602,8 +1784,11 @@ export interface components {
             metadata: {
                 [key: string]: unknown;
             };
-            /** @enum {string} */
-            provider: "android" | "simulator";
+            /**
+             * @description What sends the message: a phone (android), the test simulator, or an SMS provider. fallback means waiting for a provider to accept it.
+             * @enum {string}
+             */
+            provider: "android" | "simulator" | "fallback" | "msg91" | "twilio" | "vonage" | "plivo";
             /**
              * @description otp for codes sent by the Verify API.
              * @enum {string}
@@ -1664,8 +1849,11 @@ export interface components {
             metadata: {
                 [key: string]: unknown;
             };
-            /** @enum {string} */
-            provider: "android" | "simulator";
+            /**
+             * @description What sends the message: a phone (android), the test simulator, or an SMS provider. fallback means waiting for a provider to accept it.
+             * @enum {string}
+             */
+            provider: "android" | "simulator" | "fallback" | "msg91" | "twilio" | "vonage" | "plivo";
             /**
              * @description otp for codes sent by the Verify API.
              * @enum {string}
@@ -1854,6 +2042,65 @@ export interface components {
             /** Format: date-time */
             updated_at: string;
         };
+        ProviderAccount: {
+            /** @description Where the provider sends delivery reports. Bridge passes it with each message, except MSG91: set it there as the delivery-report webhook. */
+            callback_url: string;
+            /** @enum {string} */
+            callbacks: "per_message" | "account";
+            /** @description Non-secret settings such as the sender and templates. */
+            config: {
+                [key: string]: string;
+            };
+            /** Format: date-time */
+            created_at: string;
+            /** @description For example the Twilio account SID; never a secret. */
+            credential_hint: string;
+            enabled: boolean;
+            /** @example prv_06ghc2… */
+            id: string;
+            /** @enum {string} */
+            kind: "msg91" | "twilio" | "vonage" | "plivo";
+            /** @description The last refusal, cleared by the next success. */
+            last_error: string | null;
+            /** Format: date-time */
+            last_used_at: string | null;
+            name: string;
+            /**
+             * Format: int32
+             * @description Lower is tried first.
+             */
+            priority: number;
+        };
+        ProviderField: {
+            help?: string;
+            key: string;
+            label: string;
+            required: boolean;
+            secret: boolean;
+        };
+        ProviderInput: {
+            /** @description Replaces the whole config. */
+            config?: {
+                [key: string]: string;
+            };
+            /** @description Replaces every stored credential. Write-only. */
+            credentials?: {
+                [key: string]: string;
+            };
+            enabled?: boolean;
+            name?: string;
+            /** Format: int32 */
+            priority?: number;
+        };
+        ProviderSpec: {
+            /** @enum {string} */
+            callbacks: "per_message" | "account";
+            config: components["schemas"]["ProviderField"][];
+            credentials: components["schemas"]["ProviderField"][];
+            description: string;
+            kind: string;
+            name: string;
+        };
         PushConfig: {
             /** @description Present only when this server can send Firebase messages. */
             fcm?: components["schemas"]["FCMClientConfig"];
@@ -1905,6 +2152,20 @@ export interface components {
         RevokedSessions: {
             /** Format: int64 */
             revoked: number;
+        };
+        Routing: {
+            /**
+             * Format: int64
+             * @description With phones_then_providers, how long a message may wait for a phone before a provider takes it.
+             */
+            fallback_after_seconds: number;
+            /**
+             * @description phones: never use providers. phones_then_providers: providers take messages no phone can send. providers: providers send everything.
+             * @enum {string}
+             */
+            mode: "phones" | "phones_then_providers" | "providers";
+            /** @description Whether this server can store provider credentials (BRIDGE_SECRET_KEY). */
+            readonly secret_key_set: boolean;
         };
         SIM: {
             carrier?: string;
@@ -2176,6 +2437,12 @@ export interface components {
              */
             send_limit_count?: number;
         };
+        UpdateIntegrationRequest: {
+            /** @enum {string} */
+            environment?: "live" | "test";
+            /** @description Supabase's hook secret, v1,whsec_…. Write-only. */
+            secret?: string;
+        };
         UpdateMeRequest: {
             name: string;
         };
@@ -2442,11 +2709,14 @@ export interface components {
 }
 export type ApiError = components['schemas']['APIError'];
 export type ApiKey = components['schemas']['APIKey'];
+export type AddProviderRequest = components['schemas']['AddProviderRequest'];
 export type AuditActor = components['schemas']['AuditActor'];
 export type AuditEntry = components['schemas']['AuditEntry'];
 export type AuditList = components['schemas']['AuditList'];
 export type ChangePasswordRequest = components['schemas']['ChangePasswordRequest'];
+export type CheckProviderResponse = components['schemas']['CheckProviderResponse'];
 export type CreateApiKeyInputBody = components['schemas']['CreateAPIKeyInputBody'];
+export type CreateIntegrationRequest = components['schemas']['CreateIntegrationRequest'];
 export type CreateInviteRequest = components['schemas']['CreateInviteRequest'];
 export type CreateWebhookRequest = components['schemas']['CreateWebhookRequest'];
 export type CreatedApiKey = components['schemas']['CreatedAPIKey'];
@@ -2463,6 +2733,7 @@ export type ErrorBody = components['schemas']['ErrorBody'];
 export type ErrorDetail = components['schemas']['ErrorDetail'];
 export type FcmClientConfig = components['schemas']['FCMClientConfig'];
 export type HeartbeatPolicy = components['schemas']['HeartbeatPolicy'];
+export type Integration = components['schemas']['Integration'];
 export type Invite = components['schemas']['Invite'];
 export type InvitePreview = components['schemas']['InvitePreview'];
 export type ListResponseApiKey = components['schemas']['ListResponseAPIKey'];
@@ -2486,11 +2757,16 @@ export type PairInputBody = components['schemas']['PairInputBody'];
 export type PairResponse = components['schemas']['PairResponse'];
 export type PairingToken = components['schemas']['PairingToken'];
 export type Project = components['schemas']['Project'];
+export type ProviderAccount = components['schemas']['ProviderAccount'];
+export type ProviderField = components['schemas']['ProviderField'];
+export type ProviderInput = components['schemas']['ProviderInput'];
+export type ProviderSpec = components['schemas']['ProviderSpec'];
 export type PushConfig = components['schemas']['PushConfig'];
 export type RegisterPushInputBody = components['schemas']['RegisterPushInputBody'];
 export type RequestLog = components['schemas']['RequestLog'];
 export type RequestLogList = components['schemas']['RequestLogList'];
 export type RevokedSessions = components['schemas']['RevokedSessions'];
+export type Routing = components['schemas']['Routing'];
 export type Sim = components['schemas']['SIM'];
 export type SelfDevice = components['schemas']['SelfDevice'];
 export type SendBody = components['schemas']['SendBody'];
@@ -2511,6 +2787,7 @@ export type TestDeviceRequest = components['schemas']['TestDeviceRequest'];
 export type TestProjectDeviceRequest = components['schemas']['TestProjectDeviceRequest'];
 export type UnifiedPushConfig = components['schemas']['UnifiedPushConfig'];
 export type UpdateDeviceRequest = components['schemas']['UpdateDeviceRequest'];
+export type UpdateIntegrationRequest = components['schemas']['UpdateIntegrationRequest'];
 export type UpdateMeRequest = components['schemas']['UpdateMeRequest'];
 export type UpdateMemberRequest = components['schemas']['UpdateMemberRequest'];
 export type UpdateWebhookRequest = components['schemas']['UpdateWebhookRequest'];
@@ -5226,6 +5503,228 @@ export interface operations {
             };
         };
     };
+    listIntegrations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Integration"][];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    createIntegration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateIntegrationRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Integration"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    deleteIntegration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                integrationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    updateIntegration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                integrationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateIntegrationRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Integration"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
     listProjectMessages: {
         parameters: {
             query?: {
@@ -5800,6 +6299,287 @@ export interface operations {
             };
         };
     };
+    listProviders: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderAccount"][];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    addProvider: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddProviderRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderAccount"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    removeProvider: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                providerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    updateProvider: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                providerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProviderInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderAccount"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    checkProvider: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                providerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckProviderResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
     listProjectRequestLogs: {
         parameters: {
             query?: {
@@ -5829,6 +6609,108 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RequestLogList"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    getRouting: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Routing"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    updateRouting: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Routing"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Routing"];
                 };
             };
             /** @description Not Found */
@@ -6439,6 +7321,35 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    listProviderKinds: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderSpec"][];
+                };
+            };
+            /** @description Error */
+            default: {
                 headers: {
                     [name: string]: unknown;
                 };

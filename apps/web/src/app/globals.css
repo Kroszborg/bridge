@@ -43,7 +43,8 @@
   --success: #15803d;
   --warning: #b45309;
   --destructive: #dc2626;
-  --glow: rgb(15 122 98 / 0.1);
+  /* Shadows are tinted to the page, never pure black. */
+  --shadow: rgb(60 48 32 / 0.28);
 }
 
 .dark {
@@ -60,7 +61,7 @@
   --success: #4ade80;
   --warning: #fbbf24;
   --destructive: #f87171;
-  --glow: rgb(62 235 192 / 0.12);
+  --shadow: rgb(0 0 0 / 0.55);
 }
 
 @layer base {
@@ -91,6 +92,11 @@
   }
 }
 
+/* Real screenshots sit on a soft shadow tinted to the page. */
+.shot {
+  box-shadow: 0 40px 100px -48px var(--shadow);
+}
+
 /* Reveal on scroll: content is visible by default and only animates when
    motion is allowed and JavaScript marked the page ready. */
 @media (prefers-reduced-motion: no-preference) {
@@ -116,16 +122,14 @@
       transform: translateY(14px);
     }
   }
-  .signal {
-    animation: signal 2.4s ease-out infinite;
+  /* Content that swaps in place (the routing modes) settles in rather than snapping. */
+  .swap-in {
+    animation: swap-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
-  @keyframes signal {
-    0% {
-      box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 55%, transparent);
-    }
-    70%,
-    100% {
-      box-shadow: 0 0 0 8px transparent;
+  @keyframes swap-in {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
     }
   }
 }
