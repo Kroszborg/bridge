@@ -301,7 +301,10 @@
                 "message.failed",
                 "message.received",
                 "device.online",
-                "device.offline"
+                "device.offline",
+                "otp.verified",
+                "otp.failed",
+                "otp.expired"
               ],
               "type": "string"
             },
@@ -495,7 +498,10 @@
                 "message.failed",
                 "message.received",
                 "device.online",
-                "device.offline"
+                "device.offline",
+                "otp.verified",
+                "otp.failed",
+                "otp.expired"
               ],
               "type": "string"
             },
@@ -3203,7 +3209,10 @@
                 "message.failed",
                 "message.received",
                 "device.online",
-                "device.offline"
+                "device.offline",
+                "otp.verified",
+                "otp.failed",
+                "otp.expired"
               ],
               "type": "string"
             },
@@ -3775,7 +3784,10 @@
                 "message.failed",
                 "message.received",
                 "device.online",
-                "device.offline"
+                "device.offline",
+                "otp.verified",
+                "otp.failed",
+                "otp.expired"
               ],
               "type": "string"
             },

@@ -48,9 +48,10 @@ UPDATE otp_verifications SET status = 'expired', code_hash = NULL, updated_at = 
 WHERE id = @id AND status = 'pending'
 RETURNING *;
 
--- name: ExpireOTPs :execrows
+-- name: ExpireOTPs :many
 UPDATE otp_verifications SET status = 'expired', code_hash = NULL, updated_at = now()
-WHERE status = 'pending' AND expires_at < now();
+WHERE status = 'pending' AND expires_at < now()
+RETURNING *;
 
 -- name: DeleteOldOTPs :execrows
 DELETE FROM otp_verifications WHERE created_at < @before;

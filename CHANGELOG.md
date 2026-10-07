@@ -7,6 +7,13 @@ they are always called out here with migration steps.
 
 ## [Unreleased]
 
+## [0.4.0-rc.1] - 2026-10-07
+
+The first pre-release: everything from the Android gateway (v0.1) through inbound SMS and
+webhooks (v0.2), the developer platform (v0.3) and the Verify API (v0.4). Bridge has not yet
+been verified on enough real phones to call it stable, so this is a release candidate for
+testing, not for production.
+
 ### Added
 
 - Verify (v0.4): one-time passwords that Bridge generates, sends and checks. `POST /v1/otp` sends a
@@ -24,6 +31,8 @@ they are always called out here with migration steps.
 - `bridge.otp.send()`, `verify()` and `get()` in the TypeScript SDK; `bridgectl otp send`,
   `verify` (exits 1 when not valid) and `get`.
 - Messages have a `purpose` (`message` or `otp`).
+- Webhook and event-stream events `otp.verified`, `otp.failed` and `otp.expired`, carrying the
+  verification without its code.
 - Teams: invite people to an organization with single-use links (7 days, no email needed), roles
   (owner, admin, member) enforced by the API, role changes, removal and leaving, with at least one
   owner always kept. Sign-up through an invite joins that organization instead of creating a new

@@ -2,13 +2,16 @@ import {
   ArrowRight01Icon,
   BatteryFullIcon,
   CheckmarkCircle02Icon,
+  Clock01Icon,
   CpuIcon,
   Database01Icon,
   DocumentValidationIcon,
   Mail01Icon,
+  PasswordValidationIcon,
   SecurityCheckIcon,
   SignalFull01Icon,
   SmartPhone01Icon,
+  TestTube01Icon,
   Wifi01Icon,
 } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
@@ -27,6 +30,35 @@ const sendCurl = `curl https://sms.example.com/v1/messages \\
     "to": "+919876543210",
     "message": "Order ORD-2291 has shipped."
   }'`;
+
+const otpSample = `// When the user asks for a code
+await bridge.otp.send({ to: '+919876543210' });
+
+// When they type it in
+const { valid } = await bridge.otp.verify({ to: '+919876543210', code });`;
+
+const otpFacts = [
+  {
+    icon: SecurityCheckIcon,
+    title: 'Never stored readable',
+    body: 'Only a keyed hash, erased once the code is used.',
+  },
+  {
+    icon: Clock01Icon,
+    title: 'Limits built in',
+    body: 'Attempts, expiry, resend cooldown and an hourly cap per number.',
+  },
+  {
+    icon: PasswordValidationIcon,
+    title: 'Autofill',
+    body: 'SMS Retriever on Android, WebOTP in browsers, one-tap on iOS.',
+  },
+  {
+    icon: TestTube01Icon,
+    title: 'Free in tests',
+    body: 'Test keys return the code, so CI never needs a phone.',
+  },
+];
 
 const snippets = [
   { id: 'curl', label: 'curl', language: 'shell', code: sendCurl },
@@ -197,6 +229,9 @@ export default function Home() {
           <div className="hidden items-center gap-7 text-sm text-muted-foreground md:flex">
             <a href="#how" className="transition-colors hover:text-foreground">
               How it works
+            </a>
+            <a href="#verify" className="transition-colors hover:text-foreground">
+              Verify
             </a>
             <a href="#developers" className="transition-colors hover:text-foreground">
               Developers
@@ -550,6 +585,87 @@ export default function Home() {
                 </dl>
               </article>
             </div>
+          </div>
+        </section>
+
+        {/* Verify: the OTP API, shown as the SMS and the autofill it produces. */}
+        <section id="verify" className="scroll-mt-20 border-t">
+          <div className="mx-auto grid max-w-7xl items-center gap-12 px-4 py-20 sm:px-6 lg:grid-cols-[minmax(0,6fr)_minmax(0,5fr)] lg:py-28">
+            <div data-reveal className="min-w-0">
+              <h2 className="text-3xl font-bold sm:text-4xl">Phone verification in two calls.</h2>
+              <p className="mt-4 max-w-xl text-lg leading-relaxed text-muted-foreground">
+                Bridge generates the code, sends it from your phones and checks what the user types.
+                Your app never stores, compares or expires a code.
+              </p>
+              <ul className="mt-8 grid gap-x-8 gap-y-5 sm:grid-cols-2">
+                {otpFacts.map((f) => (
+                  <li key={f.title} className="flex gap-3">
+                    <HugeiconsIcon
+                      icon={f.icon}
+                      strokeWidth={2}
+                      className="mt-0.5 size-5 shrink-0 text-primary"
+                    />
+                    <span className="flex flex-col gap-0.5">
+                      <span className="font-semibold">{f.title}</span>
+                      <span className="text-sm leading-relaxed text-muted-foreground">
+                        {f.body}
+                      </span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-8 overflow-hidden rounded-xl border bg-card">
+                <pre className="overflow-x-auto p-4 font-mono text-[0.8rem] leading-relaxed">
+                  <code>{otpSample}</code>
+                </pre>
+              </div>
+            </div>
+
+            <figure data-reveal className="mx-auto w-full max-w-sm">
+              <div className="rounded-[2rem] border bg-card p-5 shadow-[0_24px_60px_-30px_var(--glow)]">
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span className="font-semibold text-foreground">Acme</span>
+                  <span>now</span>
+                </div>
+                <p className="mt-2 rounded-2xl rounded-tl-md bg-muted px-4 py-3 text-sm leading-relaxed">
+                  482913 is your Acme code. It expires in 10 minutes. Do not share it.
+                  <span className="mt-2 block font-mono text-xs text-muted-foreground">
+                    @acme.com #482913
+                  </span>
+                </p>
+                <div className="mt-6 border-t pt-5">
+                  <p className="text-sm font-semibold">Sign in to Acme</p>
+                  <p className="text-xs text-muted-foreground">
+                    Enter the code sent to +91 98765 43210
+                  </p>
+                  <div className="mt-3 grid grid-cols-6 gap-1.5">
+                    {'482913'.split('').map((d, i) => (
+                      <span
+                        // biome-ignore lint/suspicious/noArrayIndexKey: fixed six digits
+                        key={i}
+                        className="grid h-11 place-items-center rounded-lg border border-primary/50 bg-background font-mono text-lg font-semibold"
+                      >
+                        {d}
+                      </span>
+                    ))}
+                  </div>
+                  <span className="mt-3 inline-flex items-center gap-2 rounded-full border bg-background px-3 py-1 text-xs">
+                    <HugeiconsIcon
+                      icon={Mail01Icon}
+                      strokeWidth={2}
+                      className="size-3.5 text-primary"
+                    />
+                    From Messages: 482913
+                  </span>
+                  <span className="mt-4 flex h-10 items-center justify-center rounded-lg bg-primary text-sm font-semibold text-primary-foreground">
+                    Continue
+                  </span>
+                </div>
+              </div>
+              <figcaption className="mt-4 text-center text-xs text-muted-foreground">
+                The domain line lets browsers and iOS offer the code above the keyboard.
+              </figcaption>
+            </figure>
           </div>
         </section>
 

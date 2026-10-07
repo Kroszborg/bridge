@@ -33,6 +33,9 @@ const (
 	EventMessageReceived  = "message.received"
 	EventDeviceOnline     = "device.online"
 	EventDeviceOffline    = "device.offline"
+	EventOTPVerified      = "otp.verified"
+	EventOTPFailed        = "otp.failed"
+	EventOTPExpired       = "otp.expired"
 	// EventTest is sent only by "Send test event", to one endpoint.
 	EventTest = "webhook.test"
 )
@@ -41,6 +44,7 @@ const (
 var EventTypes = []string{
 	EventMessageSent, EventMessageDelivered, EventMessageFailed, EventMessageReceived,
 	EventDeviceOnline, EventDeviceOffline,
+	EventOTPVerified, EventOTPFailed, EventOTPExpired,
 }
 
 // ValidEventType reports whether t can be subscribed to.
@@ -109,7 +113,7 @@ func (s *Service) Emit(ctx context.Context, projectID, eventType string, data an
 	return nil
 }
 
-// environmentOf returns a message event's environment; other events have none.
+// environmentOf returns a message or verification event's environment; device events have none.
 func environmentOf(payload []byte) string {
 	var v struct {
 		Environment string `json:"environment"`

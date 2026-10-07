@@ -70,7 +70,11 @@ func New(o Options) *Server {
 	}
 	s := &Server{cfg: o.Config, pool: o.Pool, q: q, log: o.Logger, limiter: limiter, hub: o.Hub, push: o.Push, msgs: o.Messaging, hooks: o.Webhooks, reqlog: o.RequestLog, events: o.Events, status: o.Status, version: o.Version}
 	if o.Messaging != nil {
-		s.otp = otp.New(o.Pool, o.Messaging, limiter, o.Logger)
+		var emitter otp.Emitter
+		if o.Webhooks != nil { // a nil *webhook.Service must not become a non-nil interface
+			emitter = o.Webhooks
+		}
+		s.otp = otp.New(o.Pool, o.Messaging, limiter, emitter, o.Logger)
 	}
 	return s
 }

@@ -31,6 +31,7 @@ type MaintenanceWorker struct {
 	log       *slog.Logger
 	messaging *messaging.Service
 	webhooks  *webhook.Service
+	otp       *otp.Service
 	status    *status.Service
 	retention Retention
 }
@@ -74,11 +75,8 @@ func (w *MaintenanceWorker) Work(ctx context.Context, _ *river.Job[MaintenanceAr
 	if err != nil {
 		return err
 	}
-	otpsExpired, err := w.q.ExpireOTPs(ctx)
-	if err != nil {
-		return err
-	}
-	otpsDeleted, err := w.q.DeleteOldOTPs(ctx, time.Now().Add(-otp.HistoryRetention))
+	// Expiring codes also announces otp.expired.
+	otpsExpired, otpsDeleted, err := w.otp.Maintain(ctx)
 	if err != nil {
 		return err
 	}
@@ -94,11 +92,19 @@ func (w *MaintenanceWorker) Work(ctx context.Context, _ *river.Job[MaintenanceAr
 	return nil
 }
 
+func otpService(pool *pgxpool.Pool, svc *messaging.Service, hooks *webhook.Service, logger *slog.Logger) *otp.Service {
+	var emitter otp.Emitter
+	if hooks != nil {
+		emitter = hooks
+	}
+	return otp.New(pool, svc, nil, emitter, logger)
+}
+
 // NewClient builds a River client that processes jobs, and wires it into the
 // messaging and webhook services so jobs can schedule follow-up jobs.
 func NewClient(pool *pgxpool.Pool, logger *slog.Logger, svc *messaging.Service, hooks *webhook.Service, health *status.Service, retention Retention) (*river.Client[pgx.Tx], error) {
 	workers := river.NewWorkers()
-	river.AddWorker(workers, &MaintenanceWorker{q: dbq.New(pool), log: logger, messaging: svc, webhooks: hooks, status: health, retention: retention})
+	river.AddWorker(workers, &MaintenanceWorker{q: dbq.New(pool), log: logger, messaging: svc, webhooks: hooks, otp: otpService(pool, svc, hooks, logger), status: health, retention: retention})
 	periodic := []*river.PeriodicJob{}
 	if health != nil {
 		status.Register(workers, health)

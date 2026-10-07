@@ -391,7 +391,9 @@ func describeEvent(ev sseEvent) string {
 	switch {
 	case strings.HasSuffix(env.Type, "failed") || env.Type == "device.offline":
 		color = red
-	case strings.HasSuffix(env.Type, "delivered") || env.Type == "device.online":
+	case env.Type == "otp.expired":
+		color = yellow
+	case strings.HasSuffix(env.Type, "delivered") || env.Type == "device.online" || env.Type == "otp.verified":
 		color = green
 	}
 	label := paint(color, fmt.Sprintf("%-18s", env.Type))
@@ -406,6 +408,11 @@ func describeEvent(ev sseEvent) string {
 			extra = " " + strconv.Quote(truncate(*m.Body, 60))
 		}
 		return fmt.Sprintf("%s %s %s %s%s", at, label, m.ID, m.party(), extra)
+	}
+	if strings.HasPrefix(env.Type, "otp.") {
+		var v verification
+		_ = json.Unmarshal(env.Data, &v)
+		return fmt.Sprintf("%s %s %s %s", at, label, v.ID, v.To)
 	}
 	var d struct {
 		ID, Name string

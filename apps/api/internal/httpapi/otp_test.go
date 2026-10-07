@@ -276,3 +276,53 @@ func TestOTPSettings(t *testing.T) {
 		t.Fatalf("dashboard verify = %v", res)
 	}
 }
+
+func TestOTPWebhooks(t *testing.T) {
+	srv := newServer(t)
+	c, _, projectID := signup(t, srv)
+	dev := apiKeyClient(t, srv, c, projectID, "test")
+	recv := newReceiver(t)
+	ep := createWebhook(t, c, projectID, map[string]any{
+		"url": recv.URL, "events": []string{"otp.verified", "otp.failed", "otp.expired"},
+	})
+	secret := ep["secret"].(string)
+
+	// Verified.
+	to := uniqueNumber()
+	sent := dev.mustStatus(dev.do("POST", "/v1/otp", map[string]any{"to": to}), 201).Body
+	dev.mustStatus(dev.do("POST", "/v1/otp/verify", map[string]any{"id": sent["id"], "code": sent["code"]}), 200)
+	d := recv.wait("otp.verified")
+	verify(t, secret, d)
+	if d.Data["id"] != sent["id"] || d.Data["status"] != "verified" || d.Data["environment"] != "test" {
+		t.Fatalf("otp.verified data = %v", d.Data)
+	}
+	if _, leaked := d.Data["code"]; leaked {
+		t.Fatal("webhook carried the code")
+	}
+
+	// Failed after the last attempt.
+	to = uniqueNumber()
+	c.mustStatus(c.do("PUT", "/v1/projects/"+projectID+"/otp/settings", map[string]any{
+		"code_length": 6, "ttl_seconds": 600, "max_attempts": 1,
+	}), 200)
+	sent = dev.mustStatus(dev.do("POST", "/v1/otp", map[string]any{"to": to}), 201).Body
+	wrong := "000000"
+	if wrong == sent["code"] {
+		wrong = "111111"
+	}
+	dev.mustStatus(dev.do("POST", "/v1/otp/verify", map[string]any{"id": sent["id"], "code": wrong}), 200)
+	if d := recv.wait("otp.failed"); d.Data["id"] != sent["id"] {
+		t.Fatalf("otp.failed data = %v", d.Data)
+	}
+
+	// Expired, noticed when checked.
+	to = uniqueNumber()
+	sent = dev.mustStatus(dev.do("POST", "/v1/otp", map[string]any{"to": to}), 201).Body
+	if _, err := testDB.Pool.Exec(context.Background(), `UPDATE otp_verifications SET expires_at = now() - interval '1 second' WHERE id = $1`, sent["id"]); err != nil {
+		t.Fatal(err)
+	}
+	dev.mustStatus(dev.do("POST", "/v1/otp/verify", map[string]any{"id": sent["id"], "code": sent["code"]}), 200)
+	if d := recv.wait("otp.expired"); d.Data["id"] != sent["id"] {
+		t.Fatalf("otp.expired data = %v", d.Data)
+	}
+}

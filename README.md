@@ -20,7 +20,7 @@ Android phone + SIM   (later: MSG91, Twilio, …)
 Your application talks to one stable API. What delivers the message underneath (your own Android
 phone today, a messaging provider later) can change without rewriting your code.
 
-> **Status: pre-release (v0.3 in development).** Working today: accounts, projects, API keys, the
+> **Status: pre-release (v0.4.0-rc.1).** Working today: accounts, projects, API keys, the
 > dashboard, Docker self-hosting, the Android gateway, sending SMS through paired phones with
 > delivery tracking, forwarding of incoming SMS, signed webhooks with retries, the TypeScript SDK,
 > the `bridgectl` CLI, usage charts, request logs, a playground, teams with roles and invite links,

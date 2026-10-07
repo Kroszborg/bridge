@@ -71,17 +71,48 @@ func (q *Queries) ExpireOTP(ctx context.Context, id string) (OtpVerification, er
 	return i, err
 }
 
-const expireOTPs = `-- name: ExpireOTPs :execrows
+const expireOTPs = `-- name: ExpireOTPs :many
 UPDATE otp_verifications SET status = 'expired', code_hash = NULL, updated_at = now()
 WHERE status = 'pending' AND expires_at < now()
+RETURNING id, project_id, environment, api_key_id, recipient, status, code_hash, test_code, code_length, attempts, max_attempts, message_id, metadata, expires_at, verified_at, created_at, updated_at
 `
 
-func (q *Queries) ExpireOTPs(ctx context.Context) (int64, error) {
-	result, err := q.db.Exec(ctx, expireOTPs)
+func (q *Queries) ExpireOTPs(ctx context.Context) ([]OtpVerification, error) {
+	rows, err := q.db.Query(ctx, expireOTPs)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	return result.RowsAffected(), nil
+	defer rows.Close()
+	items := []OtpVerification{}
+	for rows.Next() {
+		var i OtpVerification
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Environment,
+			&i.APIKeyID,
+			&i.Recipient,
+			&i.Status,
+			&i.CodeHash,
+			&i.TestCode,
+			&i.CodeLength,
+			&i.Attempts,
+			&i.MaxAttempts,
+			&i.MessageID,
+			&i.Metadata,
+			&i.ExpiresAt,
+			&i.VerifiedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const finishOTPAttempt = `-- name: FinishOTPAttempt :one

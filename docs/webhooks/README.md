@@ -30,9 +30,12 @@ A project can have up to 10 endpoints.
 | `message.received` | A phone with forwarding turned on received an SMS. See [Incoming SMS](#incoming-sms). |
 | `device.online` | A phone connected. |
 | `device.offline` | A phone has been offline for 2 minutes. A brief network change is not reported. |
+| `otp.verified` | A one-time password was entered correctly. `data` is the [verification](../otp/README.md). |
+| `otp.failed` | A verification ran out of attempts. |
+| `otp.expired` | A code lapsed unused (announced within about 2 minutes of expiring, or when it is checked). |
 
-Messages sent with a test key (`bk_test_…`) produce the same events, with
-`"environment": "test"`. You can build your whole webhook flow without a phone.
+Messages and verifications made with a test key (`bk_test_…`) produce the same events, with
+`"environment": "test"`. Verification events never include the code. You can build your whole webhook flow without a phone.
 
 ## The request
 

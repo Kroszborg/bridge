@@ -27,6 +27,9 @@ export const EVENT_TYPES: { type: WebhookEventType; description: string }[] = [
   { type: 'message.received', description: 'A phone with forwarding on received an SMS.' },
   { type: 'device.online', description: 'A phone connected.' },
   { type: 'device.offline', description: 'A phone has been offline for 2 minutes.' },
+  { type: 'otp.verified', description: 'A one-time password was entered correctly.' },
+  { type: 'otp.failed', description: 'A verification ran out of attempts.' },
+  { type: 'otp.expired', description: 'A code lapsed without being used.' },
 ];
 
 /** Health of an endpoint as a status badge. */

@@ -6,6 +6,7 @@ import {
   CheckmarkCircle02Icon,
   Key01Icon,
   Message01Icon,
+  PasswordValidationIcon,
   SmartPhone01Icon,
 } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
@@ -19,7 +20,14 @@ import { useConsole, useProjectId } from '@/components/layout/console-context';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatDate } from '@/lib/format';
-import { useApiKeys, useDevices, useProject, useUsage, useWebhooks } from '@/lib/queries';
+import {
+  useApiKeys,
+  useDevices,
+  useProject,
+  useUsage,
+  useVerificationStats,
+  useWebhooks,
+} from '@/lib/queries';
 import { cn } from '@/lib/utils';
 
 type Step = {
@@ -173,6 +181,9 @@ export default function ProjectOverviewPage() {
   const usage = useUsage(projectId, 'live');
   const testUsage = useUsage(projectId, 'test');
   const webhooks = useWebhooks(projectId);
+  const liveOtp = useVerificationStats(projectId, 'live');
+  const testOtp = useVerificationStats(projectId, 'test');
+  const verifications = (liveOtp.data?.total ?? 0) + (testOtp.data?.total ?? 0);
   const [showGuide, setShowGuide] = useState(false);
 
   useEffect(() => {
@@ -263,6 +274,33 @@ export default function ProjectOverviewPage() {
             <Link href={`/projects/${projectId}/messages`}>View messages</Link>
           </Button>
         </>
+      ),
+    },
+    {
+      title: 'Verify a phone number',
+      icon: PasswordValidationIcon,
+      state: verifications > 0 ? 'done' : 'todo',
+      body:
+        verifications > 0 ? (
+          `${verifications} verification${verifications === 1 ? '' : 's'} in the last 30 days.`
+        ) : (
+          <div className="flex flex-col gap-2">
+            <span>
+              Sign-in and sign-up codes take two calls: Bridge generates, sends and checks the code.
+              With a test key the response includes the code, so tests need no phone.
+            </span>
+            <CodeBlock
+              language="shell"
+              code={`curl ${apiUrl}/v1/otp \\\n  -H "Authorization: Bearer $BRIDGE_API_KEY" \\\n  -H "Content-Type: application/json" \\\n  -d '{"to": "+919876543210"}'`}
+            />
+          </div>
+        ),
+      action: (
+        <Button asChild size="sm" variant={verifications > 0 ? 'outline' : 'default'}>
+          <Link href={`/projects/${projectId}/verify`}>
+            {verifications > 0 ? 'Open Verify' : 'Try it on the Verify page'}
+          </Link>
+        </Button>
       ),
     },
     {

@@ -6,7 +6,7 @@ plugins {
 
 // Release builds take their version from the git tag (BRIDGE_VERSION_NAME, set by
 // .github/workflows/release.yml). 0.3.0-rc.1 → 30001, 0.3.0 → 30099: always increasing.
-val releaseVersion: String = System.getenv("BRIDGE_VERSION_NAME") ?: "0.3.0"
+val releaseVersion: String = System.getenv("BRIDGE_VERSION_NAME") ?: "0.4.0"
 
 fun versionCodeOf(version: String): Int {
     val match = Regex("""^(\d+)\.(\d+)\.(\d+)(?:-rc\.(\d+))?$""").matchEntire(version)

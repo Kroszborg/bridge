@@ -68,18 +68,26 @@ type Service struct {
 	msgs    *messaging.Service
 	limiter ratelimit.Limiter
 	log     *slog.Logger
+	emitter Emitter
 	now     func() time.Time
 
 	keyMu sync.Mutex
 	key   []byte
 }
 
-func New(pool *pgxpool.Pool, msgs *messaging.Service, limiter ratelimit.Limiter, logger *slog.Logger) *Service {
+// Emitter announces verification events (otp.verified, otp.failed,
+// otp.expired) to webhooks and the event stream. *webhook.Service satisfies it.
+type Emitter interface {
+	Emit(ctx context.Context, projectID, eventType string, data any) error
+}
+
+// New builds the service. limiter and emitter may be nil.
+func New(pool *pgxpool.Pool, msgs *messaging.Service, limiter ratelimit.Limiter, emitter Emitter, logger *slog.Logger) *Service {
 	q := dbq.New(pool)
 	if limiter == nil {
 		limiter = ratelimit.NewPostgres(q)
 	}
-	return &Service{pool: pool, q: q, msgs: msgs, limiter: limiter, log: logger, now: time.Now}
+	return &Service{pool: pool, q: q, msgs: msgs, limiter: limiter, emitter: emitter, log: logger, now: time.Now}
 }
 
 // ---- Settings --------------------------------------------------------------
@@ -359,6 +367,7 @@ func (s *Service) Verify(ctx context.Context, r VerifyRequest) (VerifyResult, er
 	}
 
 	valid := false
+	before := row.Status
 	switch {
 	case row.Status != dbq.OtpStatusPending:
 		// Finished already: report it as it is.
@@ -392,7 +401,33 @@ func (s *Service) Verify(ctx context.Context, r VerifyRequest) (VerifyResult, er
 	if err != nil {
 		return VerifyResult{}, err
 	}
+	if before == dbq.OtpStatusPending && row.Status != dbq.OtpStatusPending {
+		s.announce(ctx, row.ProjectID, v)
+	}
 	return VerifyResult{Valid: valid, Verification: v}, nil
+}
+
+// announce emits the event for a verification that just finished. Canceled
+// verifications are not announced: the newer code is what matters.
+func (s *Service) announce(ctx context.Context, projectID string, v Verification) {
+	if s.emitter == nil {
+		return
+	}
+	var eventType string
+	switch v.Status {
+	case string(dbq.OtpStatusVerified):
+		eventType = "otp.verified"
+	case string(dbq.OtpStatusFailed):
+		eventType = "otp.failed"
+	case string(dbq.OtpStatusExpired):
+		eventType = "otp.expired"
+	default:
+		return
+	}
+	v.Code = nil // events never carry the code, even in test mode
+	if err := s.emitter.Emit(ctx, projectID, eventType, v); err != nil {
+		s.log.Warn("could not announce verification", "otp_id", v.ID, "type", eventType, "error", err)
+	}
 }
 
 // ---- Reading ---------------------------------------------------------------
@@ -500,11 +535,15 @@ func (s *Service) Stats(ctx context.Context, projectID string, env dbq.APIEnviro
 
 // Maintain expires lapsed codes and deletes old verifications.
 func (s *Service) Maintain(ctx context.Context) (expired, deleted int64, err error) {
-	if expired, err = s.q.ExpireOTPs(ctx); err != nil {
+	rows, err := s.q.ExpireOTPs(ctx)
+	if err != nil {
 		return 0, 0, err
 	}
+	for _, row := range rows {
+		s.announce(ctx, row.ProjectID, s.view(row, nil))
+	}
 	deleted, err = s.q.DeleteOldOTPs(ctx, s.now().Add(-HistoryRetention))
-	return expired, deleted, err
+	return int64(len(rows)), deleted, err
 }
 
 func (s *Service) viewRow(r dbq.GetOTPViewRow) Verification {

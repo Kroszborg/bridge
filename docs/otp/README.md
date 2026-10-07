@@ -80,6 +80,13 @@ does not use an attempt.
 
 `GET /v1/otp/{id}` returns a verification at any time.
 
+## Events
+
+Subscribe a [webhook](../webhooks/README.md) (or `bridgectl messages tail`) to `otp.verified`,
+`otp.failed` and `otp.expired` to track sign-ups and spot abuse without polling. Each event's
+`data` is the verification, without the code. A verification replaced by a newer code is not
+announced.
+
 ## Limits
 
 | | Default | Configurable |

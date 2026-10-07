@@ -1230,7 +1230,7 @@ export interface components {
         CreateWebhookRequest: {
             description?: string;
             /** @description Leave out to receive every event. */
-            events?: ("message.sent" | "message.delivered" | "message.failed" | "message.received" | "device.online" | "device.offline")[];
+            events?: ("message.sent" | "message.delivered" | "message.failed" | "message.received" | "device.online" | "device.offline" | "otp.verified" | "otp.failed" | "otp.expired")[];
             /** @example https://example.com/webhooks/bridge */
             url: string;
         };
@@ -1294,7 +1294,7 @@ export interface components {
             disabled_reason: string | null;
             enabled: boolean;
             /** @description Subscribed event types. Empty means every event. */
-            events: ("message.sent" | "message.delivered" | "message.failed" | "message.received" | "device.online" | "device.offline")[];
+            events: ("message.sent" | "message.delivered" | "message.failed" | "message.received" | "device.online" | "device.offline" | "otp.verified" | "otp.failed" | "otp.expired")[];
             /**
              * Format: date-time
              * @description Start of the current run of failed deliveries. Bridge disables the endpoint after 5 days.
@@ -2167,7 +2167,7 @@ export interface components {
             description?: string;
             enabled?: boolean;
             /** @description Replaces the subscription. An empty list subscribes to every event. */
-            events?: ("message.sent" | "message.delivered" | "message.failed" | "message.received" | "device.online" | "device.offline")[];
+            events?: ("message.sent" | "message.delivered" | "message.failed" | "message.received" | "device.online" | "device.offline" | "otp.verified" | "otp.failed" | "otp.expired")[];
             url?: string;
         };
         Usage: {
@@ -2382,7 +2382,7 @@ export interface components {
             disabled_reason: string | null;
             enabled: boolean;
             /** @description Subscribed event types. Empty means every event. */
-            events: ("message.sent" | "message.delivered" | "message.failed" | "message.received" | "device.online" | "device.offline")[];
+            events: ("message.sent" | "message.delivered" | "message.failed" | "message.received" | "device.online" | "device.offline" | "otp.verified" | "otp.failed" | "otp.expired")[];
             /**
              * Format: date-time
              * @description Start of the current run of failed deliveries. Bridge disables the endpoint after 5 days.
