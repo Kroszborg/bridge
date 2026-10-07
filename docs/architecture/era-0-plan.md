@@ -279,7 +279,21 @@ wake:     FCM high-priority data message when a job is queued for an offline dev
 - [ ] Real provider accounts tested end to end (send, delivery report, failure codes) for MSG91, Twilio, Vonage and Plivo
 - [ ] MSG91 delivery-report format confirmed with a live account (`requestId` matching the Flow API's request ID)
 - [ ] Supabase hook tested against hosted Supabase and the Supabase CLI
-- [ ] Decide whether an ambiguous phone failure should fall back to a provider (it can duplicate the SMS)
+- [x] Ambiguous phone failures do not fall back to a provider (the SMS may already be out); only failures that prove nothing was sent do
+
+**Milestone 9 (v0.6):** Verify Pro.
+
+- [ ] Verify apps per project (template, code settings, limits, stats); the default app keeps today's settings
+- [ ] Delivery failover: resend the same code through providers or another phone when it was not sent within N seconds
+- [ ] Fraud protection: allowed countries, per-IP and number-range limits, blocked-attempt report, `otp.blocked` event
+- [ ] Drop-in widget and hosted page (`/verify/{app}`): publishable key, Turnstile, signed JWT result
+
+**Milestone 10 (v0.7):** Messaging tools.
+
+- [ ] Send page: single and CSV bulk with variables, segment and cost preview
+- [ ] Scheduled and repeating messages (once, daily, weekly, monthly in the project's time zone)
+- [ ] Auto-replies with keyword rules and an opt-out list that sends respect
+- [ ] Forwarding rules: another phone, Telegram, webhook, email over SMTP
 
 ### v0.1 acceptance (from the brief)
 

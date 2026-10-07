@@ -10,8 +10,8 @@ Key facts:
 - The Android gateway app has two builds: `foss` (wake-ups through UnifiedPush) and `gms` (Firebase Cloud Messaging). Phones pair by scanning a QR code in the dashboard.
 - Incoming SMS can be forwarded to your webhooks. Webhooks are signed per the Standard Webhooks specification and retried for about three days.
 - The Verify API sends and checks one-time passwords: `POST /v1/otp` and `POST /v1/otp/verify`, or `bridge.otp.send()` and `bridge.otp.verify()` in the SDK. Codes are stored only as an HMAC, with limits on attempts, expiry and resends. Test keys (`bk_test_`) return the code instead of sending it. Autofill works with Android's SMS Retriever (app hash) and WebOTP or Safari (domain line).
-- Provider fallback (0.5, in progress): a project routes through phones only, phones then providers after a wait, or providers only. Provider credentials are encrypted with AES-256-GCM under `BRIDGE_SECRET_KEY`. MSG91 sends DLT-registered templates for India.
-- Integrations (0.5, in progress): Supabase Auth's Send SMS hook can point at Bridge (`POST /v1/hooks/supabase/{integrationId}`), so Supabase phone login sends codes through your own phones.
+- Provider fallback (0.5): a project routes through phones only, phones then providers after a wait, or providers only. Provider credentials are encrypted with AES-256-GCM under `BRIDGE_SECRET_KEY`. MSG91 sends DLT-registered templates for India.
+- Integrations (0.5): Supabase Auth's Send SMS hook can point at Bridge (`POST /v1/hooks/supabase/{integrationId}`), so Supabase phone login sends codes through your own phones.
 - iPhones cannot act as gateways because iOS does not let apps send SMS in the background. iPhones still receive Bridge messages and can autofill codes.
 - Bridge is free. Carriers charge for SMS sent from your SIM cards, and providers charge their own rates.
 - Bridge is not a bulk or marketing SMS tool and does not help bypass carrier rules or DLT registration.

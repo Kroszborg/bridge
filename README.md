@@ -24,9 +24,9 @@ phone, or a messaging provider as a fallback or instead) can change without rewr
 > the dashboard, Docker self-hosting, the Android gateway, sending SMS through paired phones with
 > delivery tracking, forwarding of incoming SMS, signed webhooks with retries, the TypeScript SDK,
 > the `bridgectl` CLI, usage charts, request logs, a playground, teams with roles and invite links,
-> an audit log, a public status page, and the Verify API for one-time passwords. In progress for
-> 0.5: SMS providers (MSG91, Twilio, Vonage, Plivo) with fallback routing, and integrations such as
-> the Supabase Send SMS hook. Bridge has not yet been verified on enough real phones and provider
+> an audit log, a public status page, the Verify API for one-time passwords, SMS providers (MSG91,
+> Twilio, Vonage, Plivo) with fallback routing, integrations such as the Supabase Send SMS hook, and
+> an MCP server for AI assistants. Bridge has not yet been verified on enough real phones and provider
 > accounts to call it stable. See the [Era 0 plan](docs/architecture/era-0-plan.md) for exactly
 > what works today. Do not run it in production yet.
 
@@ -133,7 +133,9 @@ one binary and one database.
 | 0.2 | Inbound SMS, webhooks, TypeScript SDK |
 | 0.3 | Developer platform: playground, CLI, usage, request logs, teams, audit log, status page |
 | 0.4 | Verify API: `bridge.otp.send()` / `bridge.otp.verify()` with a zero-cost test mode (done, released as v0.4.0-rc.1; see [docs/otp](docs/otp/README.md)) |
-| 0.5 | [SMS providers](docs/providers/README.md) (MSG91, Twilio, Vonage, Plivo) with fallback routing, and [integrations](docs/integrations/README.md) (Supabase hook, Better Auth, Auth0, no-code tools) (in progress) |
+| 0.5 | [SMS providers](docs/providers/README.md) (MSG91, Twilio, Vonage, Plivo) with fallback routing, and [integrations](docs/integrations/README.md) (Supabase hook, Better Auth, Auth0, no-code tools) |
+| 0.6 | Verify Pro: Verify apps per project, delivery failover, fraud protection, drop-in widget and hosted page (in progress) |
+| 0.7 | Messaging tools: bulk and scheduled sends, auto-replies with opt-out, forwarding rules (next) |
 
 Bridge is not a bulk-SMS or marketing tool, and it does not help you bypass carrier rules, DLT
 registration or provider policies. Throughput is limited by your SIM and carrier, and Bridge

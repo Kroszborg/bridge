@@ -239,7 +239,20 @@ const roadmap = [
     v: '0.5',
     title: 'Providers and integrations',
     body: 'MSG91, Twilio, Vonage and Plivo as fallback. Supabase Send SMS hook, plus guides for Better Auth, Auth0, n8n, Zapier and Make.',
+    done: true,
+  },
+  {
+    v: '0.6',
+    title: 'Verify Pro',
+    body: 'Verify apps, failover when a code is not sent in time, fraud limits, and a drop-in widget.',
     done: false,
+  },
+  {
+    v: '0.7',
+    title: 'Messaging tools',
+    body: 'Bulk and scheduled sends, auto-replies with opt-out, and forwarding to Telegram, email or a phone.',
+    done: false,
+    next: true,
   },
 ];
 
@@ -834,8 +847,8 @@ export default function Home() {
                 them. Same API, same message timeline.
               </p>
               <p className="mt-6 max-w-xl text-sm leading-relaxed text-muted-foreground">
-                Part of 0.5, in progress. Test keys never reach a provider, so tests stay free.
-                MSG91 sends the DLT-registered templates India requires.
+                Shipped in 0.5. Test keys never reach a provider, so tests stay free. MSG91 sends
+                the DLT-registered templates India requires.
               </p>
               <div className="mt-6">
                 <TextLink href={DOCS.providers}>Read the provider guide</TextLink>
@@ -1044,10 +1057,10 @@ export default function Home() {
                 From your own phones to any provider.
               </h2>
               <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
-                Four releases are done. The fifth adds providers and integrations.
+                Five releases are done. Verify Pro is being built now; messaging tools come next.
               </p>
             </div>
-            <ol className="mt-12 grid gap-8 md:grid-cols-5 md:gap-6">
+            <ol className="mt-12 grid gap-8 md:grid-cols-4 md:gap-6 lg:grid-cols-7">
               {roadmap.map((r, i) => (
                 <li
                   key={r.v}
@@ -1056,7 +1069,7 @@ export default function Home() {
                   className={`flex flex-col gap-2 border-l-2 pl-5 md:border-l-0 md:pl-0 ${
                     r.done ? 'border-primary' : 'border-dashed border-primary/60'
                   }`}
-                  aria-label={`Version ${r.v}, ${r.title}, ${r.done ? 'shipped' : 'in progress'}`}
+                  aria-label={`Version ${r.v}, ${r.title}, ${r.done ? 'shipped' : r.next ? 'next' : 'in progress'}`}
                 >
                   <span
                     aria-hidden
@@ -1076,6 +1089,8 @@ export default function Home() {
                       />
                       Shipped
                     </span>
+                  ) : r.next ? (
+                    <span className="mt-1 text-xs font-medium text-muted-foreground">Next</span>
                   ) : (
                     <span className="mt-1 text-xs font-semibold text-primary">In progress</span>
                   )}
