@@ -210,7 +210,9 @@ const limits = [
   ],
 ];
 
-const roadmap = [
+type RoadmapItem = { v: string; title: string; body: string; done: boolean; next?: boolean };
+
+const roadmap: RoadmapItem[] = [
   {
     v: '0.1',
     title: 'Android gateway',
@@ -245,14 +247,13 @@ const roadmap = [
     v: '0.6',
     title: 'Verify Pro',
     body: 'Verify apps, failover when a code is not sent in time, fraud limits, and a drop-in widget.',
-    done: false,
+    done: true,
   },
   {
     v: '0.7',
     title: 'Messaging tools',
     body: 'Bulk and scheduled sends, auto-replies with opt-out, and forwarding to Telegram, email or a phone.',
     done: false,
-    next: true,
   },
 ];
 
@@ -1057,7 +1058,7 @@ export default function Home() {
                 From your own phones to any provider.
               </h2>
               <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
-                Five releases are done. Verify Pro is being built now; messaging tools come next.
+                Six releases are done. Messaging tools are being built now.
               </p>
             </div>
             <ol className="mt-12 grid gap-8 md:grid-cols-4 md:gap-6 lg:grid-cols-7">

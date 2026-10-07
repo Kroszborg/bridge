@@ -288,8 +288,8 @@ wake:     FCM high-priority data message when a job is queued for an offline dev
 - [x] Fraud protection: allowed countries, per-IP and number-range limits, per-country cap, blocked-attempt report (API, kept 30 days), `otp.blocked` event
 - [x] Widget API: publishable key, allowed origins, exact redirect URIs, test environment, Turnstile, public `/v1/widget/{key}` endpoints, HS256 token signed with the app secret, `POST /v1/otp/tokens/verify`
 - [x] SDK `verifyWidgetToken` and `bridge.otp.verifyToken`; docs for apps, failover, fraud protection, widget and tokens
-- [ ] Dashboard: Verify apps pages (settings, secret reveal and rotation, blocked-attempt report, statistics)
-- [ ] Drop-in widget (`widget.js`, `<bridge-verify>`) and hosted page (`/verify/{publishableKey}`) in the dashboard
+- [x] Dashboard: Verify apps pages (settings, secret reveal and rotation, blocked-attempt report, statistics)
+- [x] Drop-in widget (`widget.js`, `<bridge-verify>`) and hosted page (`/verify/{publishableKey}`) in the dashboard
 - [ ] Failover and widget verified end to end on physical phones and a real provider account
 
 **Milestone 10 (v0.7):** Messaging tools.

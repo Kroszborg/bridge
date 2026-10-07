@@ -60,6 +60,7 @@ bridgectl messages get msg_06ggn…                  # one message and its timel
 bridgectl messages tail                            # events as they happen
 
 bridgectl otp send +919876543210                   # one-time password (test keys print the code)
+bridgectl otp send +919876543210 --app checkout    # with a specific Verify app (ID or slug)
 bridgectl otp verify +919876543210 482913          # exit status 1 when the code is not valid
 bridgectl otp get otp_06gh…                        # a verification and its SMS
 

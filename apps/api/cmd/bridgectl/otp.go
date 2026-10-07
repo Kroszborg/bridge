@@ -42,9 +42,10 @@ func cmdOTP(ctx context.Context, args []string) error {
 }
 
 func cmdOTPSend(ctx context.Context, args []string) error {
-	var hash string
+	var hash, app string
 	c, g, pos, err := setup("otp send", args, func(fs *flag.FlagSet) {
 		fs.StringVar(&hash, "android-hash", "", "your Android app's 11-character SMS Retriever hash")
+		fs.StringVar(&app, "app", "", "Verify app ID or slug (default: the project's default app)")
 	})
 	if err != nil {
 		return err
@@ -55,6 +56,9 @@ func cmdOTPSend(ctx context.Context, args []string) error {
 	body := map[string]any{"to": pos[0]}
 	if hash != "" {
 		body["android_app_hash"] = hash
+	}
+	if app != "" {
+		body["app"] = app
 	}
 	var v verification
 	if _, err := c.request(ctx, "POST", "/v1/otp", nil, body, nil, &v); err != nil {
@@ -73,9 +77,10 @@ func cmdOTPSend(ctx context.Context, args []string) error {
 }
 
 func cmdOTPVerify(ctx context.Context, args []string) error {
-	var otpID string
+	var otpID, app string
 	c, g, pos, err := setup("otp verify", args, func(fs *flag.FlagSet) {
 		fs.StringVar(&otpID, "id", "", "check this verification instead of the latest code sent to a number")
+		fs.StringVar(&app, "app", "", "only codes of this Verify app (ID or slug)")
 	})
 	if err != nil {
 		return err
@@ -88,6 +93,9 @@ func cmdOTPVerify(ctx context.Context, args []string) error {
 		body["to"], body["code"] = pos[0], pos[1]
 	default:
 		return errors.New("usage: bridgectl otp verify TO CODE, or bridgectl otp verify --id ID CODE")
+	}
+	if app != "" {
+		body["app"] = app
 	}
 	var res struct {
 		Valid        bool         `json:"valid"`

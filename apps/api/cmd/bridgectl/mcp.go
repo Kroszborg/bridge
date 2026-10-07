@@ -38,13 +38,15 @@ type listMessagesInput struct {
 }
 
 type sendCodeInput struct {
-	To string `json:"to" jsonschema:"phone number to verify, E.164"`
+	To  string `json:"to" jsonschema:"phone number to verify, E.164"`
+	App string `json:"app,omitempty" jsonschema:"optional Verify app ID or slug; default is the project's default app"`
 }
 
 type checkCodeInput struct {
 	To   string `json:"to,omitempty" jsonschema:"the number the code was sent to (or pass id)"`
 	ID   string `json:"id,omitempty" jsonschema:"the verification ID, otp_... (or pass to)"`
 	Code string `json:"code" jsonschema:"the code the person entered"`
+	App  string `json:"app,omitempty" jsonschema:"optional Verify app ID or slug, when checking by number"`
 }
 
 type noInput struct{}
@@ -119,7 +121,11 @@ func addMCPTools(s *mcp.Server, c *client) {
 		Annotations: sends},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in sendCodeInput) (*mcp.CallToolResult, object, error) {
 			var out object
-			_, err := c.request(ctx, "POST", "/v1/otp", nil, object{"to": in.To}, nil, &out)
+			body := object{"to": in.To}
+			if in.App != "" {
+				body["app"] = in.App
+			}
+			_, err := c.request(ctx, "POST", "/v1/otp", nil, body, nil, &out)
 			return nil, out, err
 		})
 
@@ -128,6 +134,9 @@ func addMCPTools(s *mcp.Server, c *client) {
 		Annotations: &mcp.ToolAnnotations{}},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in checkCodeInput) (*mcp.CallToolResult, object, error) {
 			body := object{"code": in.Code}
+			if in.App != "" {
+				body["app"] = in.App
+			}
 			if in.ID != "" {
 				body["id"] = in.ID
 			} else {

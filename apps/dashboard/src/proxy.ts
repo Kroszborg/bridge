@@ -8,6 +8,7 @@ export function proxy(req: NextRequest) {
   if (
     PUBLIC.has(pathname) ||
     pathname.startsWith('/invite/') ||
+    pathname.startsWith('/verify/') ||
     req.cookies.has('bridge_session')
   ) {
     return NextResponse.next();

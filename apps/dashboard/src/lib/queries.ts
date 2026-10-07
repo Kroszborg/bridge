@@ -10,6 +10,10 @@ import type {
   Project,
   ProviderAccount,
   Routing,
+  VerifyAppCreateInput,
+  VerifyAppList,
+  VerifyAppUpdateInput,
+  VerifyBlockReason,
   WebhookEventType,
 } from '@bridge/api-types';
 import {
@@ -673,6 +677,8 @@ export type VerificationFilters = {
   environment: VerifyEnvironment;
   status?: 'pending' | 'verified' | 'expired' | 'failed' | 'canceled';
   to?: string;
+  /** Verify app ID or slug. */
+  app?: string;
 };
 
 export function useVerifications(projectId: string, filters: VerificationFilters) {
@@ -732,11 +738,19 @@ export function useOtpPlayground(projectId: string) {
   const qc = useQueryClient();
   const refresh = () => qc.invalidateQueries({ queryKey: ['projects', projectId, 'otp'] });
   const send = useMutation({
-    mutationFn: ({ environment, to }: { environment: VerifyEnvironment; to: string }) =>
+    mutationFn: ({
+      environment,
+      to,
+      app,
+    }: {
+      environment: VerifyEnvironment;
+      to: string;
+      app?: string;
+    }) =>
       unwrap(
         api.POST('/v1/projects/{projectId}/otp', {
           params: { path: { projectId }, query: { environment } },
-          body: { to },
+          body: { to, app },
         }),
       ),
     onSuccess: refresh,
@@ -746,20 +760,146 @@ export function useOtpPlayground(projectId: string) {
       environment,
       id,
       code,
+      app,
     }: {
       environment: VerifyEnvironment;
       id: string;
       code: string;
+      app?: string;
     }) =>
       unwrap(
         api.POST('/v1/projects/{projectId}/otp/verify', {
           params: { path: { projectId }, query: { environment } },
-          body: { id, code },
+          body: { id, code, app },
         }),
       ),
     onSuccess: refresh,
   });
   return { send, verify };
+}
+
+// ---- Verify apps ---------------------------------------------------------------
+
+const verifyAppsKey = (projectId: string) => ['projects', projectId, 'verify-apps'] as const;
+
+export function useVerifyApps(projectId: string) {
+  return useQuery({
+    queryKey: verifyAppsKey(projectId),
+    queryFn: () =>
+      unwrap(
+        api.GET('/v1/projects/{projectId}/verify-apps', { params: { path: { projectId } } }),
+      ).then((r) => r.data),
+    enabled: projectId !== '',
+  });
+}
+
+export function useCreateVerifyApp(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: VerifyAppCreateInput) =>
+      unwrap(
+        api.POST('/v1/projects/{projectId}/verify-apps', { params: { path: { projectId } }, body }),
+      ),
+    onSuccess: ({ secret: _secret, ...created }) => {
+      // Add it at once so the page can switch to it before the list refetches.
+      qc.setQueryData<VerifyAppList['data']>(verifyAppsKey(projectId), (list) =>
+        list ? [...list, created] : list,
+      );
+      qc.invalidateQueries({ queryKey: verifyAppsKey(projectId) });
+    },
+  });
+}
+
+export function useUpdateVerifyApp(projectId: string, appId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: VerifyAppUpdateInput) =>
+      unwrap(
+        api.PATCH('/v1/projects/{projectId}/verify-apps/{appId}', {
+          params: { path: { projectId, appId } },
+          body,
+        }),
+      ),
+    onSuccess: (updated) => {
+      qc.setQueryData<VerifyAppList['data']>(verifyAppsKey(projectId), (list) =>
+        list?.map((a) => (a.id === updated.id ? updated : a)),
+      );
+      // The default app also backs /otp/settings.
+      if (updated.is_default) {
+        qc.invalidateQueries({ queryKey: ['projects', projectId, 'otp', 'settings'] });
+      }
+    },
+  });
+}
+
+export function useDeleteVerifyApp(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (appId: string) =>
+      unwrap(
+        api.DELETE('/v1/projects/{projectId}/verify-apps/{appId}', {
+          params: { path: { projectId, appId } },
+        }),
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: verifyAppsKey(projectId) }),
+  });
+}
+
+/** Reveal (audited) or rotate an app's token signing secret. */
+export function useVerifyAppSecret(projectId: string, appId: string) {
+  const qc = useQueryClient();
+  const path = { projectId, appId };
+  return useMutation({
+    mutationFn: (action: 'reveal' | 'rotate') =>
+      action === 'reveal'
+        ? unwrap(
+            api.GET('/v1/projects/{projectId}/verify-apps/{appId}/secret', { params: { path } }),
+          )
+        : unwrap(
+            api.POST('/v1/projects/{projectId}/verify-apps/{appId}/secret', { params: { path } }),
+          ),
+    // A first reveal creates the secret, which flips secret_set.
+    onSuccess: () => qc.invalidateQueries({ queryKey: verifyAppsKey(projectId) }),
+  });
+}
+
+export function useVerifyAppStats(
+  projectId: string,
+  appId: string,
+  environment: VerifyEnvironment,
+) {
+  return useQuery({
+    queryKey: ['projects', projectId, 'otp', 'app-stats', appId, environment],
+    queryFn: () =>
+      unwrap(
+        api.GET('/v1/projects/{projectId}/verify-apps/{appId}/stats', {
+          params: { path: { projectId, appId }, query: { environment } },
+        }),
+      ),
+    enabled: appId !== '',
+    refetchInterval: 15_000,
+  });
+}
+
+export type BlockFilters = { environment: VerifyEnvironment; reason?: VerifyBlockReason };
+
+export function useVerifyAppBlocks(projectId: string, appId: string, filters: BlockFilters) {
+  return useInfiniteQuery({
+    queryKey: ['projects', projectId, 'otp', 'blocks', appId, filters],
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam }) =>
+      unwrap(
+        api.GET('/v1/projects/{projectId}/verify-apps/{appId}/blocks', {
+          params: {
+            path: { projectId, appId },
+            query: { ...filters, limit: 25, starting_after: pageParam },
+          },
+        }),
+      ),
+    getNextPageParam: (last) => (last.has_more ? last.data.at(-1)?.id : undefined),
+    enabled: appId !== '',
+    refetchInterval: 15_000,
+  });
 }
 
 // ---- providers and routing --------------------------------------------------

@@ -29,7 +29,8 @@ Usage:
   bridgectl messages get ID                        One message and its timeline
   bridgectl messages tail [--types T,…]            Print events as they happen
 
-  bridgectl otp send TO [--android-hash H]         Send a verification code
+  bridgectl otp send TO [--app A] [--android-hash H]
+                                                   Send a verification code
   bridgectl otp verify TO CODE                     Check the latest code sent to TO (exit 1 if wrong)
   bridgectl otp verify --id ID CODE                Check one verification
   bridgectl otp get ID                             A verification and its SMS

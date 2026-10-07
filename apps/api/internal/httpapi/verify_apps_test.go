@@ -358,10 +358,13 @@ func TestVerifyWidgetFlow(t *testing.T) {
 		t.Fatalf("preflight: %d %v", pre.Status, pre.Header)
 	}
 	evil := widgetClient(t, srv, "https://evil.example")
-	if r := evil.doWithHeaders("OPTIONS", base+"/send", nil, map[string]string{"Access-Control-Request-Method": "POST"}); r.Status != 403 || r.Header.Get("Access-Control-Allow-Origin") != "" {
+	// A site that is not allowed passes the preflight but is refused with a 403
+	// its page can read, so the widget can say why; nothing is sent.
+	if r := evil.doWithHeaders("OPTIONS", base+"/send", nil, map[string]string{"Access-Control-Request-Method": "POST"}); r.Status != 204 || r.Header.Get("Access-Control-Allow-Origin") != "https://evil.example" {
 		t.Fatalf("evil preflight: %d %v", r.Status, r.Header)
 	}
-	if r := evil.do("POST", base+"/send", map[string]any{"to": uniqueNumber()}); r.Status != 403 || r.Header.Get("Access-Control-Allow-Origin") != "" {
+	if r := evil.do("POST", base+"/send", map[string]any{"to": uniqueNumber()}); r.Status != 403 || r.errCode() != "forbidden" ||
+		r.Header.Get("Access-Control-Allow-Origin") != "https://evil.example" || !strings.Contains(r.errMessage(), "allowed origins") {
 		t.Fatalf("evil send: %d %s", r.Status, r.Raw)
 	}
 	if r := widgetClient(t, srv, dashboardOrigin).do("GET", base, nil); r.Status != 200 || r.Header.Get("Access-Control-Allow-Origin") != dashboardOrigin {

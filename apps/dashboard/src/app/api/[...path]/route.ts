@@ -5,10 +5,16 @@ import { API_URL } from '@/lib/server-api';
  * Same-origin proxy from the browser to the Bridge API. Keeping the API on the
  * dashboard's origin means the session cookie is first-party, no CORS is
  * needed, and the API URL is runtime configuration rather than a build-time constant.
+ *
+ * The one cross-origin caller is the drop-in widget (/v1/widget/*), embedded on
+ * other sites. The API decides which origins it admits, so the Origin header,
+ * preflight requests and the API's CORS response headers pass through unchanged.
  */
 
 const FORWARD_REQUEST = [
   'accept',
+  'access-control-request-headers',
+  'access-control-request-method',
   'content-type',
   'cookie',
   'origin',
@@ -16,7 +22,18 @@ const FORWARD_REQUEST = [
   'user-agent',
   'x-request-id',
 ];
-const FORWARD_RESPONSE = ['content-type', 'retry-after', 'x-request-id', 'cache-control'];
+const FORWARD_RESPONSE = [
+  'access-control-allow-headers',
+  'access-control-allow-methods',
+  'access-control-allow-origin',
+  'access-control-expose-headers',
+  'access-control-max-age',
+  'cache-control',
+  'content-type',
+  'retry-after',
+  'vary',
+  'x-request-id',
+];
 
 async function proxy(req: NextRequest, ctx: { params: Promise<{ path: string[] }> }) {
   const { path } = await ctx.params;
@@ -38,7 +55,7 @@ async function proxy(req: NextRequest, ctx: { params: Promise<{ path: string[] }
   const forwardedFor = req.headers.get('x-forwarded-for');
   if (forwardedFor) headers.set('x-forwarded-for', forwardedFor);
 
-  const hasBody = req.method !== 'GET' && req.method !== 'HEAD';
+  const hasBody = !['GET', 'HEAD', 'OPTIONS'].includes(req.method);
   let upstream: Response;
   try {
     upstream = await fetch(url, {
@@ -73,4 +90,11 @@ async function proxy(req: NextRequest, ctx: { params: Promise<{ path: string[] }
   });
 }
 
-export { proxy as DELETE, proxy as GET, proxy as PATCH, proxy as POST, proxy as PUT };
+export {
+  proxy as DELETE,
+  proxy as GET,
+  proxy as OPTIONS,
+  proxy as PATCH,
+  proxy as POST,
+  proxy as PUT,
+};

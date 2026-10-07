@@ -75,6 +75,7 @@ func (s *Server) widgetCORS(next http.Handler) http.Handler {
 		}
 		key, _, _ := strings.Cut(rest, "/")
 		w.Header().Add("Vary", "Origin")
+		origin := r.Header.Get("Origin")
 		app, err := s.otp.AppByPublishableKey(r.Context(), key)
 		if err != nil {
 			if !errors.Is(err, otp.ErrAppNotFound) {
@@ -82,20 +83,20 @@ func (s *Server) widgetCORS(next http.Handler) http.Handler {
 				writeRawError(w, r, http.StatusInternalServerError, CodeInternal, "Bridge hit an unexpected error. It has been logged.")
 				return
 			}
+			if origin != "" {
+				setWidgetCORS(w.Header(), origin) // let the page read why
+			}
 			writeRawError(w, r, http.StatusNotFound, CodeNotFound, "No Verify app has this publishable key. Copy it again from the Bridge dashboard.")
 			return
 		}
-		origin := r.Header.Get("Origin")
 		allowed := origin != "" && s.widgetOriginAllowed(app, origin)
-		if allowed {
-			h := w.Header()
-			h.Set("Access-Control-Allow-Origin", origin)
-			h.Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-			h.Set("Access-Control-Allow-Headers", "Content-Type")
-			h.Set("Access-Control-Expose-Headers", "Retry-After, X-Request-Id")
-			h.Set("Access-Control-Max-Age", "600")
+		if origin != "" {
+			// Every origin may read the response, including a refusal: a site that
+			// is not allowed gets a readable 403 below instead of a bare network
+			// error. Nothing runs for it, so this exposes no data.
+			setWidgetCORS(w.Header(), origin)
 		}
-		if origin != "" && !allowed {
+		if origin != "" && !allowed && r.Method != http.MethodOptions {
 			writeRawError(w, r, http.StatusForbidden, CodeForbidden,
 				"The origin "+clipString(origin, 100)+" may not use this Verify app. Add it to the app's allowed origins in the Bridge dashboard.")
 			return
@@ -257,4 +258,12 @@ func (s *Server) registerWidget(api huma.API) {
 		}
 		return &struct{ Body WidgetRedirectCheck }{Body: WidgetRedirectCheck{OK: true}}, nil
 	})
+}
+
+func setWidgetCORS(h http.Header, origin string) {
+	h.Set("Access-Control-Allow-Origin", origin)
+	h.Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+	h.Set("Access-Control-Allow-Headers", "Content-Type")
+	h.Set("Access-Control-Expose-Headers", "Retry-After, X-Request-Id")
+	h.Set("Access-Control-Max-Age", "600")
 }
