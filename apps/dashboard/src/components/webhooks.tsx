@@ -25,11 +25,20 @@ export const EVENT_TYPES: { type: WebhookEventType; description: string }[] = [
   { type: 'message.delivered', description: 'The carrier confirmed delivery.' },
   { type: 'message.failed', description: 'Sending or delivery failed for good.' },
   { type: 'message.received', description: 'A phone with forwarding on received an SMS.' },
+  {
+    type: 'message.auto_replied',
+    description: 'An auto-reply rule matched an incoming SMS, with its action and any reply.',
+  },
+  {
+    type: 'broadcast.completed',
+    description: 'Every message in a broadcast was sent or failed. Includes the final counts.',
+  },
   { type: 'device.online', description: 'A phone connected.' },
   { type: 'device.offline', description: 'A phone has been offline for 2 minutes.' },
   { type: 'otp.verified', description: 'A one-time password was entered correctly.' },
   { type: 'otp.failed', description: 'A verification ran out of attempts.' },
   { type: 'otp.expired', description: 'A code lapsed without being used.' },
+  { type: 'otp.blocked', description: 'Fraud protection refused to send a code.' },
 ];
 
 /** Health of an endpoint as a status badge. */

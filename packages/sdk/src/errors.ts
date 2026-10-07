@@ -11,6 +11,7 @@ export type BridgeErrorCode =
   | 'invalid_request'
   | 'rate_limited'
   | 'otp_blocked'
+  | 'opted_out'
   | 'service_unavailable'
   | 'internal_error'
   | (string & {});

@@ -2,14 +2,27 @@
 
 import type {
   ApiKey,
+  AutoReplyRule,
+  AutoReplyRuleCreateInput,
+  AutoReplyRuleUpdateInput,
+  Broadcast,
+  BroadcastCreateInput,
+  BroadcastPreview,
+  BroadcastStatus,
   components,
+  ErrorBody,
+  ForwardingRuleCreateInput,
+  ForwardingRuleUpdateInput,
   Integration,
   Message,
+  OptOut,
   Organization,
   OtpSettingsInput,
   Project,
   ProviderAccount,
   Routing,
+  ScheduleCreateInput,
+  ScheduleUpdateInput,
   VerifyAppCreateInput,
   VerifyAppList,
   VerifyAppUpdateInput,
@@ -24,7 +37,7 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import { useSyncExternalStore } from 'react';
-import { api, unwrap } from './api';
+import { api, BridgeApiError, unwrap } from './api';
 
 export const keys = {
   projects: (orgId: string) => ['organizations', orgId, 'projects'] as const,
@@ -1066,5 +1079,387 @@ export function useDeleteIntegration(projectId: string) {
         }),
       ),
     onSuccess: () => qc.invalidateQueries({ queryKey: keys.integrations(projectId) }),
+  });
+}
+
+// ---- messaging tools: broadcasts, schedules, opt-outs, automation -------------
+
+export type Environment = 'live' | 'test';
+
+const broadcastsKey = (projectId: string) => ['projects', projectId, 'broadcasts'] as const;
+const schedulesKey = (projectId: string) => ['projects', projectId, 'schedules'] as const;
+const optOutsKey = (projectId: string) => ['projects', projectId, 'opt-outs'] as const;
+const autoRepliesKey = (projectId: string) => ['projects', projectId, 'auto-replies'] as const;
+const forwardingKey = (projectId: string) => ['projects', projectId, 'forwarding-rules'] as const;
+
+const broadcastActive = (b: Broadcast) => b.status === 'scheduled' || b.status === 'sending';
+
+/** Broadcasts in one environment; refreshes every 3s while one is sending. */
+export function useBroadcasts(
+  projectId: string,
+  environment: Environment,
+  status?: BroadcastStatus,
+) {
+  return useInfiniteQuery({
+    queryKey: [...broadcastsKey(projectId), environment, status ?? 'all'],
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam }) =>
+      unwrap(
+        api.GET('/v1/projects/{projectId}/broadcasts', {
+          params: {
+            path: { projectId },
+            query: { environment, status, limit: 25, starting_after: pageParam },
+          },
+        }),
+      ),
+    getNextPageParam: (last) => (last.has_more ? last.data.at(-1)?.id : undefined),
+    refetchInterval: (q) =>
+      q.state.data?.pages.some((p) => p.data.some((b) => b.status === 'sending')) ? 3_000 : 15_000,
+  });
+}
+
+export function useBroadcast(projectId: string, broadcastId: string | null) {
+  return useQuery({
+    queryKey: [...broadcastsKey(projectId), 'detail', broadcastId],
+    queryFn: () =>
+      unwrap(
+        api.GET('/v1/projects/{projectId}/broadcasts/{broadcastId}', {
+          params: { path: { projectId, broadcastId: broadcastId ?? '' } },
+        }),
+      ),
+    enabled: broadcastId !== null,
+    refetchInterval: (q) => (q.state.data && broadcastActive(q.state.data) ? 2_000 : false),
+  });
+}
+
+export type BroadcastRequest = { environment: Environment; body: BroadcastCreateInput };
+
+/** dry_run: validates and renders without creating anything. */
+export function usePreviewBroadcast(projectId: string) {
+  return useMutation({
+    mutationFn: ({ environment, body }: BroadcastRequest) =>
+      unwrap(
+        api.POST('/v1/projects/{projectId}/broadcasts', {
+          params: { path: { projectId }, query: { environment } },
+          body: { ...body, dry_run: true },
+        }),
+      ) as Promise<BroadcastPreview>,
+  });
+}
+
+export function useCreateBroadcast(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ environment, body }: BroadcastRequest) =>
+      unwrap(
+        api.POST('/v1/projects/{projectId}/broadcasts', {
+          params: { path: { projectId }, query: { environment } },
+          body: { ...body, dry_run: false },
+        }),
+      ) as Promise<Broadcast>,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: broadcastsKey(projectId) });
+      qc.invalidateQueries({ queryKey: keys.messages(projectId) });
+    },
+  });
+}
+
+export function useCancelBroadcast(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (broadcastId: string) =>
+      unwrap(
+        api.POST('/v1/projects/{projectId}/broadcasts/{broadcastId}/cancel', {
+          params: { path: { projectId, broadcastId } },
+        }),
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: broadcastsKey(projectId) }),
+  });
+}
+
+export function useSchedules(projectId: string, environment: Environment) {
+  return useInfiniteQuery({
+    queryKey: [...schedulesKey(projectId), environment],
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam }) =>
+      unwrap(
+        api.GET('/v1/projects/{projectId}/schedules', {
+          params: {
+            path: { projectId },
+            query: { environment, limit: 50, starting_after: pageParam },
+          },
+        }),
+      ),
+    getNextPageParam: (last) => (last.has_more ? last.data.at(-1)?.id : undefined),
+    refetchInterval: 15_000,
+  });
+}
+
+export function useCreateSchedule(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ environment, body }: { environment: Environment; body: ScheduleCreateInput }) =>
+      unwrap(
+        api.POST('/v1/projects/{projectId}/schedules', {
+          params: { path: { projectId }, query: { environment } },
+          body,
+        }),
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: schedulesKey(projectId) }),
+  });
+}
+
+export function useUpdateSchedule(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ scheduleId, body }: { scheduleId: string; body: ScheduleUpdateInput }) =>
+      unwrap(
+        api.PATCH('/v1/projects/{projectId}/schedules/{scheduleId}', {
+          params: { path: { projectId, scheduleId } },
+          body,
+        }),
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: schedulesKey(projectId) }),
+  });
+}
+
+export function useDeleteSchedule(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (scheduleId: string) =>
+      unwrap(
+        api.DELETE('/v1/projects/{projectId}/schedules/{scheduleId}', {
+          params: { path: { projectId, scheduleId } },
+        }),
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: schedulesKey(projectId) }),
+  });
+}
+
+export type ScheduleAction = 'pause' | 'resume' | 'run';
+
+/** Pause, resume, or send once now. */
+export function useScheduleAction(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ scheduleId, action }: { scheduleId: string; action: ScheduleAction }) => {
+      const params = { params: { path: { projectId, scheduleId } } };
+      if (action === 'pause') {
+        return unwrap(api.POST('/v1/projects/{projectId}/schedules/{scheduleId}/pause', params));
+      }
+      if (action === 'resume') {
+        return unwrap(api.POST('/v1/projects/{projectId}/schedules/{scheduleId}/resume', params));
+      }
+      return unwrap(api.POST('/v1/projects/{projectId}/schedules/{scheduleId}/run', params));
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: schedulesKey(projectId) });
+      qc.invalidateQueries({ queryKey: keys.messages(projectId) });
+    },
+  });
+}
+
+export function useOptOuts(projectId: string, source?: OptOut['source']) {
+  return useInfiniteQuery({
+    queryKey: [...optOutsKey(projectId), source ?? 'all'],
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam }) =>
+      unwrap(
+        api.GET('/v1/projects/{projectId}/opt-outs', {
+          params: { path: { projectId }, query: { source, limit: 100, starting_after: pageParam } },
+        }),
+      ),
+    getNextPageParam: (last) => (last.has_more ? last.data.at(-1)?.id : undefined),
+    refetchInterval: 30_000,
+  });
+}
+
+export function useAddOptOut(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (number: string) =>
+      unwrap(
+        api.POST('/v1/projects/{projectId}/opt-outs', {
+          params: { path: { projectId } },
+          body: { number },
+        }),
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: optOutsKey(projectId) }),
+  });
+}
+
+export function useRemoveOptOut(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (number: string) =>
+      unwrap(
+        api.DELETE('/v1/projects/{projectId}/opt-outs/{number}', {
+          params: { path: { projectId, number } },
+        }),
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: optOutsKey(projectId) }),
+  });
+}
+
+/** Downloads the opt-out list as CSV through the dashboard's API proxy. */
+export async function downloadOptOuts(projectId: string): Promise<void> {
+  let res: Response;
+  try {
+    res = await fetch(`/api/v1/projects/${encodeURIComponent(projectId)}/opt-outs/export`, {
+      credentials: 'same-origin',
+    });
+  } catch {
+    throw new BridgeApiError(0, {
+      code: 'network_error',
+      message: 'Could not reach Bridge. Check your connection and that the API is running.',
+    });
+  }
+  if (!res.ok) {
+    const body = (await res.json().catch(() => undefined)) as { error?: ErrorBody } | undefined;
+    throw new BridgeApiError(res.status, body?.error, res.headers.get('x-request-id') ?? undefined);
+  }
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `opt-outs-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1_000);
+}
+
+export function useAutoReplies(projectId: string) {
+  return useQuery({
+    queryKey: autoRepliesKey(projectId),
+    queryFn: () =>
+      unwrap(
+        api.GET('/v1/projects/{projectId}/auto-replies', { params: { path: { projectId } } }),
+      ).then((r) => r.data),
+    enabled: projectId !== '',
+  });
+}
+
+export function useCreateAutoReply(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: AutoReplyRuleCreateInput) =>
+      unwrap(
+        api.POST('/v1/projects/{projectId}/auto-replies', {
+          params: { path: { projectId } },
+          body,
+        }),
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: autoRepliesKey(projectId) }),
+  });
+}
+
+export function useUpdateAutoReply(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ ruleId, ...body }: AutoReplyRuleUpdateInput & { ruleId: string }) =>
+      unwrap(
+        api.PATCH('/v1/projects/{projectId}/auto-replies/{ruleId}', {
+          params: { path: { projectId, ruleId } },
+          body,
+        }),
+      ),
+    onSuccess: (updated) =>
+      qc.setQueryData<AutoReplyRule[]>(autoRepliesKey(projectId), (list) =>
+        list?.map((r) => (r.id === updated.id ? updated : r)),
+      ),
+    onSettled: () => qc.invalidateQueries({ queryKey: autoRepliesKey(projectId) }),
+  });
+}
+
+export function useDeleteAutoReply(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (ruleId: string) =>
+      unwrap(
+        api.DELETE('/v1/projects/{projectId}/auto-replies/{ruleId}', {
+          params: { path: { projectId, ruleId } },
+        }),
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: autoRepliesKey(projectId) }),
+  });
+}
+
+export function useForwardingRules(projectId: string) {
+  return useQuery({
+    queryKey: forwardingKey(projectId),
+    queryFn: () =>
+      unwrap(
+        api.GET('/v1/projects/{projectId}/forwarding-rules', { params: { path: { projectId } } }),
+      ),
+    enabled: projectId !== '',
+    refetchInterval: 15_000,
+  });
+}
+
+export function useCreateForwardingRule(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: ForwardingRuleCreateInput) =>
+      unwrap(
+        api.POST('/v1/projects/{projectId}/forwarding-rules', {
+          params: { path: { projectId } },
+          body,
+        }),
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: forwardingKey(projectId) }),
+  });
+}
+
+export function useUpdateForwardingRule(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ ruleId, ...body }: ForwardingRuleUpdateInput & { ruleId: string }) =>
+      unwrap(
+        api.PATCH('/v1/projects/{projectId}/forwarding-rules/{ruleId}', {
+          params: { path: { projectId, ruleId } },
+          body,
+        }),
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: forwardingKey(projectId) }),
+  });
+}
+
+export function useDeleteForwardingRule(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (ruleId: string) =>
+      unwrap(
+        api.DELETE('/v1/projects/{projectId}/forwarding-rules/{ruleId}', {
+          params: { path: { projectId, ruleId } },
+        }),
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: forwardingKey(projectId) }),
+  });
+}
+
+/** A rule's recent deliveries, newest first; faster refresh while any is in flight. */
+export function useForwardingDeliveries(projectId: string, ruleId: string, limit = 50) {
+  return useQuery({
+    queryKey: [...forwardingKey(projectId), ruleId, 'deliveries', limit],
+    queryFn: () =>
+      unwrap(
+        api.GET('/v1/projects/{projectId}/forwarding-rules/{ruleId}/deliveries', {
+          params: { path: { projectId, ruleId }, query: { limit } },
+        }),
+      ).then((r) => r.data),
+    refetchInterval: (q) =>
+      q.state.data?.some((d) => d.status === 'pending' || d.status === 'retrying') ? 3_000 : 15_000,
+  });
+}
+
+/** Reveals a rule's webhook signing secret. Every reveal is audited. */
+export function useForwardingSecret(projectId: string) {
+  return useMutation({
+    mutationFn: (ruleId: string) =>
+      unwrap(
+        api.GET('/v1/projects/{projectId}/forwarding-rules/{ruleId}/secret', {
+          params: { path: { projectId, ruleId } },
+        }),
+      ),
   });
 }

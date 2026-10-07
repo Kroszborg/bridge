@@ -24,6 +24,14 @@ and records every step.
 (`200` and `Idempotent-Replayed: true`) instead of sending twice. The same key with a different
 body is rejected with `409`.
 
+A number on the project's [opt-out list](../automation/README.md#opt-out-list) (for example
+because it replied `STOP`) is refused with `409` and code `opted_out`, and nothing is queued. Only
+one-time passwords still go to it. Do not retry.
+
+To send one template to many numbers, use a [broadcast](../broadcasts/README.md); to send at set
+times, a [schedule](../schedules/README.md). Their messages are ordinary messages with
+`metadata.broadcast_id` or `metadata.schedule_id`.
+
 ## Lifecycle
 
 ```text
@@ -130,6 +138,17 @@ sent and it costs nothing. These numbers produce specific outcomes:
 | `delivery_failed` | The carrier reported the message undelivered |
 | `generic_failure`, `android_error_<n>` | Android could not confirm sending. Not retried, because the SMS may have gone out |
 | `<provider>_<code>` | An SMS provider refused or failed the message; see [SMS providers](../providers/README.md#error-codes) |
+| `canceled` | Canceled while still waiting in the queue, because its [broadcast](../broadcasts/README.md#cancel) was canceled |
+
+## Timeline entries from messaging tools
+
+Besides status changes, a message's timeline can show:
+
+| Entry | On | Detail |
+| --- | --- | --- |
+| `canceled` | Outgoing | The message was canceled before any phone or provider took it. `reason`: `broadcast_canceled`. The message is `failed` with `error_code: canceled`. |
+| `auto_reply` | Incoming | An [auto-reply rule](../automation/README.md#auto-reply-rules) matched: `rule_id`, `rule_name`, `keyword`, `action`, and `reply_message_id`, `reply_skipped` (`loop_protection`, `device_removed`) or `reply_error`. When the sender is not a phone number: `skipped: sender_not_a_phone_number`. |
+| `automation_skipped` | Incoming | Auto-replies and forwarding were not run. `reason: forwarded_by_bridge`: the SMS is one of Bridge's own forwards arriving at another of your phones. |
 
 ## Incoming messages
 
@@ -151,3 +170,6 @@ with only their last three digits. Phones drop a message's text as soon as Andro
 | Requests per API key | 300 per minute |
 | Messages per project | 1,000 per hour |
 | Messages per destination number | 20 per hour |
+
+[Broadcast](../broadcasts/README.md#pacing-and-limits) messages do not count against the two
+message limits; a project may create 20 broadcasts an hour instead.

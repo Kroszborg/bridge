@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -76,7 +77,16 @@ func (s *Service) DeviceInbound(ctx context.Context, deviceID string, in gateway
 	sum := sha256.Sum256([]byte(body))
 	key := "inbound:" + deviceID + ":" + in.InboundID
 
-	m, err := s.q.InsertInboundMessage(ctx, dbq.InsertInboundMessageParams{
+	// The message, its timeline and the automation job are stored together: if
+	// any fails the phone gets no acknowledgement and resends the SMS, so STOP
+	// handling and forwarding are never lost.
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	q := s.q.WithTx(tx)
+	m, err := q.InsertInboundMessage(ctx, dbq.InsertInboundMessageParams{
 		ID: id.New(id.Message), ProjectID: d.ProjectID, DeviceID: &d.ID, Sender: &from, Body: body,
 		Segments: &seg, Encoding: &encoding, IdempotencyKey: &key, SimSlot: sim,
 		BodySha256: sum[:], BodyLength: ptr(int32(len([]rune(body)))), Metadata: rawMeta,
@@ -88,17 +98,20 @@ func (s *Service) DeviceInbound(ctx context.Context, deviceID string, in gateway
 		return err
 	}
 	received := message.Received
-	if err := s.event(ctx, s.q, m, "received", nil, &received, map[string]any{"device_id": d.ID, "device_name": d.Name}); err != nil {
+	if err := s.event(ctx, q, m, "received", nil, &received, map[string]any{"device_id": d.ID, "device_name": d.Name}); err != nil {
+		return err
+	}
+	if s.jobs != nil {
+		// Auto-replies, opt-out keywords and forwarding rules run in the worker.
+		if _, err := s.jobs.InsertTx(ctx, tx, InboundArgs{MessageID: m.ID}, nil); err != nil {
+			return fmt.Errorf("queue incoming SMS automation: %w", err)
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
 		return err
 	}
 	s.log.Info("incoming SMS stored", "message_id", m.ID, "device_id", d.ID, "from", maskNumber(from), "segments", segments)
 	s.emit(ctx, m, webhook.EventMessageReceived)
-	if s.jobs != nil {
-		// Auto-replies, opt-out keywords and forwarding rules run in the worker.
-		if _, err := s.jobs.Insert(ctx, InboundArgs{MessageID: m.ID}, nil); err != nil {
-			s.log.Error("could not queue incoming SMS automation", "message_id", m.ID, "error", err)
-		}
-	}
 	return nil
 }
 

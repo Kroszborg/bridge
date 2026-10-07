@@ -375,6 +375,24 @@ export default function PlaygroundPage() {
                   <span className="font-semibold text-destructive">{result.error.status}</span>{' '}
                   {result.error.code}
                 </p>
+                {result.error.code === 'opted_out' ? (
+                  <div className="rounded-lg border border-warning/40 bg-warning/8 p-3 text-xs/relaxed">
+                    <p className="font-semibold text-foreground">This number opted out</p>
+                    <p className="mt-1 text-muted-foreground">
+                      The person asked not to receive messages from this project, for example by
+                      replying STOP. Bridge refuses ordinary messages, broadcasts and schedules to
+                      it; one-time passwords from Verify still go. If they asked to hear from you
+                      again, remove the number on the{' '}
+                      <Link
+                        href={`/projects/${projectId}/automation?tab=opt-outs`}
+                        className="font-medium text-primary hover:underline"
+                      >
+                        opt-out list
+                      </Link>
+                      .
+                    </p>
+                  </div>
+                ) : null}
                 <CodeBlock
                   language="json"
                   code={JSON.stringify(

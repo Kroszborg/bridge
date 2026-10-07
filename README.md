@@ -27,8 +27,9 @@ phone, or a messaging provider as a fallback or instead) can change without rewr
 > an audit log, a public status page, the Verify API for one-time passwords, SMS providers (MSG91,
 > Twilio, Vonage, Plivo) with fallback routing, integrations such as the Supabase Send SMS hook, and
 > an MCP server for AI assistants, and Verify Pro: Verify apps per project, delivery failover, fraud
-> protection, and a drop-in widget and hosted page with signed tokens. In progress for 0.7: bulk and
-> scheduled sends, auto-replies and forwarding rules. Bridge has not yet been verified on enough
+> protection, and a drop-in widget and hosted page with signed tokens. In progress for 0.7, with the
+> API, SDK and CLI done and the dashboard pages under way: broadcasts, scheduled messages, an
+> opt-out list with keyword auto-replies, and forwarding rules for incoming SMS. Bridge has not yet been verified on enough
 > real phones and provider accounts to call it stable. See the [Era 0 plan](docs/architecture/era-0-plan.md) for exactly
 > what works today. Do not run it in production yet.
 
@@ -72,6 +73,17 @@ To be told when it is delivered, or when a phone receives an SMS, add a webhook 
 [Sending messages](docs/messages/README.md) and [Webhooks](docs/webhooks/README.md). For login and
 sign-up codes, use [Verify](docs/otp/README.md): `POST /v1/otp`, then `POST /v1/otp/verify`, or
 drop in the [verification widget](docs/otp/README.md#drop-in-widget) and check its signed token.
+
+Messaging tools (0.7):
+
+* [Broadcasts](docs/broadcasts/README.md): one template with `{name}` variables to up to 10,000
+  numbers, with a dry run, a scheduled start, cancel, and pacing to what your phones can send.
+* [Scheduled messages](docs/schedules/README.md): once, daily, weekly or monthly at a local time
+  in any time zone, with daylight saving handled.
+* [Opt-outs and auto-replies](docs/automation/README.md): `STOP`, `START` and `HELP` work out of
+  the box; opted-out numbers are refused (`opted_out`) except for one-time passwords.
+* [Forwarding rules](docs/automation/README.md#forwarding-rules): copy incoming SMS to another
+  phone, Telegram, Slack, Discord, a signed webhook or email.
 
 **Use Bridge with** [Supabase Auth](docs/integrations/supabase.md),
 [Better Auth](docs/integrations/better-auth.md), [Auth0](docs/integrations/auth0.md),
@@ -118,12 +130,12 @@ Configuration lives in environment variables; see [`.env.example`](.env.example)
 | `apps/api` | Go API, background worker and migrations in one binary (`bridge serve`, `bridge worker`, `bridge migrate`) |
 | `apps/dashboard` | Next.js dashboard, including the public status page |
 | `apps/web` | Public website (static Next.js export) |
-| `apps/api/cmd/bridgectl` | Command-line tool: send, follow, tail events, forward webhooks locally, see [docs/cli](docs/cli/README.md) |
+| `apps/api/cmd/bridgectl` | Command-line tool: send, broadcast from CSV, opt-outs, follow, tail events, forward webhooks locally, see [docs/cli](docs/cli/README.md) |
 | `packages/sdk` | TypeScript SDK (MIT, zero dependencies), see [its README](packages/sdk/README.md) |
 | `packages/api-types` | TypeScript types generated from the API's OpenAPI document |
 | `examples` | [curl](examples/curl/README.md) and [Node.js](examples/node/README.md) examples |
 | `android/gateway` | Android gateway app (Kotlin, `foss` and `gms` builds), see [docs/android](docs/android/README.md) |
-| `docs` | Guides ([messages](docs/messages/README.md), [Verify](docs/otp/README.md), [providers](docs/providers/README.md), [integrations](docs/integrations/README.md)), architecture, security model, self-hosting, [releasing](docs/releasing.md) |
+| `docs` | Guides ([messages](docs/messages/README.md), [broadcasts](docs/broadcasts/README.md), [schedules](docs/schedules/README.md), [automation](docs/automation/README.md), [Verify](docs/otp/README.md), [providers](docs/providers/README.md), [integrations](docs/integrations/README.md)), architecture, security model, self-hosting, [releasing](docs/releasing.md) |
 
 The stack is deliberately boring: Go, PostgreSQL (data and job queue), Next.js. Self-hosting needs
 one binary and one database.
@@ -138,10 +150,11 @@ one binary and one database.
 | 0.4 | Verify API: `bridge.otp.send()` / `bridge.otp.verify()` with a zero-cost test mode (done, released as v0.4.0-rc.1; see [docs/otp](docs/otp/README.md)) |
 | 0.5 | [SMS providers](docs/providers/README.md) (MSG91, Twilio, Vonage, Plivo) with fallback routing, and [integrations](docs/integrations/README.md) (Supabase hook, Better Auth, Auth0, no-code tools) |
 | 0.6 | Verify Pro: [Verify apps](docs/otp/README.md#verify-apps) per project, delivery failover, fraud protection, drop-in widget and hosted page |
-| 0.7 | Messaging tools: bulk and scheduled sends, auto-replies with opt-out, forwarding rules (in progress) |
+| 0.7 | Messaging tools: [broadcasts](docs/broadcasts/README.md) and [scheduled sends](docs/schedules/README.md), [auto-replies with opt-out, forwarding rules](docs/automation/README.md) |
 
-Bridge is not a bulk-SMS or marketing tool, and it does not help you bypass carrier rules, DLT
-registration or provider policies. Throughput is limited by your SIM and carrier, and Bridge
+Bridge is not a marketing tool, and it does not help you bypass carrier rules, DLT registration or
+provider policies. Broadcasts are for messages people expect from you, are paced to your phones'
+send limits, and always honour opt-outs. Throughput is limited by your SIM and carrier, and Bridge
 reports those limits rather than hiding them.
 
 ## Contributing

@@ -14,6 +14,9 @@ This describes what Bridge does today (v0.1 foundation). It is updated with each
 | Verify publishable key | `bpk_` + 32 chars | plaintext (it is public) | for the app's life |
 | Verify app signing secret | `bvs_` + 48 base62 chars | AES-256-GCM under `BRIDGE_SECRET_KEY`, bound to the app ID | until rotated |
 | Turnstile secret | from Cloudflare | AES-256-GCM under `BRIDGE_SECRET_KEY`, bound to the app ID | until changed |
+| Forwarding rule signing secret | `whsec_` + 32 random bytes | plaintext (signing needs it) | for the rule's life |
+| Telegram bot token (forwarding) | from @BotFather | AES-256-GCM under `BRIDGE_SECRET_KEY`, bound to the destination ID | until changed or removed |
+| SMTP password | set by the operator | environment only (`BRIDGE_SMTP_PASSWORD`), never in the database | until changed |
 | Verify widget token | HS256 JWT | not stored | 10 minutes |
 
 * Random values come from `crypto/rand` with rejection sampling (no modulo bias).
@@ -86,8 +89,11 @@ and the header is read right to left so clients cannot spoof their address.
 * Server errors return a generic message plus the request ID; the cause is logged, never sent.
 * The `audit_logs` table records sign-ups, organization and project changes, API keys, phones,
   webhooks and their secrets being revealed or rotated, invites, role changes, member removal,
-  password changes, session revocations, SMS providers, routing, integrations, and Verify apps
-  (created, updated, deleted, signing secret revealed or rotated), with actor, target and IP. Owners and admins read it on
+  password changes, session revocations, SMS providers, routing, integrations, Verify apps
+  (created, updated, deleted, signing secret revealed or rotated), broadcasts created or canceled
+  and schedule changes from the dashboard, opt-outs added or removed in the dashboard, and
+  auto-reply and forwarding rules (created, updated, deleted, signing secret revealed), with actor,
+  target and IP. Owners and admins read it on
   the Audit log page. Metadata never contains secrets.
 
 ## Status data
@@ -241,6 +247,54 @@ when that is unset.
   that arrive after it was turned off.
 * Incoming messages are rate limited per device (1,000 per hour). Above that the phone keeps them
   and retries later.
+
+## Opt-outs, broadcasts and schedules
+
+* Ordinary messages to a number on the project's opt-out list are refused before anything is
+  queued, whichever way they are sent (API, SDK, CLI, MCP, broadcasts, schedules, forwarding to a
+  phone). One-time passwords and auto-replies are exempt: people must still be able to sign in,
+  and the person who texted `STOP` gets the confirmation. The list is per project and shared by
+  live and test keys.
+* Changing the list or the rules from the dashboard needs an owner or admin. Live broadcasts and
+  live schedules from the dashboard also need an owner or admin; members can use test mode.
+* Broadcasts skip the per-message hourly limits but are admitted as a whole: at most 10,000
+  recipients each and 20 per project per hour, paced to the project's phone capacity.
+* Broadcast template variables are stored only until each recipient's message is created, then
+  cleared; the message text follows the message retention period. The template itself, the
+  recipient numbers and a schedule's message stay until the broadcast's project or the schedule is
+  deleted.
+* **CSV exports** (the opt-out list) are protected against formula injection: a cell that starts
+  with `=`, `+`, `-`, `@`, a tab or a carriage return is prefixed with `'` so spreadsheet apps show
+  it as text instead of running it. E.164 numbers (`+` and digits only) are left as they are.
+
+## Forwarding and auto-replies
+
+* **Destinations are untrusted, like webhook endpoints.** Forwarding webhooks connect only to
+  public addresses (checked after DNS resolution on every connection), never follow redirects,
+  time out after 15 seconds, and keep at most 300 characters of a response in the delivery log. `BRIDGE_WEBHOOK_ALLOW_PRIVATE_ENDPOINTS` lifts the address check, as
+  for webhooks. Telegram requests go only to Telegram's API.
+* **Signing.** Each forwarding rule has its own Standard Webhooks secret. It is stored in plaintext
+  because signing needs it, so protect database backups. It is shown once at creation; reveals are
+  audit-logged and list responses never include it. Retries reuse the delivery ID as `webhook-id`
+  so receivers can de-duplicate.
+* **Telegram bot tokens** are write-only: encrypted with AES-256-GCM under `BRIDGE_SECRET_KEY`,
+  bound to their destination's ID, and never returned by the API (only `bot_token_set`). Without
+  the key they cannot be stored. Bridge removes the token from any error message it records,
+  because Telegram's URLs contain it.
+* **SMTP.** `starttls` (the default) refuses to continue if the server does not offer STARTTLS;
+  `tls` uses TLS from the first byte. Both require TLS 1.2 or newer and verify the server's
+  certificate against `BRIDGE_SMTP_HOST`. Credentials are only sent over TLS, or to `localhost`
+  with `none`. Header values are stripped of line breaks, so a sender ID cannot inject email
+  headers, and messages carry `Auto-Submitted: auto-generated`.
+* **Loop protection.** An auto-reply rule answers a number at most once every 10 minutes, and rules
+  never act on alphanumeric sender IDs, short codes (fewer than 7 digits) or numbers without a
+  country code. An incoming SMS whose text matches a message Bridge forwarded in the last hour is
+  ignored by auto-replies and forwarding, so two of your phones cannot forward to each other
+  forever. Each incoming SMS is answered once and forwarded once per destination, even when its
+  processing is retried.
+* Forwarding copies message text to other services, where Bridge's retention no longer applies.
+  Forwarding delivery logs are deleted after the message retention period, and a forward that has
+  not gone out by the time the text is removed is not sent.
 
 ## Containers
 

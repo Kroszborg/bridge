@@ -28,6 +28,8 @@ A project can have up to 10 endpoints.
 | `message.delivered` | The carrier confirmed delivery. |
 | `message.failed` | Sending or delivery failed for good (after Bridge's own retries). |
 | `message.received` | A phone with forwarding turned on received an SMS. See [Incoming SMS](#incoming-sms). |
+| `message.auto_replied` | An [auto-reply rule](../automation/README.md#auto-reply-rules) ran for an incoming SMS. See [below](#messageauto_replied). |
+| `broadcast.completed` | Every message of a [broadcast](../broadcasts/README.md) was sent or failed. `data` is the broadcast with its final counts. |
 | `device.online` | A phone connected. |
 | `device.offline` | A phone has been offline for 2 minutes. A brief network change is not reported. |
 | `otp.verified` | A one-time password was entered correctly. `data` is the [verification](../otp/README.md). |
@@ -219,6 +221,53 @@ dropped by the server.
 Incoming bodies follow the same retention as outgoing ones: they are removed after
 `BRIDGE_MESSAGE_RETENTION` (default 30 days). Webhook events and their delivery logs are deleted
 after the same period.
+
+## `message.auto_replied`
+
+Sent when an [auto-reply rule](../automation/README.md#auto-reply-rules) runs for an incoming SMS
+from a phone number, whether or not a reply went out. Use it to mirror opt-outs (`action:
+opt_out`) and opt-ins into your own records.
+
+```json
+{
+  "type": "message.auto_replied",
+  "timestamp": "2026-10-07T09:31:03Z",
+  "data": {
+    "environment": "live",
+    "message": { "id": "msg_06gj9b…", "direction": "inbound", "status": "received", "from": "+919876543210", "body": "STOP" },
+    "rule_id": "arr_06gj8z…",
+    "rule_name": "Unsubscribe",
+    "keyword": "STOP",
+    "action": "opt_out",
+    "reply_message_id": "msg_06gj9d…"
+  }
+}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `message` | The incoming SMS, as in `message.received`. |
+| `rule_id`, `rule_name` | The rule that ran. |
+| `keyword` | The keyword that matched, as written in the rule. |
+| `action` | `none`, `opt_out` or `opt_in`. |
+| `reply_message_id` | The reply Bridge sent, or `null` when the rule has no reply or the reply was skipped (loop protection, or the phone was removed). |
+
+No event is sent when the sender is an alphanumeric sender ID, a short code or a number not in
+international format, because rules do not act on those.
+
+## `broadcast.completed`
+
+Sent once, when every message of a [broadcast](../broadcasts/README.md) has been sent or failed.
+`data` is the broadcast as `GET /v1/broadcasts/{id}` returns it, including `environment` and the
+final `counts`. Delivery reports that arrive afterwards still produce `message.delivered` and
+`message.failed` events. A canceled broadcast does not send it.
+
+## Forwarding rules are separate
+
+[Forwarding rules](../automation/README.md#forwarding-rules) can also POST incoming SMS to a URL.
+Those requests are signed the same way but with the rule's own secret, carry the message itself
+rather than an event envelope, and are retried for about four hours. They do not use the endpoints
+on this page.
 
 ## Develop locally
 

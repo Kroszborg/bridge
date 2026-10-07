@@ -50,13 +50,15 @@ automatically. The settings that matter for a public deployment:
 | `BRIDGE_DASHBOARD_URL` | The HTTPS URL of the dashboard, e.g. `https://sms.example.com`. |
 | `BRIDGE_ALLOW_SIGNUP` | `false` once you have created your own account. Invite teammates from **Team**; invite links work with sign-up off. |
 | `BRIDGE_OPERATOR_EMAILS` | Your email. Operators see **System health**. When unset, the first account is the operator. |
-| `BRIDGE_SECRET_KEY` | 32 random bytes as base64 or hex: `openssl rand -base64 32`. Needed to store [SMS provider](../providers/README.md) credentials, [integration](../integrations/README.md) secrets, and Verify apps' token signing and Turnstile secrets. |
+| `BRIDGE_SECRET_KEY` | 32 random bytes as base64 or hex: `openssl rand -base64 32`. Needed to store [SMS provider](../providers/README.md) credentials, [integration](../integrations/README.md) secrets, Verify apps' token signing and Turnstile secrets, and Telegram bot tokens for [forwarding](../automation/README.md#telegram). |
+| `BRIDGE_SMTP_*` | Optional. An SMTP server for forwarding incoming SMS by email. See [Email for forwarding](#email-for-forwarding). |
 
 When `BRIDGE_DASHBOARD_URL` uses `https`, session cookies are automatically marked `Secure`.
 
-`BRIDGE_SECRET_KEY` encrypts provider credentials, integration signing secrets, and Verify apps'
-token signing and Turnstile secrets (AES-256-GCM). Bridge starts without it, but refuses to save
-them until it is set, and the [Verify widget](../otp/README.md#drop-in-widget) cannot issue tokens. Back it up with your database
+`BRIDGE_SECRET_KEY` encrypts provider credentials, integration signing secrets, Verify apps'
+token signing and Turnstile secrets, and forwarding rules' Telegram bot tokens (AES-256-GCM).
+Bridge starts without it, but refuses to save them until it is set, and the
+[Verify widget](../otp/README.md#drop-in-widget) cannot issue tokens. Back it up with your database
 backups: if it is lost or changed, stored credentials can no longer be read and must be entered
 again. The API and worker containers both need the same value.
 
@@ -71,7 +73,12 @@ The Verify widget's script (`<BRIDGE_DASHBOARD_URL>/widget.js`) and hosted page
 users when you use them.
 
 Request logs are kept for `BRIDGE_REQUEST_LOG_RETENTION` (default `336h`, 14 days) and message
-bodies for `BRIDGE_MESSAGE_RETENTION` (default `720h`).
+bodies for `BRIDGE_MESSAGE_RETENTION` (default `720h`). Forwarding delivery logs follow the
+message retention too.
+
+The worker runs scheduled messages: it checks for due [schedules](../schedules/README.md) once a
+minute. While no worker is running, nothing scheduled is sent; when it comes back, each overdue
+schedule sends once and continues, without replaying missed runs.
 
 Webhooks are delivered only to public addresses. If your application runs on the same host or
 Docker network as Bridge, set `BRIDGE_WEBHOOK_ALLOW_PRIVATE_ENDPOINTS=true`; see
@@ -83,11 +90,35 @@ put Bridge behind a reverse proxy, make sure it forwards WebSocket upgrades and 
 `X-Accel-Buffering: no` for nginx. Optional push settings for waking phones are described in
 [docs/android/README.md](../android/README.md).
 
+### Email for forwarding
+
+[Forwarding rules](../automation/README.md#forwarding-rules) can send incoming SMS by email through
+your SMTP server. Without these settings, email destinations are unavailable and everything else
+works.
+
+| Variable | Default | Notes |
+| --- | --- | --- |
+| `BRIDGE_SMTP_HOST` | | The mail server. Setting it turns email on. |
+| `BRIDGE_SMTP_PORT` | `587` | |
+| `BRIDGE_SMTP_TLS` | `starttls` | `starttls` (usually port 587), `tls` (TLS from the first byte, usually 465), or `none` for a relay on a trusted network. |
+| `BRIDGE_SMTP_USERNAME` | | Leave empty for a server that needs no login. |
+| `BRIDGE_SMTP_PASSWORD` | | |
+| `BRIDGE_SMTP_FROM` | | Required with a host: the sender, such as `Bridge <sms@example.com>`. |
+
+Bridge refuses to start when `BRIDGE_SMTP_HOST` is set but the port, TLS mode or From address is
+invalid. With `starttls`, sending fails if the server does not offer STARTTLS; certificates are
+always verified, and credentials are only sent over TLS (or to `localhost` with `none`). Set the
+same values on the API (which checks email destinations) and the worker (which sends them); the
+Compose file passes them to both. Most mail providers need the From address to belong to the
+account you log in with.
+
 ## Production checklist
 
 - [ ] TLS in front of both the API and the dashboard (Caddy, nginx, Traefik or a cloud load balancer).
 - [ ] `POSTGRES_PASSWORD` changed from the default.
-- [ ] `BRIDGE_SECRET_KEY` set and backed up, if you use SMS providers, integrations or the Verify widget.
+- [ ] `BRIDGE_SECRET_KEY` set and backed up, if you use SMS providers, integrations, the Verify widget
+      or Telegram forwarding.
+- [ ] `BRIDGE_SMTP_*` set, if you want to forward incoming SMS by email.
 - [ ] `BRIDGE_ALLOW_SIGNUP=false` after creating your account.
 - [ ] Your reverse proxy's address is covered by `BRIDGE_TRUSTED_PROXIES` (private networks are
       trusted by default), so rate limits see real client IPs.

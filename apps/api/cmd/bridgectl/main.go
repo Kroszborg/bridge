@@ -1,5 +1,6 @@
-// Command bridgectl is the Bridge command-line tool: send SMS, follow
-// messages, watch events, and forward webhooks to a local server.
+// Command bridgectl is the Bridge command-line tool: send SMS and broadcasts,
+// follow messages, manage opt-outs, watch events, and forward webhooks to a
+// local server.
 package main
 
 import (
@@ -34,6 +35,14 @@ Usage:
   bridgectl otp verify TO CODE                     Check the latest code sent to TO (exit 1 if wrong)
   bridgectl otp verify --id ID CODE                Check one verification
   bridgectl otp get ID                             A verification and its SMS
+
+  bridgectl broadcast send --csv FILE --template "Hi {name}" [--name N] [--at TIME] [--dry-run] [--test]
+                                                   Send one template to every row of a CSV
+  bridgectl broadcasts [--status S]                Recent broadcasts
+  bridgectl broadcast get ID | broadcast cancel ID
+  bridgectl schedules                              Scheduled and repeating messages
+  bridgectl optouts [--source S]                   Numbers that opted out
+  bridgectl optouts add|remove|check NUMBER        Change or check the opt-out list
 
   bridgectl devices                                Paired phones and their health
   bridgectl usage [--days N] [--tz Area/City]      Daily volume and delivery rate
@@ -106,6 +115,12 @@ func main() {
 		err = cmdMessages(ctx, args)
 	case "otp", "verify":
 		err = cmdOTP(ctx, args)
+	case "broadcast", "broadcasts":
+		err = cmdBroadcast(ctx, args)
+	case "schedules", "schedule":
+		err = cmdSchedules(ctx, args)
+	case "optouts", "optout", "opt-outs":
+		err = cmdOptOuts(ctx, args)
 	case "devices", "device":
 		err = cmdDevices(ctx, args)
 	case "mcp":

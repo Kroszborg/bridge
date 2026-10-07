@@ -96,12 +96,59 @@ function eventLabel(e: MessageEvent): string {
       return 'Phone could not send; retrying';
     case 'assignment_timed_out':
       return 'Phone did not respond; reassigning';
+    case 'auto_reply':
+      return d.rule_name
+        ? `Auto-reply rule “${String(d.rule_name)}” matched`
+        : 'Auto-reply rule matched';
+    case 'automation_skipped':
+      return 'Automation skipped';
+    case 'canceled':
+      return d.reason === 'broadcast_canceled' ? 'Canceled with its broadcast' : 'Canceled';
     default:
       return e.type.replaceAll('_', ' ');
   }
 }
 
+/** A second line under an event: prose, or an ID shown in monospace. */
+function eventNote(e: MessageEvent): { text: string; mono: boolean } | null {
+  const d = e.detail as Record<string, unknown>;
+  if (e.type === 'auto_reply') {
+    const parts: string[] = [];
+    if (d.keyword) parts.push(`Keyword ${String(d.keyword)}`);
+    if (d.action === 'opt_out') parts.push('sender added to the opt-out list');
+    if (d.action === 'opt_in') parts.push('sender removed from the opt-out list');
+    if (d.skipped === 'sender_not_a_phone_number') {
+      parts.push('no reply to a sender ID or short code');
+    } else if (typeof d.reply_message_id === 'string') {
+      parts.push(`reply ${d.reply_message_id}`);
+    } else if (d.reply_skipped === 'loop_protection') {
+      parts.push('no reply: this rule answered the number in the last 10 minutes');
+    } else if (d.reply_skipped === 'device_removed') {
+      parts.push('no reply: the phone that received it was removed');
+    } else if (typeof d.reply_error === 'string') {
+      parts.push(`reply failed: ${d.reply_error}`);
+    }
+    return parts.length ? { text: parts.join('; '), mono: false } : null;
+  }
+  if (e.type === 'automation_skipped') {
+    return d.reason === 'forwarded_by_bridge'
+      ? { text: 'Bridge forwarded this SMS, so rules do not run on it again', mono: false }
+      : null;
+  }
+  if (e.type === 'canceled') {
+    return d.reason === 'broadcast_canceled'
+      ? { text: 'The broadcast was canceled before this message was sent', mono: false }
+      : null;
+  }
+  if (typeof d.error_message === 'string') return { text: d.error_message, mono: true };
+  if (e.type === 'assigned' && typeof d.device_id === 'string') {
+    return { text: d.device_id, mono: true };
+  }
+  return null;
+}
+
 function eventTone(e: MessageEvent): string {
+  if (e.type === 'canceled' || e.type === 'automation_skipped') return 'bg-faint';
   if (e.to_status === 'failed') return 'bg-destructive';
   if (e.to_status === 'delivered') return 'bg-success';
   if (e.type === 'send_failed_retrying' || e.type === 'assignment_timed_out') return 'bg-warning';
@@ -124,10 +171,7 @@ export function MessageTimeline({ events }: { events: MessageEvent[] }) {
   return (
     <ol className="flex flex-col">
       {events.map((e, i) => {
-        const d = e.detail as Record<string, unknown>;
-        const note =
-          (d.error_message as string | undefined) ??
-          (e.type === 'assigned' && typeof d.device_id === 'string' ? d.device_id : undefined);
+        const note = eventNote(e);
         return (
           <li
             key={`${e.created_at}-${e.type}`}
@@ -148,8 +192,13 @@ export function MessageTimeline({ events }: { events: MessageEvent[] }) {
             <span className="min-w-0">
               <span className="block text-sm font-medium">{eventLabel(e)}</span>
               {note ? (
-                <span className="block truncate font-mono text-xs text-muted-foreground">
-                  {note}
+                <span
+                  className={cn(
+                    'block text-xs text-muted-foreground',
+                    note.mono ? 'truncate font-mono' : 'text-pretty',
+                  )}
+                >
+                  {note.text}
                 </span>
               ) : null}
             </span>

@@ -1,8 +1,8 @@
 # Bridge for AI assistants (MCP)
 
 `bridgectl mcp` runs a [Model Context Protocol](https://modelcontextprotocol.io) server on stdio,
-so assistants such as Claude, Cursor and other MCP clients can send SMS, run phone verifications
-and check delivery through your Bridge, using an API key you choose.
+so assistants such as Claude, Cursor and other MCP clients can send SMS and broadcasts, run phone
+verifications, check the opt-out list and check delivery through your Bridge, using an API key you choose.
 
 ```bash
 bridgectl login --url https://api.sms.example.com   # once; or set BRIDGE_URL and BRIDGE_API_KEY
@@ -23,6 +23,10 @@ you want real SMS.
 | `list_messages` | Recent messages, filtered by status, direction or recipient | No |
 | `send_verification_code` | Generates and sends a one-time code (returned with test keys) | Sends an SMS |
 | `check_verification_code` | Checks a code by number or verification ID | Uses an attempt |
+| `create_broadcast` | Sends one template to many numbers (`template`, `recipients` with `to` and `vars`, optional `name`, `scheduled_at`). With `dry_run: true` it only previews | Sends SMS (nothing with `dry_run`) |
+| `get_broadcast` | A broadcast's status and counts | No |
+| `list_schedules` | Scheduled and repeating messages: timing, next run, last error | No |
+| `check_opt_out` | Whether a number is on the [opt-out list](../automation/README.md#opt-out-list) | No |
 | `list_devices` | Paired phones: online status, battery, SIMs, send limits | No |
 | `get_usage` | Counts and delivery rate for 24 hours and 30 days | No |
 
@@ -31,9 +35,12 @@ slug) and use the project's default app without it. `check_verification_code` wi
 `app` checks that number's latest pending code of any app.
 
 Read-only tools are marked as such, so clients that ask before acting on the world will ask before
-`send_sms` and `send_verification_code`. The server also tells the assistant to confirm the number
-and text before sending with a live key. Each `send_sms` call carries a fresh idempotency key, so a
-retried call never sends twice.
+`send_sms`, `send_verification_code` and `create_broadcast`. The server also tells the assistant to
+confirm the number and text before sending with a live key, and to preview a broadcast with
+`dry_run` and show you the result before creating it. Each `send_sms` call carries a fresh
+idempotency key, so a retried call never sends twice. Broadcasts take no idempotency key: if a
+`create_broadcast` call fails with a network error, check the recent broadcasts in the dashboard
+before asking again.
 
 ## Set it up in your client
 

@@ -452,7 +452,7 @@ func (q *Queries) PendingBroadcastRecipients(ctx context.Context, arg PendingBro
 
 const projectSendCapacity = `-- name: ProjectSendCapacity :one
 SELECT COALESCE(sum(send_limit_count), 0)::int FROM devices
-WHERE project_id = $1 AND revoked_at IS NULL
+WHERE project_id = $1 AND revoked_at IS NULL AND status = 'online'
   AND ($2::text IS NULL OR id = $2)
 `
 
@@ -461,7 +461,8 @@ type ProjectSendCapacityParams struct {
 	DeviceID  *string
 }
 
-// Messages the project's phones may send per send-limit window, together.
+// Messages the project's online phones may send per send-limit window, together.
+// Offline phones are left out so queued messages do not wait long enough to time out.
 func (q *Queries) ProjectSendCapacity(ctx context.Context, arg ProjectSendCapacityParams) (int32, error) {
 	row := q.db.QueryRow(ctx, projectSendCapacity, arg.ProjectID, arg.DeviceID)
 	var column_1 int32

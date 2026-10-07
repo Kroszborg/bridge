@@ -62,6 +62,40 @@ describe('verifyWebhook', () => {
     }
   });
 
+  it('types the messaging tools events', async () => {
+    const autoReplied = JSON.stringify({
+      type: 'message.auto_replied',
+      timestamp: '2026-10-05T09:31:02Z',
+      data: {
+        environment: 'live',
+        message: { id: 'msg_1', direction: 'inbound', from: '+919876543210', body: 'STOP' },
+        rule_id: 'arr_1',
+        rule_name: 'Unsubscribe',
+        keyword: 'STOP',
+        action: 'opt_out',
+        reply_message_id: 'msg_2',
+      },
+    });
+    const a = await verifyWebhook({
+      payload: autoReplied,
+      headers: await signed(autoReplied),
+      secret: vector.secret,
+    });
+    expect(a.type === 'message.auto_replied' && a.data.action).toBe('opt_out');
+
+    const completed = JSON.stringify({
+      type: 'broadcast.completed',
+      timestamp: '2026-10-05T09:31:02Z',
+      data: { id: 'brd_1', status: 'completed', counts: { recipients: 2, delivered: 2 } },
+    });
+    const b = await verifyWebhook({
+      payload: completed,
+      headers: await signed(completed),
+      secret: vector.secret,
+    });
+    expect(b.type === 'broadcast.completed' && b.data.counts.delivered).toBe(2);
+  });
+
   it('accepts any signature in a space-separated list (secret rotation)', async () => {
     const h = await signed(event);
     h['webhook-signature'] = `v1,bm90LWl0 ${h['webhook-signature']}`;

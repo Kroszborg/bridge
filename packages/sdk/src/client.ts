@@ -1,11 +1,18 @@
 import type {
+  Broadcast,
+  BroadcastList,
+  BroadcastPreview,
   Device,
   Message,
   MessageDetail,
   MessageList,
+  OptOut,
+  OptOutList,
   operations,
   RequestLog,
   RequestLogList,
+  Schedule,
+  ScheduleList,
   TokenVerification,
   Usage,
   UsageHistory,
@@ -94,6 +101,41 @@ export type ListRequestLogsParams = NonNullable<
   operations['listRequestLogs']['parameters']['query']
 >;
 
+/**
+ * Parameters of `bridge.broadcasts.create` and `bridge.broadcasts.preview`: a `template` with
+ * `{placeholders}`, up to 10,000 `recipients` (each `{ to, vars }`), and optionally a `name`, a
+ * `device_id` and a `scheduled_at` time.
+ */
+export type CreateBroadcastParams = Omit<
+  operations['createBroadcast']['requestBody']['content']['application/json'],
+  'dry_run'
+>;
+
+/** Filters of `bridge.broadcasts.list`. */
+export type ListBroadcastsParams = NonNullable<operations['listBroadcasts']['parameters']['query']>;
+
+/** Parameters of `bridge.schedules.create`. */
+export type CreateScheduleParams =
+  operations['createSchedule']['requestBody']['content']['application/json'];
+
+/** Parameters of `bridge.schedules.update`. Omitted fields stay unchanged. */
+export type UpdateScheduleParams =
+  operations['updateSchedule']['requestBody']['content']['application/json'];
+
+/** Options of `bridge.schedules.list`. */
+export type ListSchedulesParams = NonNullable<operations['listSchedules']['parameters']['query']>;
+
+/** Filters of `bridge.optOuts.list`. */
+export type ListOptOutsParams = NonNullable<operations['listOptOuts']['parameters']['query']>;
+
+/** Options of the `waitFor` helpers. */
+export interface WaitOptions extends RequestOptions {
+  /** Give up after this many milliseconds. */
+  timeoutMs?: number;
+  /** Time between checks, in milliseconds. */
+  intervalMs?: number;
+}
+
 /** An event from `bridge.events.stream`: the same envelope a webhook receives, plus its ID. */
 export type StreamEvent = WebhookEvent & { id: string };
 
@@ -137,7 +179,7 @@ const sleep = (ms: number, signal?: AbortSignal): Promise<void> =>
   });
 
 interface Call {
-  method: 'GET' | 'POST';
+  method: 'GET' | 'POST' | 'PATCH' | 'DELETE';
   path: string;
   query?: Record<string, string | number | undefined>;
   body?: unknown;
@@ -160,6 +202,9 @@ export class Bridge {
   readonly messages: Messages;
   readonly devices: Devices;
   readonly otp: Otp;
+  readonly broadcasts: Broadcasts;
+  readonly schedules: Schedules;
+  readonly optOuts: OptOuts;
   readonly requestLogs: RequestLogs;
   readonly events: Events;
   readonly webhooks: Webhooks;
@@ -199,6 +244,9 @@ export class Bridge {
     this.messages = new Messages(this);
     this.devices = new Devices(this);
     this.otp = new Otp(this);
+    this.broadcasts = new Broadcasts(this);
+    this.schedules = new Schedules(this);
+    this.optOuts = new OptOuts(this);
     this.requestLogs = new RequestLogs(this);
     this.events = new Events(this);
     this.webhooks = new Webhooks(options.webhookSecret ?? env('BRIDGE_WEBHOOK_SECRET'));
@@ -741,6 +789,347 @@ export class Otp {
       options,
     });
     return body;
+  }
+}
+
+/** Fetches pages with `starting_after` until `has_more` is false. */
+async function* paginate<T extends { id: string }>(
+  page: (cursor: string | undefined) => Promise<{ data: T[]; has_more: boolean }>,
+): AsyncGenerator<T, void, undefined> {
+  let cursor: string | undefined;
+  for (;;) {
+    const p = await page(cursor);
+    yield* p.data;
+    const last = p.data.at(-1);
+    if (!p.has_more || !last) return;
+    cursor = last.id;
+  }
+}
+
+/**
+ * `bridge.broadcasts`: one template sent to up to 10,000 recipients, with `{placeholders}` filled
+ * from each recipient's `vars`. Messages go through the normal pipeline, paced to what your phones
+ * can send, and carry `metadata.broadcast_id`.
+ */
+export class Broadcasts {
+  constructor(private readonly client: Bridge) {}
+
+  /**
+   * Creates a broadcast and returns it with status `sending` (or `scheduled` when you pass
+   * `scheduled_at`). Repeated numbers are sent once and opted-out numbers are skipped.
+   *
+   * ```ts
+   * const b = await bridge.broadcasts.create({
+   *   name: 'October newsletter',
+   *   template: 'Hi {name}, our sale starts today.',
+   *   recipients: [{ to: '+919876543210', vars: { name: 'Asha' } }],
+   * });
+   * ```
+   *
+   * Not retried automatically: the API takes no idempotency key here, so a retry could create a
+   * second broadcast. Use `preview` first to check the list.
+   */
+  async create(params: CreateBroadcastParams, options?: RequestOptions): Promise<Broadcast> {
+    const { body } = await this.client.request<Broadcast>({
+      method: 'POST',
+      path: '/v1/broadcasts',
+      body: params,
+      idempotent: false,
+      options,
+    });
+    return body;
+  }
+
+  /**
+   * Validates a broadcast and shows what it would send, without creating anything: unique
+   * recipients, opted-out numbers and duplicates left out, total SMS segments and the first
+   * rendered messages. Errors are the same as `create`'s.
+   */
+  async preview(
+    params: CreateBroadcastParams,
+    options?: RequestOptions,
+  ): Promise<BroadcastPreview> {
+    const { body } = await this.client.request<BroadcastPreview>({
+      method: 'POST',
+      path: '/v1/broadcasts',
+      body: { ...params, dry_run: true },
+      // A dry run creates nothing, so a retry is safe.
+      idempotent: true,
+      options,
+    });
+    return body;
+  }
+
+  /** A broadcast with its live counts. */
+  async get(broadcastId: string, options?: RequestOptions): Promise<Broadcast> {
+    const { body } = await this.client.request<Broadcast>({
+      method: 'GET',
+      path: `/v1/broadcasts/${encodeURIComponent(broadcastId)}`,
+      idempotent: true,
+      options,
+    });
+    return body;
+  }
+
+  /** One page of broadcasts, newest first. Pass the last ID as `starting_after` for the next page. */
+  async list(params: ListBroadcastsParams = {}, options?: RequestOptions): Promise<BroadcastList> {
+    const { body } = await this.client.request<BroadcastList>({
+      method: 'GET',
+      path: '/v1/broadcasts',
+      query: params,
+      idempotent: true,
+      options,
+    });
+    return body;
+  }
+
+  /** Every broadcast matching the filters, newest first, fetching pages as you iterate. */
+  listAll(
+    params: Omit<ListBroadcastsParams, 'starting_after'> = {},
+    options?: RequestOptions,
+  ): AsyncGenerator<Broadcast, void, undefined> {
+    return paginate((cursor) =>
+      this.list({ limit: 100, ...params, starting_after: cursor }, options),
+    );
+  }
+
+  /**
+   * Cancels a scheduled or sending broadcast. Recipients not yet sent to are skipped and messages
+   * still waiting for a phone are canceled; messages a phone or provider already took finish
+   * normally. A broadcast that already finished gives a `conflict` error.
+   */
+  async cancel(broadcastId: string, options?: RequestOptions): Promise<Broadcast> {
+    const { body } = await this.client.request<Broadcast>({
+      method: 'POST',
+      path: `/v1/broadcasts/${encodeURIComponent(broadcastId)}/cancel`,
+      idempotent: true,
+      options,
+    });
+    return body;
+  }
+
+  /**
+   * Polls a broadcast until it is `completed` or `canceled` and returns it. Completed means every
+   * message was sent or failed; delivery reports may still arrive afterwards.
+   *
+   * Defaults: `timeoutMs` 10 minutes, `intervalMs` 5 seconds. A large broadcast through a few
+   * phones can take hours; prefer the `broadcast.completed` webhook there.
+   */
+  async waitFor(broadcastId: string, options: WaitOptions = {}): Promise<Broadcast> {
+    const deadline = Date.now() + (options.timeoutMs ?? 600_000);
+    for (;;) {
+      const b = await this.get(broadcastId, { signal: options.signal });
+      if (b.status === 'completed' || b.status === 'canceled') return b;
+      if (Date.now() >= deadline) {
+        throw new BridgeConnectionError(
+          `Broadcast ${broadcastId} is still ${b.status}; gave up waiting for it to complete.`,
+          { timedOut: true },
+        );
+      }
+      await sleep(options.intervalMs ?? 5_000, options.signal);
+    }
+  }
+}
+
+/**
+ * `bridge.schedules`: messages sent once at a date and time, or repeating daily, weekly or
+ * monthly, at a wall-clock time in an IANA time zone. Each run creates an ordinary message with
+ * `metadata.schedule_id`.
+ */
+export class Schedules {
+  constructor(private readonly client: Bridge) {}
+
+  /**
+   * ```ts
+   * await bridge.schedules.create({
+   *   to: '+919876543210',
+   *   message: 'Standup in 15 minutes.',
+   *   schedule: { kind: 'weekly', days: ['mon', 'wed', 'fri'], at: '09:45', time_zone: 'Asia/Kolkata' },
+   * });
+   * ```
+   *
+   * Not retried automatically: a retry could create a second schedule.
+   */
+  async create(params: CreateScheduleParams, options?: RequestOptions): Promise<Schedule> {
+    const { body } = await this.client.request<Schedule>({
+      method: 'POST',
+      path: '/v1/schedules',
+      body: params,
+      idempotent: false,
+      options,
+    });
+    return body;
+  }
+
+  async get(scheduleId: string, options?: RequestOptions): Promise<Schedule> {
+    const { body } = await this.client.request<Schedule>({
+      method: 'GET',
+      path: `/v1/schedules/${encodeURIComponent(scheduleId)}`,
+      idempotent: true,
+      options,
+    });
+    return body;
+  }
+
+  /** One page of schedules, newest first. Pass the last ID as `starting_after` for the next page. */
+  async list(params: ListSchedulesParams = {}, options?: RequestOptions): Promise<ScheduleList> {
+    const { body } = await this.client.request<ScheduleList>({
+      method: 'GET',
+      path: '/v1/schedules',
+      query: params,
+      idempotent: true,
+      options,
+    });
+    return body;
+  }
+
+  /** Every schedule, newest first, fetching pages as you iterate. */
+  listAll(
+    params: Omit<ListSchedulesParams, 'starting_after'> = {},
+    options?: RequestOptions,
+  ): AsyncGenerator<Schedule, void, undefined> {
+    return paginate((cursor) =>
+      this.list({ limit: 100, ...params, starting_after: cursor }, options),
+    );
+  }
+
+  /**
+   * Changes a schedule. Omitted fields stay unchanged; `schedule` replaces the whole timing.
+   * Changing the timing, `ends_at` or `paused` computes the next run again from now.
+   */
+  async update(
+    scheduleId: string,
+    params: UpdateScheduleParams,
+    options?: RequestOptions,
+  ): Promise<Schedule> {
+    const { body } = await this.client.request<Schedule>({
+      method: 'PATCH',
+      path: `/v1/schedules/${encodeURIComponent(scheduleId)}`,
+      body: params,
+      idempotent: true,
+      options,
+    });
+    return body;
+  }
+
+  /** Deletes a schedule. Messages it already sent are kept. */
+  async delete(scheduleId: string, options?: RequestOptions): Promise<void> {
+    await this.client.request<undefined>({
+      method: 'DELETE',
+      path: `/v1/schedules/${encodeURIComponent(scheduleId)}`,
+      idempotent: true,
+      options,
+    });
+  }
+
+  /** Stops sending until `resume`. */
+  pause(scheduleId: string, options?: RequestOptions): Promise<Schedule> {
+    return this.action(scheduleId, 'pause', true, options);
+  }
+
+  /** Starts sending again. Runs missed while paused are skipped; the next run is computed from now. */
+  resume(scheduleId: string, options?: RequestOptions): Promise<Schedule> {
+    return this.action(scheduleId, 'resume', true, options);
+  }
+
+  /**
+   * Sends the message once, now, without changing the next regular run. Works while paused.
+   * Not retried automatically: a retry could send it twice.
+   */
+  run(scheduleId: string, options?: RequestOptions): Promise<Schedule> {
+    return this.action(scheduleId, 'run', false, options);
+  }
+
+  private async action(
+    scheduleId: string,
+    verb: 'pause' | 'resume' | 'run',
+    idempotent: boolean,
+    options?: RequestOptions,
+  ): Promise<Schedule> {
+    const { body } = await this.client.request<Schedule>({
+      method: 'POST',
+      path: `/v1/schedules/${encodeURIComponent(scheduleId)}/${verb}`,
+      idempotent,
+      options,
+    });
+    return body;
+  }
+}
+
+/**
+ * `bridge.optOuts`: numbers that asked not to receive messages from the project. Ordinary
+ * messages, broadcasts and schedules to them are refused with `opted_out`; one-time passwords
+ * still go. The list is shared by live and test keys.
+ */
+export class OptOuts {
+  constructor(private readonly client: Bridge) {}
+
+  /** One page, newest first. Pass the last ID as `starting_after` for the next page. */
+  async list(params: ListOptOutsParams = {}, options?: RequestOptions): Promise<OptOutList> {
+    const { body } = await this.client.request<OptOutList>({
+      method: 'GET',
+      path: '/v1/opt-outs',
+      query: params,
+      idempotent: true,
+      options,
+    });
+    return body;
+  }
+
+  /** Every opted-out number matching the filters, newest first, fetching pages as you iterate. */
+  listAll(
+    params: Omit<ListOptOutsParams, 'starting_after'> = {},
+    options?: RequestOptions,
+  ): AsyncGenerator<OptOut, void, undefined> {
+    return paginate((cursor) =>
+      this.list({ limit: 100, ...params, starting_after: cursor }, options),
+    );
+  }
+
+  /**
+   * Opts a number out, for example when a person unsubscribes in your app. Returns the existing
+   * entry unchanged when the number was already on the list.
+   */
+  async add(number: string, options?: RequestOptions): Promise<OptOut> {
+    const { body } = await this.client.request<OptOut>({
+      method: 'POST',
+      path: '/v1/opt-outs',
+      body: { number },
+      // Adding a number twice returns the same entry, so a retry is safe.
+      idempotent: true,
+      options,
+    });
+    return body;
+  }
+
+  /**
+   * Takes a number off the list. Only do this when the person asked to receive messages again.
+   * Throws a `not_found` error when the number was not on the list.
+   */
+  async remove(number: string, options?: RequestOptions): Promise<void> {
+    await this.client.request<undefined>({
+      method: 'DELETE',
+      path: `/v1/opt-outs/${encodeURIComponent(number)}`,
+      idempotent: true,
+      options,
+    });
+  }
+
+  /** Whether a number is on the opt-out list. */
+  async isOptedOut(number: string, options?: RequestOptions): Promise<boolean> {
+    try {
+      await this.client.request<OptOut>({
+        method: 'GET',
+        path: `/v1/opt-outs/${encodeURIComponent(number)}`,
+        idempotent: true,
+        options,
+      });
+      return true;
+    } catch (err) {
+      // 404 means the number may be messaged.
+      if (err instanceof BridgeApiError && err.status === 404) return false;
+      throw err;
+    }
   }
 }
 

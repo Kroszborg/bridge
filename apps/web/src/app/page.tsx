@@ -253,7 +253,7 @@ const roadmap: RoadmapItem[] = [
     v: '0.7',
     title: 'Messaging tools',
     body: 'Bulk and scheduled sends, auto-replies with opt-out, and forwarding to Telegram, email or a phone.',
-    done: false,
+    done: true,
   },
 ];
 
@@ -1058,7 +1058,7 @@ export default function Home() {
                 From your own phones to any provider.
               </h2>
               <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
-                Six releases are done. Messaging tools are being built now.
+                Seven releases are done, all open source and self-hosted.
               </p>
             </div>
             <ol className="mt-12 grid gap-8 md:grid-cols-4 md:gap-6 lg:grid-cols-7">

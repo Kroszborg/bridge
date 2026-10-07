@@ -17,7 +17,7 @@ they are always called out here with migration steps.
 - SDK: `bridge.events.stream()` (live events with reconnects), `bridge.requestLogs.list()` and
   `listAll()`, and `bridge.usageHistory()`. The SDK is published to npm as `@kroszborg/bridge`.
 - `bridgectl logs` with status, method and path filters.
-- SMS providers (v0.5, in progress): MSG91 (DLT templates through the Flow API, with separate OTP
+- SMS providers (v0.5): MSG91 (DLT templates through the Flow API, with separate OTP
   and message templates and configurable variables), Twilio (From number or Messaging Service),
   Vonage (SMS API) and Plivo, one account of each per project, tried in priority order. Retryable
   errors (timeouts, `429`, `5xx`) are retried up to 6 attempts; others fail the message with a
@@ -45,7 +45,7 @@ they are always called out here with migration steps.
   Auth0, n8n, Zapier, Make, Firebase and Clerk.
 - Message timeline events `provider_fallback` (with a `reason`) and `provider_accepted`.
 - Docs: iPhones as recipients (code autofill) and why they cannot be gateways.
-- Verify apps (v0.6, in progress): up to 50 per project, each with its own name, message template,
+- Verify apps (v0.6): up to 50 per project, each with its own name, message template,
   code settings, failover, fraud protection, widget, signing secret and statistics. The default app
   (slug `default`) holds the project's previous settings. `POST /v1/otp` takes `app` (ID or slug)
   and `client_ip` (the end user's IP address); `POST /v1/otp/verify` takes an optional `app`.
@@ -70,6 +70,52 @@ they are always called out here with migration steps.
   signature check, `aud`, `iss`, `exp` and `env`) and throws `BridgeTokenError` with the same
   reasons as the API; `bridge.otp.verifyToken()` calls `POST /v1/otp/tokens/verify`. The SDK's
   webhook types include `otp.blocked`, and `BridgeErrorCode` includes `otp_blocked`.
+- Broadcasts (v0.7): `POST /v1/broadcasts` sends one template with `{placeholders}`
+  to up to 10,000 recipients, each with its own `vars`. Numbers are normalised, repeated numbers are
+  sent once and opted-out numbers are skipped. `dry_run` previews unique recipients, opted-out and
+  duplicate counts, total segments and the first 5 rendered messages without creating anything.
+  `scheduled_at` starts it later (up to a year ahead). Messages go through the normal pipeline with
+  `metadata.broadcast_id`, paced to the project's phone capacity (the sum of the phones' send limits,
+  10 to 500 waiting at once; 500 with providers or test keys). Broadcast messages skip the
+  per-message hourly limits; a project may create 20 broadcasts an hour. List, get with live counts,
+  and cancel (`POST /v1/broadcasts/{id}/cancel`), which skips recipients not yet sent to and cancels
+  messages still waiting for a phone (`error_code: canceled`). See
+  [docs/broadcasts](docs/broadcasts/README.md).
+- Scheduled messages: `POST /v1/schedules` sends a message once, daily, weekly (chosen weekdays) or
+  monthly (day clamped to the month's end) at a wall-clock time in an IANA time zone. Daylight
+  saving is handled (a skipped time runs as far past the gap, a repeated time runs once). Update,
+  delete, pause, resume (missed runs skipped) and run now; `ends_at`; `last_error` explains a run
+  that sent nothing. Runs missed while the worker was down are sent once, not replayed, and each run
+  is idempotent. See [docs/schedules](docs/schedules/README.md).
+- Opt-out list: `GET`, `POST /v1/opt-outs`, `GET` and `DELETE /v1/opt-outs/{number}` (`404` means
+  the number may be messaged), plus a CSV export in the dashboard. Messages, broadcasts, schedules
+  and phone forwards to an opted-out number are refused with the new error code `opted_out`
+  (`409`); one-time passwords and auto-replies still go.
+- Auto-reply rules (dashboard): exact, starts-with or contains keyword matching, a reply sent
+  through the phone that received the SMS, and `opt_out` or `opt_in` actions, tried by priority.
+  Every project starts with `STOP`/`UNSUBSCRIBE`/`CANCEL`/`END`/`QUIT`, `START`/`UNSTOP` and `HELP`
+  rules. Loop protection: one reply per rule per number every 10 minutes, never to sender IDs, short
+  codes or numbers without a country code, and Bridge's own forwards arriving back are ignored.
+  Message timeline events `auto_reply`, `automation_skipped` and `canceled`.
+- Forwarding rules (dashboard): copy incoming SMS matching senders (exact or prefix) and a keyword
+  to up to 5 destinations: a phone number, a Telegram chat (bot token encrypted under
+  `BRIDGE_SECRET_KEY`), a webhook signed with the rule's Standard Webhooks secret (JSON, Slack or
+  Discord format), or email through SMTP (`BRIDGE_SMTP_HOST`, `_PORT`, `_USERNAME`, `_PASSWORD`,
+  `_FROM`, `_TLS`). Failed deliveries are retried 8 times over about four hours, with a per-rule
+  delivery log. See [docs/automation](docs/automation/README.md).
+- Webhook and event-stream events `broadcast.completed` (the broadcast with final counts) and
+  `message.auto_replied` (the incoming message, the rule, the keyword, the action and the reply).
+- Audit log entries for broadcasts, schedules, opt-outs, auto-reply rules and forwarding rules
+  changed in the dashboard.
+- SDK: `bridge.broadcasts` (`create`, `preview`, `get`, `list`, `listAll`, `cancel`, `waitFor`),
+  `bridge.schedules` (`create`, `get`, `list`, `listAll`, `update`, `delete`, `pause`, `resume`,
+  `run`) and `bridge.optOuts` (`list`, `listAll`, `add`, `remove`, `isOptedOut`). Webhook types
+  include `broadcast.completed` and `message.auto_replied`, and `BridgeErrorCode` includes
+  `opted_out`. Broadcast and schedule creation and `schedules.run` are not retried automatically.
+- CLI: `bridgectl broadcast send --csv FILE --template "Hi {name}"` (with `--dry-run`, `--at`,
+  `--name`, `--device` and `--test`), `bridgectl broadcasts`, `broadcast get` and `broadcast cancel`,
+  `bridgectl schedules`, and `bridgectl optouts` with `add`, `remove` and `check`. MCP tools
+  `create_broadcast` (with `dry_run`), `get_broadcast`, `list_schedules` and `check_opt_out`.
 
 ### Changed
 
@@ -88,6 +134,10 @@ they are always called out here with migration steps.
 
 ### Fixed
 
+- Incoming SMS from senders of 5 or 6 characters (short codes) crashed the phone's connection while
+  the sender was masked for the logs.
+- Verify failover now skips every phone that already had the message, not only the one it was last
+  assigned to.
 - Android: ambiguous send failures (such as `generic_failure` and unknown result codes) are no
   longer retried, because the carrier may already have accepted the SMS; retrying sent duplicate
   codes in a real-phone test. Only failures where nothing left the phone (radio off, no service,

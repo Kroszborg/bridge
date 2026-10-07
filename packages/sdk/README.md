@@ -1,8 +1,9 @@
 # @kroszborg/bridge
 
 The TypeScript SDK for [Bridge](https://github.com/kroszborg/bridge), open-source SMS
-infrastructure. Send SMS through your own Android phones, follow every message to delivery, verify
-phone numbers with one-time passwords, stream events, and verify webhooks.
+infrastructure. Send SMS through your own Android phones, follow every message to delivery, send
+broadcasts and scheduled messages, keep an opt-out list, verify phone numbers with one-time
+passwords, stream events, and verify webhooks.
 
 ```bash
 npm install @kroszborg/bridge
@@ -141,6 +142,73 @@ else console.warn(check.reason); // same reasons, plus 'verification_mismatch'
 See [the widget guide](../../docs/otp/README.md#drop-in-widget) for the hosted page and
 `<bridge-verify>` element.
 
+## Broadcasts
+
+One template to up to 10,000 numbers, with `{placeholders}` filled from each recipient's `vars`.
+Bridge paces the messages to what your phones can send, skips opted-out numbers and sends repeated
+numbers once.
+
+```ts
+const params = {
+  name: 'Shipping update',
+  template: 'Hi {name}, your order {order} has shipped.',
+  recipients: orders.map((o) => ({ to: o.phone, vars: { name: o.firstName, order: o.id } })),
+};
+
+const preview = await bridge.broadcasts.preview(params); // creates nothing
+console.log(preview.recipients, preview.skipped_opted_out, preview.total_segments, preview.samples[0]?.text);
+
+const broadcast = await bridge.broadcasts.create(params); // or add scheduled_at to start later
+const done = await bridge.broadcasts.waitFor(broadcast.id, { timeoutMs: 3_600_000 });
+console.log(done.status, done.counts.delivered, done.counts.failed);
+
+await bridge.broadcasts.cancel(broadcast.id); // stops sending to the rest of the list
+for await (const b of bridge.broadcasts.listAll({ status: 'sending' })) console.log(b.id, b.counts);
+```
+
+`create` is not retried automatically, because the API takes no idempotency key for broadcasts and
+a retry could send twice. `waitFor` polls every 5 seconds for up to 10 minutes by default; for long
+broadcasts, use the `broadcast.completed` [webhook](#webhooks). See
+[docs/broadcasts](../../docs/broadcasts/README.md) for pacing and limits.
+
+## Scheduled messages
+
+```ts
+const s = await bridge.schedules.create({
+  to: '+919876543210',
+  message: 'Standup starts in 15 minutes.',
+  schedule: { kind: 'weekly', days: ['mon', 'wed', 'fri'], at: '09:45', time_zone: 'Asia/Kolkata' },
+});
+console.log(s.description, s.next_run_at); // Every Mon, Wed, Fri at 09:45 (Asia/Kolkata) …
+
+await bridge.schedules.update(s.id, { message: 'Standup starts in 10 minutes.' });
+await bridge.schedules.pause(s.id);
+await bridge.schedules.resume(s.id); // runs missed while paused are skipped
+await bridge.schedules.run(s.id); // send once now; the timetable is unchanged
+await bridge.schedules.delete(s.id);
+```
+
+Kinds are `once` (with `date`), `daily`, `weekly` (with `days`) and `monthly` (with
+`day_of_month`). `create` and `run` are not retried automatically. See
+[docs/schedules](../../docs/schedules/README.md) for time zones and daylight saving.
+
+## Opt-outs
+
+Numbers that texted `STOP` (or that you add) are refused for ordinary messages with the error code
+`opted_out`. One-time passwords still go.
+
+```ts
+if (await bridge.optOuts.isOptedOut('+919876543210')) return; // a 404 from the API becomes false
+
+await bridge.optOuts.add('+919876543210'); // e.g. the user unsubscribed in your app
+await bridge.optOuts.remove('+919876543210'); // only when they asked to be messaged again
+
+for await (const o of bridge.optOuts.listAll({ source: 'keyword' })) console.log(o.number, o.keyword);
+```
+
+Auto-reply and forwarding rules are managed in the dashboard. See
+[docs/automation](../../docs/automation/README.md).
+
 ## Devices, usage and your key
 
 ```ts
@@ -179,6 +247,12 @@ app.post('/webhooks/bridge', express.raw({ type: 'application/json' }), async (r
         break;
       case 'otp.blocked':
         await flagAbuse(event.data.client_ip, event.data.reason); // fraud protection refused a code
+        break;
+      case 'message.auto_replied':
+        if (event.data.action === 'opt_out') await unsubscribe(event.data.message.from);
+        break;
+      case 'broadcast.completed':
+        await reportBroadcast(event.data.id, event.data.counts);
         break;
     }
     res.sendStatus(204);
@@ -223,6 +297,7 @@ try {
     err.details; // [{ location: 'body.to', message: 'Use international E.164 format…' }]
     err.requestId; // req_… (include it when asking for help)
     err.retryAfter; // seconds, for 429 responses
+    // err.code === 'opted_out' (409): the number opted out; do not retry
   } else if (err instanceof BridgeConnectionError) {
     err.timedOut; // network failure or timeout; the request may not have reached Bridge
   }

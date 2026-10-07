@@ -1,4 +1,4 @@
-import type { Message, Verification, VerifyBlock } from '@bridge/api-types';
+import type { Broadcast, Message, Verification, VerifyBlock } from '@bridge/api-types';
 import { WebhookVerificationError } from './errors';
 
 /** Data of `device.online` and `device.offline` events. */
@@ -10,6 +10,21 @@ export interface WebhookDevice {
   is_charging: boolean | null;
   network_type: string | null;
   last_seen_at: string | null;
+}
+
+/** Data of `message.auto_replied`: an auto-reply rule ran for an incoming SMS. */
+export interface WebhookAutoReply {
+  environment: 'live' | 'test';
+  /** The incoming SMS that matched. */
+  message: Message;
+  rule_id: string;
+  rule_name: string;
+  /** The keyword that matched, as written in the rule. */
+  keyword: string;
+  /** `opt_out` added the sender to the opt-out list; `opt_in` removed them. */
+  action: 'none' | 'opt_out' | 'opt_in';
+  /** The reply Bridge sent, or null when the rule has no reply or the reply was skipped. */
+  reply_message_id: string | null;
 }
 
 /** Data of the `webhook.test` event sent by "Send test event". */
@@ -28,9 +43,11 @@ interface Envelope<T extends string, D> {
 /** A verified webhook event. Narrow on `type` to get the right `data`. */
 export type WebhookEvent =
   | Envelope<'message.sent' | 'message.delivered' | 'message.failed' | 'message.received', Message>
+  | Envelope<'message.auto_replied', WebhookAutoReply>
   | Envelope<'device.online' | 'device.offline', WebhookDevice>
   | Envelope<'otp.verified' | 'otp.failed' | 'otp.expired', Verification>
   | Envelope<'otp.blocked', VerifyBlock>
+  | Envelope<'broadcast.completed', Broadcast>
   | Envelope<'webhook.test', WebhookTest>;
 
 export type WebhookEventType = WebhookEvent['type'];

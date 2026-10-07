@@ -300,3 +300,194 @@ describe('otp', () => {
     expect((err as BridgeApiError).retryAfter).toBe(25);
   });
 });
+
+describe('broadcasts', () => {
+  const broadcast = { id: 'brd_1', status: 'sending', counts: { recipients: 2 } };
+  const params = {
+    name: 'October newsletter',
+    template: 'Hi {name}',
+    recipients: [
+      { to: '+919876543210', vars: { name: 'Asha' } },
+      { to: '+919812345678', vars: { name: 'Ravi' } },
+    ],
+  };
+
+  it('creates without retrying, so a broadcast is never created twice', async () => {
+    const { bridge, requests } = mockClient([
+      () => json(503, { error: { code: 'service_unavailable', message: 'down' } }),
+    ]);
+    await expect(bridge.broadcasts.create(params)).rejects.toBeInstanceOf(BridgeApiError);
+    expect(requests).toHaveLength(1);
+    expect(requests[0]?.method).toBe('POST');
+    expect(new URL(requests[0]?.url ?? '').pathname).toBe('/v1/broadcasts');
+    expect(await requests[0]?.json()).toEqual(params);
+  });
+
+  it('previews with dry_run', async () => {
+    const preview = { dry_run: true, recipients: 2, skipped_opted_out: 0, duplicates: 0 };
+    const { bridge, requests } = mockClient([() => json(200, preview)]);
+    expect(await bridge.broadcasts.preview(params)).toEqual(preview);
+    expect(await requests[0]?.json()).toEqual({ ...params, dry_run: true });
+  });
+
+  it('gets, lists, pages and cancels', async () => {
+    const { bridge, requests } = mockClient([
+      () => json(201, broadcast),
+      () => json(200, broadcast),
+      () => json(200, { data: [{ id: 'brd_2' }], has_more: true }),
+      () => json(200, { data: [{ id: 'brd_1' }], has_more: false }),
+      () => json(200, { ...broadcast, status: 'canceled' }),
+    ]);
+    await bridge.broadcasts.create(params);
+    await bridge.broadcasts.get('brd_1');
+    const ids: string[] = [];
+    for await (const b of bridge.broadcasts.listAll({ status: 'sending' })) ids.push(b.id);
+    expect(ids).toEqual(['brd_2', 'brd_1']);
+    const canceled = await bridge.broadcasts.cancel('brd_1');
+    expect(canceled.status).toBe('canceled');
+    expect(requests.map((r) => `${r.method} ${new URL(r.url).pathname}`)).toEqual([
+      'POST /v1/broadcasts',
+      'GET /v1/broadcasts/brd_1',
+      'GET /v1/broadcasts',
+      'GET /v1/broadcasts',
+      'POST /v1/broadcasts/brd_1/cancel',
+    ]);
+    expect(Object.fromEntries(new URL(requests[2]?.url ?? '').searchParams)).toEqual({
+      limit: '100',
+      status: 'sending',
+    });
+    expect(new URL(requests[3]?.url ?? '').searchParams.get('starting_after')).toBe('brd_2');
+  });
+
+  it('waits until the broadcast completes or is canceled', async () => {
+    const { bridge, requests } = mockClient([
+      () => json(200, broadcast),
+      () => json(200, { ...broadcast, status: 'completed' }),
+    ]);
+    const done = await bridge.broadcasts.waitFor('brd_1', { intervalMs: 5 });
+    expect(done.status).toBe('completed');
+    expect(requests).toHaveLength(2);
+
+    const { bridge: other } = mockClient([() => json(200, { ...broadcast, status: 'canceled' })]);
+    expect((await other.broadcasts.waitFor('brd_1')).status).toBe('canceled');
+  });
+
+  it('gives up waiting after the timeout', async () => {
+    const { bridge } = mockClient([() => json(200, broadcast)]);
+    const err = await bridge.broadcasts
+      .waitFor('brd_1', { timeoutMs: 0, intervalMs: 5 })
+      .catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(BridgeConnectionError);
+    expect(err).toMatchObject({ timedOut: true });
+  });
+});
+
+describe('schedules', () => {
+  const schedule = { id: 'sch_1', status: 'active', paused: false };
+
+  it('calls every endpoint with the right method, path and body', async () => {
+    const { bridge, requests } = mockClient([
+      () => json(201, schedule),
+      () => json(200, schedule),
+      () => json(200, { data: [schedule], has_more: false }),
+      () => json(200, { ...schedule, name: 'Standup' }),
+      () => json(200, { ...schedule, status: 'paused', paused: true }),
+      () => json(200, schedule),
+      () => json(200, schedule),
+      () => new Response(null, { status: 204 }),
+    ]);
+    const timing = {
+      kind: 'weekly' as const,
+      days: ['mon' as const, 'fri' as const],
+      at: '09:45',
+      time_zone: 'Asia/Kolkata',
+    };
+    await bridge.schedules.create({ to: '+919876543210', message: 'Standup', schedule: timing });
+    await bridge.schedules.get('sch_1');
+    const ids: string[] = [];
+    for await (const s of bridge.schedules.listAll()) ids.push(s.id);
+    expect(ids).toEqual(['sch_1']);
+    await bridge.schedules.update('sch_1', { name: 'Standup', ends_at: '' });
+    expect((await bridge.schedules.pause('sch_1')).paused).toBe(true);
+    await bridge.schedules.resume('sch_1');
+    await bridge.schedules.run('sch_1');
+    await expect(bridge.schedules.delete('sch_1')).resolves.toBeUndefined();
+
+    expect(requests.map((r) => `${r.method} ${new URL(r.url).pathname}`)).toEqual([
+      'POST /v1/schedules',
+      'GET /v1/schedules/sch_1',
+      'GET /v1/schedules',
+      'PATCH /v1/schedules/sch_1',
+      'POST /v1/schedules/sch_1/pause',
+      'POST /v1/schedules/sch_1/resume',
+      'POST /v1/schedules/sch_1/run',
+      'DELETE /v1/schedules/sch_1',
+    ]);
+    expect(await requests[0]?.json()).toEqual({
+      to: '+919876543210',
+      message: 'Standup',
+      schedule: timing,
+    });
+    expect(await requests[3]?.json()).toEqual({ name: 'Standup', ends_at: '' });
+  });
+
+  it('does not retry run now, so a message is never sent twice', async () => {
+    const { bridge, requests } = mockClient([
+      () => json(502, { error: { code: 'internal_error', message: 'bad gateway' } }),
+    ]);
+    await expect(bridge.schedules.run('sch_1')).rejects.toBeInstanceOf(BridgeApiError);
+    expect(requests).toHaveLength(1);
+  });
+});
+
+describe('opt-outs', () => {
+  const entry = { id: 'uns_1', number: '+919876543210', source: 'api', keyword: null };
+
+  it('adds, lists and removes, encoding + in paths', async () => {
+    const { bridge, requests } = mockClient([
+      () => json(201, entry),
+      () => json(200, { data: [entry], has_more: false }),
+      () => new Response(null, { status: 204 }),
+    ]);
+    expect(await bridge.optOuts.add('+919876543210')).toEqual(entry);
+    expect(await requests[0]?.json()).toEqual({ number: '+919876543210' });
+    const all: string[] = [];
+    for await (const o of bridge.optOuts.listAll({ source: 'keyword' })) all.push(o.number);
+    expect(all).toEqual(['+919876543210']);
+    await bridge.optOuts.remove('+919876543210');
+    expect(requests.map((r) => `${r.method} ${r.url}`)).toEqual([
+      'POST https://api.example.com/v1/opt-outs',
+      'GET https://api.example.com/v1/opt-outs?limit=100&source=keyword',
+      'DELETE https://api.example.com/v1/opt-outs/%2B919876543210',
+    ]);
+  });
+
+  it('checks a number: 404 means it may be messaged', async () => {
+    const { bridge, requests } = mockClient([
+      () => json(200, entry),
+      () => json(404, { error: { code: 'not_found', message: 'Opt-out for +919812345678' } }),
+    ]);
+    expect(await bridge.optOuts.isOptedOut('+919876543210')).toBe(true);
+    expect(await bridge.optOuts.isOptedOut('+919812345678')).toBe(false);
+    expect(new URL(requests[0]?.url ?? '').pathname).toBe('/v1/opt-outs/%2B919876543210');
+  });
+
+  it('still throws other errors from isOptedOut', async () => {
+    const { bridge } = mockClient([
+      () => json(401, { error: { code: 'invalid_api_key', message: 'bad key' } }),
+    ]);
+    await expect(bridge.optOuts.isOptedOut('+919876543210')).rejects.toMatchObject({
+      code: 'invalid_api_key',
+    });
+  });
+
+  it('surfaces opted_out on sends', async () => {
+    const { bridge } = mockClient([
+      () => json(409, { error: { code: 'opted_out', message: '+919876543210 opted out' } }),
+    ]);
+    const err = await bridge.messages
+      .send({ to: '+919876543210', message: 'hi' })
+      .catch((e: unknown) => e);
+    expect(err).toMatchObject({ status: 409, code: 'opted_out' });
+  });
+});

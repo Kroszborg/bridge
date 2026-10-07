@@ -294,10 +294,17 @@ wake:     FCM high-priority data message when a job is queued for an offline dev
 
 **Milestone 10 (v0.7):** Messaging tools.
 
-- [ ] Send page: single and CSV bulk with variables, segment and cost preview
-- [ ] Scheduled and repeating messages (once, daily, weekly, monthly in the project's time zone)
-- [ ] Auto-replies with keyword rules and an opt-out list that sends respect
-- [ ] Forwarding rules: another phone, Telegram, webhook, email over SMTP
+- [x] Broadcasts API (migration `00011`): up to 10,000 recipients with `{name}` variables, dry-run preview (recipients, opted-out, duplicates, segments, samples), scheduled start, cancel, live counts; paced to phone capacity through the normal pipeline; 20 per project per hour; `broadcast.completed`
+- [x] Scheduled and repeating messages API (once, daily, weekly, monthly at a wall-clock time in an IANA zone; DST gaps and repeats handled, monthly days clamped), pause, resume, run now, `ends_at`, idempotent runs, missed runs sent once
+- [x] Opt-out list (API for keys, dashboard API with CSV export) that messages, broadcasts, schedules and phone forwards respect (`opted_out`), one-time passwords exempt
+- [x] Auto-reply rules with STOP/START/HELP defaults, opt-out and opt-in actions, loop protection, `auto_reply` timeline entries and `message.auto_replied`
+- [x] Forwarding rules: another phone, Telegram (encrypted bot token), signed webhook (JSON, Slack, Discord), email over SMTP (`BRIDGE_SMTP_*`); retries over about four hours and a delivery log
+- [x] SDK `bridge.broadcasts`, `bridge.schedules`, `bridge.optOuts`; `bridgectl broadcast send --csv`, `schedules`, `optouts`; MCP `create_broadcast`, `get_broadcast`, `list_schedules`, `check_opt_out`
+- [x] Docs: broadcasts, schedules, opt-outs, auto-replies and forwarding; webhooks, messages, security and self-hosting updated
+- [x] Send page: single and CSV bulk with variables, segment and cost preview
+- [x] Dashboard pages for schedules, opt-outs, auto-reply rules and forwarding rules (with the delivery log)
+- [ ] Auto-replies, opt-out keywords and forwarding verified on physical phones, including two phones forwarding to each other
+- [ ] Telegram, Slack, Discord and SMTP destinations tested against the real services
 
 ### v0.1 acceptance (from the brief)
 

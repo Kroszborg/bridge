@@ -10,13 +10,16 @@ import {
   PasswordValidationIcon,
   PlugSocketIcon,
   SecurityCheckIcon,
+  SentIcon,
   ServerStack01Icon,
   Settings02Icon,
   SmartPhone01Icon,
   TestTube01Icon,
+  TimeScheduleIcon,
   UserCircleIcon,
   UserGroupIcon,
   WebhookIcon,
+  WorkflowSquare03Icon,
 } from '@hugeicons/core-free-icons';
 
 export type NavItem = {
@@ -56,6 +59,9 @@ export function buildNav({
       items: [
         { href: base, label: 'Overview', icon: DashboardSquare01Icon, exact: true },
         { href: `${base}/messages`, label: 'Messages', icon: Message01Icon },
+        { href: `${base}/send`, label: 'Send', icon: SentIcon },
+        { href: `${base}/schedules`, label: 'Schedules', icon: TimeScheduleIcon },
+        { href: `${base}/automation`, label: 'Automation', icon: WorkflowSquare03Icon },
         { href: `${base}/verify`, label: 'Verify', icon: PasswordValidationIcon },
         { href: `${base}/devices`, label: 'Devices', icon: SmartPhone01Icon },
         { href: `${base}/providers`, label: 'Providers', icon: CloudServerIcon },
