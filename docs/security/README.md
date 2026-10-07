@@ -11,6 +11,10 @@ This describes what Bridge does today (v0.1 foundation). It is updated with each
 | API key | `bk_live_…` / `bk_test_…`, 40 random base62 chars + 6-char CRC32 checksum | SHA-256 | until revoked or expired |
 | Device credential | `bd_` + 43 base62 chars | SHA-256 | until the device is removed |
 | Pairing token | `bp_` + 43 base62 chars | SHA-256 | 10 minutes, single use |
+| Verify publishable key | `bpk_` + 32 chars | plaintext (it is public) | for the app's life |
+| Verify app signing secret | `bvs_` + 48 base62 chars | AES-256-GCM under `BRIDGE_SECRET_KEY`, bound to the app ID | until rotated |
+| Turnstile secret | from Cloudflare | AES-256-GCM under `BRIDGE_SECRET_KEY`, bound to the app ID | until changed |
+| Verify widget token | HS256 JWT | not stored | 10 minutes |
 
 * Random values come from `crypto/rand` with rejection sampling (no modulo bias).
 * High-entropy secrets use a fast hash; only human-chosen passwords need a slow one.
@@ -66,6 +70,7 @@ This describes what Bridge does today (v0.1 foundation). It is updated with each
 | Requests per device credential | 120 per minute |
 | Pairing attempts per IP | 20 per hour |
 | Pairing codes per user | 30 per hour |
+| Verify widget, per IP: settings / sends / checks / redirect checks | 120 / 10 / 30 / 60 per minute |
 
 Project, destination-number and device-capacity limits arrive with message sending. Rate-limited
 responses return `429` with `Retry-After`. Limits are enforced in PostgreSQL behind an interface,
@@ -81,7 +86,8 @@ and the header is read right to left so clients cannot spoof their address.
 * Server errors return a generic message plus the request ID; the cause is logged, never sent.
 * The `audit_logs` table records sign-ups, organization and project changes, API keys, phones,
   webhooks and their secrets being revealed or rotated, invites, role changes, member removal,
-  password changes, session revocations, SMS providers, routing and integrations, with actor, target and IP. Owners and admins read it on
+  password changes, session revocations, SMS providers, routing, integrations, and Verify apps
+  (created, updated, deleted, signing secret revealed or rotated), with actor, target and IP. Owners and admins read it on
   the Audit log page. Metadata never contains secrets.
 
 ## Status data
@@ -142,12 +148,58 @@ when that is unset.
 * Codes come from `crypto/rand`. Only an HMAC-SHA256 of each code is stored, keyed by a 256-bit
   key generated once per installation (in `server_keys`) and bound to the verification ID. The hash
   is erased when the verification finishes.
-* A verification allows 5 attempts (configurable, 1 to 10) and expires after 10 minutes (1 to 60).
-  Checks lock the row and compare in constant time. Each number gets a new code at most every
-  30 seconds and 5 times an hour, which bounds guessing to 25 tries per number per hour.
+* A verification allows 5 attempts (configurable per Verify app, 1 to 10) and expires after
+  10 minutes (1 to 60). Checks lock the row and compare in constant time. Each number gets a new
+  code at most every 30 seconds and 5 times an hour per app, which bounds guessing to 25 tries per
+  number per hour and app.
 * The SMS text contains the code. The API, dashboard, webhooks and event stream only ever show it
-  masked, and the stored text is erased once the code is used or the SMS has left the phone. Live
+  masked. The stored text is erased once the verification finishes and the SMS has left the phone,
+  and at the latest 1 hour after sending (it is kept until then so failover can resend it). Live
   keys never receive the code; test keys do, because nothing is sent.
+* **Failover never duplicates a code on purpose.** A live code is resent through another route at
+  most once, and only when its SMS is provably not on its way: still queued (the original is
+  atomically marked failed first, so a phone that takes it at the same moment wins and nothing is
+  resent) or failed with an unambiguous error. It is never resent after an ambiguous failure
+  (Android's `generic_failure` or unknown result codes, a provider timeout or `5xx`), because the
+  carrier may already have accepted the SMS, and never once a phone is sending or has sent it. The
+  failover job carries only IDs, never the code.
+* **Fraud protection** checks, per app: allowed countries, codes per end-user IP per hour (10 by
+  default), codes per number range (the number without its last 3 digits, 20 per hour by default),
+  an optional per-country hourly cap, and Turnstile for widget sends. If Cloudflare cannot be
+  reached, widget sends are refused (`503`). If the rate limiter's database is unavailable, codes
+  are allowed and a warning is logged, so an outage does not stop logins.
+* Blocked attempts store the number, its country, the end user's IP address (when known) and the
+  reason, and are deleted after 30 days. They are visible to project members and sent as
+  `otp.blocked` events, so treat webhook receivers of that event as handling personal data.
+
+## Verify widget and tokens
+
+* **Publishable key versus secrets.** A Verify app's publishable key (`bpk_…`) only identifies the
+  app in the browser: it can request and check codes for that app, subject to every limit below,
+  and nothing else. It cannot read verifications, send other SMS or verify tokens. API keys and the app's
+  signing secret (`bvs_…`) stay on servers.
+* **Origins.** The public widget endpoints (`/v1/widget/{key}/…`) answer CORS only for the app's
+  allowed origins (`https`, or `http` on `localhost`, exact match after normalisation) and the
+  dashboard's own origin, which serves the hosted page. A browser request from any other origin is
+  refused with `403`. CORS does not stop scripts, which is why the limits below exist.
+* **Redirect URIs** for the hosted page must be registered in advance and match character for
+  character (`https` only, `http` on `localhost`, no fragment), so the token cannot be sent to an
+  attacker's URL. Use `state` to bind the callback to the session that started it.
+* **Abuse limits.** Each IP address may load the widget settings 120 times, send 10 codes, check
+  30 codes and check 60 redirect URIs per minute. Sends also go through the app's fraud protection
+  with the caller's IP address, and through Cloudflare Turnstile when the app has it.
+* **Tokens.** A successful check returns a JWT signed with HS256 under the app's signing secret,
+  with `iss` (the API URL), `aud` (the app ID), `sub` (the phone number), `vid` (the verification
+  ID), `env`, `iat`, `exp` (10 minutes later) and a random `jti`. The secret is generated with
+  `crypto/rand`, stored encrypted, revealed only to owners and admins (audited), and rotation
+  invalidates earlier tokens at once. Verifiers must accept only `HS256` and check the signature,
+  `aud`, `iss`, `exp` and `env`, and should accept each token once. `POST /v1/otp/tokens/verify`
+  does this server-side and also confirms that the verification exists and was verified for that
+  number.
+* **Test widgets return the code.** A widget in the `test` environment sends no SMS and shows the
+  code to whoever asked for it, so the flow can be built without a phone. Its tokens carry
+  `env: test`, and they prove nothing about who controls the number: production must require
+  `env: live`. The API check refuses a test token with a live key (`environment_mismatch`).
 
 ## SMS providers and integrations
 

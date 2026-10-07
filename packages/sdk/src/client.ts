@@ -6,6 +6,7 @@ import type {
   operations,
   RequestLog,
   RequestLogList,
+  TokenVerification,
   Usage,
   UsageHistory,
   Verification,
@@ -71,11 +72,17 @@ export type ListMessagesParams = NonNullable<operations['listMessages']['paramet
 export type TestDeviceParams =
   operations['testDevice']['requestBody']['content']['application/json'];
 
-/** Parameters of `bridge.otp.send`. */
+/**
+ * Parameters of `bridge.otp.send`. `app` picks the Verify app (its `vap_…` ID or slug; the default
+ * app when left out), and `client_ip` (your end user's IP address) turns on the app's per-IP limit.
+ */
 export type SendOtpParams =
   operations['sendVerification']['requestBody']['content']['application/json'];
 
-/** Parameters of `bridge.otp.verify`: the code, and either the verification `id` or the number `to`. */
+/**
+ * Parameters of `bridge.otp.verify`: the code, and either the verification `id` or the number `to`.
+ * `app` (ID or slug) limits the check to one Verify app's codes.
+ */
 export type VerifyOtpParams =
   operations['checkVerification']['requestBody']['content']['application/json'];
 
@@ -649,8 +656,18 @@ export class Otp {
 
   /**
    * Sends a new code to a number and returns the verification. A newer code
-   * cancels the previous one. With a test key nothing is sent and the code is
-   * returned in `code`, so tests can finish the flow without a phone.
+   * cancels the previous one of the same Verify app. With a test key nothing is
+   * sent and the code is returned in `code`, so tests can finish the flow
+   * without a phone.
+   *
+   * Pass `app` (ID or slug) to use a Verify app other than the default, and
+   * `client_ip` with your end user's IP address so the app's per-IP limit
+   * applies. Fraud protection refusals throw a {@link BridgeApiError} with code
+   * `otp_blocked` (403, or 429 with `retryAfter`).
+   *
+   * ```ts
+   * await bridge.otp.send({ to: '+919876543210', app: 'checkout', client_ip: req.ip });
+   * ```
    *
    * Not retried automatically: a retry could send the user a second code.
    */
@@ -686,11 +703,40 @@ export class Otp {
     return body;
   }
 
-  /** A verification and the delivery status of its SMS. */
+  /**
+   * A verification and the delivery status of its SMS, including the failover
+   * SMS (`failover_message_id`, `failover_message_status`) when the code was
+   * resent through another route.
+   */
   async get(otpId: string, options?: RequestOptions): Promise<Verification> {
     const { body } = await this.client.request<Verification>({
       method: 'GET',
       path: `/v1/otp/${encodeURIComponent(otpId)}`,
+      idempotent: true,
+      options,
+    });
+    return body;
+  }
+
+  /**
+   * Asks Bridge to check a token from the Verify widget or hosted page: its
+   * signature, issuer, expiry, environment (it must match this client's key)
+   * and that the verification it names was verified for that number. An
+   * invalid token is a normal response with `valid: false` and a `reason`.
+   *
+   * ```ts
+   * const check = await bridge.otp.verifyToken(token);
+   * if (check.valid) await markPhoneVerified(user, check.phone);
+   * ```
+   *
+   * To check tokens without a request, use `verifyWidgetToken`.
+   */
+  async verifyToken(token: string, options?: RequestOptions): Promise<TokenVerification> {
+    const { body } = await this.client.request<TokenVerification>({
+      method: 'POST',
+      path: '/v1/otp/tokens/verify',
+      body: { token },
+      // Checking changes nothing, so a retry is safe.
       idempotent: true,
       options,
     });

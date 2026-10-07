@@ -1,3 +1,5 @@
+import type { TokenVerification } from '@bridge/api-types';
+
 /** Stable error codes returned by the Bridge API. New codes may be added. */
 export type BridgeErrorCode =
   | 'unauthenticated'
@@ -8,6 +10,7 @@ export type BridgeErrorCode =
   | 'validation_failed'
   | 'invalid_request'
   | 'rate_limited'
+  | 'otp_blocked'
   | 'service_unavailable'
   | 'internal_error'
   | (string & {});
@@ -69,4 +72,23 @@ export class BridgeConnectionError extends BridgeError {
 /** A webhook request failed signature or timestamp verification. Reject it. */
 export class WebhookVerificationError extends BridgeError {
   override name = 'WebhookVerificationError';
+}
+
+/**
+ * Why a Verify widget token is not valid. The same values as `reason` in the response of
+ * `POST /v1/otp/tokens/verify`. Checking a token locally can produce every reason except
+ * `verification_mismatch`, which needs Bridge's records; there, `unknown_app` means the token's
+ * `aud` is not the app ID you passed.
+ */
+export type BridgeTokenErrorReason = NonNullable<TokenVerification['reason']>;
+
+/** A Verify widget token failed verification. Do not treat the phone number as verified. */
+export class BridgeTokenError extends BridgeError {
+  override name = 'BridgeTokenError';
+  readonly reason: BridgeTokenErrorReason;
+
+  constructor(reason: BridgeTokenErrorReason, message: string) {
+    super(message);
+    this.reason = reason;
+  }
 }

@@ -62,7 +62,13 @@ type FailoverRoute struct {
 // with capacity. ok is false when there is none.
 func (s *Service) PlanFailover(ctx context.Context, m dbq.Message) (FailoverRoute, bool, error) {
 	onProviders := m.Provider != ProviderAndroid
-	if s.providers != nil && m.Environment == dbq.ApiEnvironmentLive && !onProviders {
+	// Providers cost money: failover uses them only where the project's
+	// routing already allows providers. Otherwise it tries another phone.
+	providersAllowed := false
+	if r, err := s.q.GetRouting(ctx, m.ProjectID); err == nil && r.Mode != RoutePhones {
+		providersAllowed = true
+	}
+	if s.providers != nil && providersAllowed && m.Environment == dbq.ApiEnvironmentLive && !onProviders {
 		accounts, err := s.q.EnabledProviderAccounts(ctx, m.ProjectID)
 		if err != nil {
 			return FailoverRoute{}, false, err

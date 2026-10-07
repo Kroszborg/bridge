@@ -283,10 +283,14 @@ wake:     FCM high-priority data message when a job is queued for an offline dev
 
 **Milestone 9 (v0.6):** Verify Pro.
 
-- [ ] Verify apps per project (template, code settings, limits, stats); the default app keeps today's settings
-- [ ] Delivery failover: resend the same code through providers or another phone when it was not sent within N seconds
-- [ ] Fraud protection: allowed countries, per-IP and number-range limits, blocked-attempt report, `otp.blocked` event
-- [ ] Drop-in widget and hosted page (`/verify/{app}`): publishable key, Turnstile, signed JWT result
+- [x] Verify apps per project (template, code settings, limits, stats); the default app keeps today's settings (API, migration `00010`)
+- [x] Delivery failover: resend the same code through providers or another phone when it was not sent within N seconds; never after ambiguous failures
+- [x] Fraud protection: allowed countries, per-IP and number-range limits, per-country cap, blocked-attempt report (API, kept 30 days), `otp.blocked` event
+- [x] Widget API: publishable key, allowed origins, exact redirect URIs, test environment, Turnstile, public `/v1/widget/{key}` endpoints, HS256 token signed with the app secret, `POST /v1/otp/tokens/verify`
+- [x] SDK `verifyWidgetToken` and `bridge.otp.verifyToken`; docs for apps, failover, fraud protection, widget and tokens
+- [ ] Dashboard: Verify apps pages (settings, secret reveal and rotation, blocked-attempt report, statistics)
+- [ ] Drop-in widget (`widget.js`, `<bridge-verify>`) and hosted page (`/verify/{publishableKey}`) in the dashboard
+- [ ] Failover and widget verified end to end on physical phones and a real provider account
 
 **Milestone 10 (v0.7):** Messaging tools.
 

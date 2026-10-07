@@ -519,7 +519,8 @@ func TestVerifyFailoverWhenPhoneNeverAccepts(t *testing.T) {
 	c, _, projectID := signup(t, srv)
 	phone := connectPhone(t, srv, c, projectID)
 	live := apiKeyClient(t, srv, c, projectID, "live")
-	addTwilio(t, c, projectID) // routing stays "phones": only failover uses Twilio
+	addTwilio(t, c, projectID)
+	allowProviders(t, c, projectID)
 	def := defaultApp(t, c, projectID)
 	c.mustStatus(c.do("PATCH", verifyAppsPath(projectID)+"/"+def["id"].(string), map[string]any{"failover_after_seconds": 1}), 200)
 
@@ -585,6 +586,7 @@ func TestVerifyNoFailoverOncePhoneAccepted(t *testing.T) {
 	phone := connectPhone(t, srv, c, projectID)
 	live := apiKeyClient(t, srv, c, projectID, "live")
 	addTwilio(t, c, projectID)
+	allowProviders(t, c, projectID)
 	def := defaultApp(t, c, projectID)
 	c.mustStatus(c.do("PATCH", verifyAppsPath(projectID)+"/"+def["id"].(string), map[string]any{"failover_after_seconds": 1}), 200)
 
@@ -611,6 +613,7 @@ func TestVerifyFailoverAtOnceWhenSendFails(t *testing.T) {
 	phone := connectPhone(t, srv, c, projectID)
 	live := apiKeyClient(t, srv, c, projectID, "live")
 	addTwilio(t, c, projectID)
+	allowProviders(t, c, projectID)
 	def := defaultApp(t, c, projectID)
 	c.mustStatus(c.do("PATCH", verifyAppsPath(projectID)+"/"+def["id"].(string), map[string]any{"failover_after_seconds": 600}), 200)
 
@@ -683,5 +686,33 @@ func TestOTPBodyKeptUntilVerificationEnds(t *testing.T) {
 	redact()
 	if stored() != "" {
 		t.Fatal("a code's message was kept past the longest code lifetime")
+	}
+}
+
+// allowProviders lets providers send, but only after an hour of waiting for a
+// phone, so ordinary dispatch never hands messages over during a test.
+func allowProviders(t *testing.T, c *client, projectID string) {
+	t.Helper()
+	c.mustStatus(c.do("PUT", "/v1/projects/"+projectID+"/routing", map[string]any{"mode": "phones_then_providers", "fallback_after_seconds": 3600}), 200)
+}
+
+func TestVerifyFailoverRespectsPhonesOnlyRouting(t *testing.T) {
+	fake := newFakeTwilio(t)
+	srv := newServer(t)
+	c, _, projectID := signup(t, srv)
+	phone := connectPhone(t, srv, c, projectID)
+	live := apiKeyClient(t, srv, c, projectID, "live")
+	addTwilio(t, c, projectID) // routing stays "phones": failover must not spend money on Twilio
+	def := defaultApp(t, c, projectID)
+	c.mustStatus(c.do("PATCH", verifyAppsPath(projectID)+"/"+def["id"].(string), map[string]any{"failover_after_seconds": 1}), 200)
+
+	sent := live.mustStatus(live.do("POST", "/v1/otp", map[string]any{"to": uniqueNumber()}), 201).Body
+	phone.expect(gateway.TypeSendSMS) // never accepted, and there is no other phone
+	time.Sleep(3 * time.Second)
+	if v := live.mustStatus(live.do("GET", "/v1/otp/"+sent["id"].(string), nil), 200).Body; v["failover_message_id"] != nil {
+		t.Fatalf("failed over despite phones-only routing: %v", v)
+	}
+	if n := len(fake.sent()); n != 0 {
+		t.Fatalf("Twilio used %d times with phones-only routing", n)
 	}
 }

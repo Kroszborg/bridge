@@ -50,19 +50,25 @@ automatically. The settings that matter for a public deployment:
 | `BRIDGE_DASHBOARD_URL` | The HTTPS URL of the dashboard, e.g. `https://sms.example.com`. |
 | `BRIDGE_ALLOW_SIGNUP` | `false` once you have created your own account. Invite teammates from **Team**; invite links work with sign-up off. |
 | `BRIDGE_OPERATOR_EMAILS` | Your email. Operators see **System health**. When unset, the first account is the operator. |
-| `BRIDGE_SECRET_KEY` | 32 random bytes as base64 or hex: `openssl rand -base64 32`. Needed to store [SMS provider](../providers/README.md) credentials and [integration](../integrations/README.md) secrets. |
+| `BRIDGE_SECRET_KEY` | 32 random bytes as base64 or hex: `openssl rand -base64 32`. Needed to store [SMS provider](../providers/README.md) credentials, [integration](../integrations/README.md) secrets, and Verify apps' token signing and Turnstile secrets. |
 
 When `BRIDGE_DASHBOARD_URL` uses `https`, session cookies are automatically marked `Secure`.
 
-`BRIDGE_SECRET_KEY` encrypts provider credentials and integration signing secrets (AES-256-GCM).
-Bridge starts without it, but refuses to save them until it is set. Back it up with your database
+`BRIDGE_SECRET_KEY` encrypts provider credentials, integration signing secrets, and Verify apps'
+token signing and Turnstile secrets (AES-256-GCM). Bridge starts without it, but refuses to save
+them until it is set, and the [Verify widget](../otp/README.md#drop-in-widget) cannot issue tokens. Back it up with your database
 backups: if it is lost or changed, stored credentials can no longer be read and must be entered
 again. The API and worker containers both need the same value.
 
 `BRIDGE_PUBLIC_URL` must be reachable from the internet, over HTTPS, if you use SMS providers or
 integrations: providers post delivery reports to `<BRIDGE_PUBLIC_URL>/v1/provider-callbacks/…`,
 and the Supabase Send SMS hook URL is built from it. With a local URL, providers still send but
-messages stay `sent` because no delivery report arrives.
+messages stay `sent` because no delivery report arrives. It is also the `iss` claim of Verify
+widget tokens, so changing it invalidates tokens checked against the old value.
+
+The Verify widget's script (`<BRIDGE_DASHBOARD_URL>/widget.js`) and hosted page
+(`<BRIDGE_DASHBOARD_URL>/verify/…`) are served by the dashboard, so it must be reachable by your
+users when you use them.
 
 Request logs are kept for `BRIDGE_REQUEST_LOG_RETENTION` (default `336h`, 14 days) and message
 bodies for `BRIDGE_MESSAGE_RETENTION` (default `720h`).
@@ -81,7 +87,7 @@ put Bridge behind a reverse proxy, make sure it forwards WebSocket upgrades and 
 
 - [ ] TLS in front of both the API and the dashboard (Caddy, nginx, Traefik or a cloud load balancer).
 - [ ] `POSTGRES_PASSWORD` changed from the default.
-- [ ] `BRIDGE_SECRET_KEY` set and backed up, if you use SMS providers or integrations.
+- [ ] `BRIDGE_SECRET_KEY` set and backed up, if you use SMS providers, integrations or the Verify widget.
 - [ ] `BRIDGE_ALLOW_SIGNUP=false` after creating your account.
 - [ ] Your reverse proxy's address is covered by `BRIDGE_TRUSTED_PROXIES` (private networks are
       trusted by default), so rate limits see real client IPs.

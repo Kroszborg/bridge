@@ -254,6 +254,41 @@ describe('otp', () => {
     expect(new URL(requests[2]?.url ?? '').pathname).toBe('/v1/otp/otp_1');
   });
 
+  it('passes the Verify app and the end user IP through', async () => {
+    const { bridge, requests } = mockClient([
+      () => json(201, { ...verification, app_id: 'vap_1' }),
+      () => json(200, { valid: false, verification }),
+    ]);
+    await bridge.otp.send({ to: '+919876543210', app: 'checkout', client_ip: '203.0.113.7' });
+    expect(await requests[0]?.json()).toEqual({
+      to: '+919876543210',
+      app: 'checkout',
+      client_ip: '203.0.113.7',
+    });
+    await bridge.otp.verify({ to: '+919876543210', app: 'checkout', code: '000000' });
+    expect(await requests[1]?.json()).toEqual({
+      to: '+919876543210',
+      app: 'checkout',
+      code: '000000',
+    });
+  });
+
+  it('surfaces fraud protection blocks with their code and Retry-After', async () => {
+    const { bridge, requests } = mockClient([
+      () =>
+        json(
+          429,
+          { error: { code: 'otp_blocked', message: 'Too many codes from this IP.' } },
+          { 'retry-after': '1800' },
+        ),
+    ]);
+    const err = await bridge.otp
+      .send({ to: '+919876543210', client_ip: '203.0.113.7' })
+      .catch((e: unknown) => e);
+    expect(err).toMatchObject({ status: 429, code: 'otp_blocked', retryAfter: 1800 });
+    expect(requests).toHaveLength(1);
+  });
+
   it('surfaces the resend cooldown as a rate-limit error', async () => {
     const { bridge } = mockClient([
       () =>

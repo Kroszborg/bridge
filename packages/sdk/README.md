@@ -75,6 +75,72 @@ With a test key nothing is sent and `send` returns the code in `code`. `send` an
 retried automatically, because a retry could send a second code or use an attempt. See
 [docs/otp](../../docs/otp/README.md).
 
+### Verify apps and fraud protection
+
+Each project has Verify apps with their own message, code settings, limits and widget. Pass `app`
+(the `vap_…` ID or the slug) to use one other than the default, and `client_ip` with your end
+user's IP address so the app's per-IP limit applies:
+
+```ts
+import { BridgeApiError } from '@kroszborg/bridge';
+
+try {
+  await bridge.otp.send({ to: '+919876543210', app: 'checkout', client_ip: req.ip });
+} catch (err) {
+  if (err instanceof BridgeApiError && err.code === 'otp_blocked') {
+    // 403: country not allowed or CAPTCHA failed. 429: an hourly limit; wait err.retryAfter seconds.
+  }
+}
+
+await bridge.otp.verify({ to: '+919876543210', app: 'checkout', code: input });
+```
+
+When a code's SMS was not sent in time, Bridge resends it once through another route. The
+verification then shows `failover_message_id` and `failover_message_status`.
+
+## Verify widget tokens
+
+The drop-in widget and the hosted page verify the number in the browser and hand your page a
+token: a JWT signed with HS256 under the Verify app's secret (`bvs_…`). Check it on your server
+before you trust the number. Locally, with no request to Bridge:
+
+```ts
+import { BridgeTokenError, verifyWidgetToken } from '@kroszborg/bridge';
+
+try {
+  const { phone, verificationId, tokenId } = await verifyWidgetToken(token, {
+    secret: process.env.BRIDGE_VERIFY_SECRET!, // the app's signing secret, bvs_…
+    appId: 'vap_01ja8z3k5wq2v7c9e4r2n0w6yb',
+    issuer: 'https://api.sms.example.com', // your Bridge API URL (the token's iss)
+  });
+  // Accept each token once: store tokenId (or verificationId) and refuse repeats.
+  await markPhoneVerified(user, phone);
+} catch (err) {
+  if (err instanceof BridgeTokenError) {
+    err.reason; // 'malformed' | 'bad_signature' | 'unknown_app' | 'wrong_issuer' | 'expired' | 'environment_mismatch'
+  }
+  throw err;
+}
+```
+
+`verifyWidgetToken` accepts only `alg: HS256`, compares the signature in constant time, and checks
+`aud` (the app ID), `iss` when you pass `issuer`, `exp` and `iat` (with `clockToleranceSeconds`,
+default 30) and `env`. It requires `env: live` unless you pass `environment: 'test'`, because a
+test-environment widget sends no SMS and its tokens prove nothing about a real phone. It uses
+WebCrypto, so it runs on Node.js 20+, Bun, Deno and edge runtimes.
+
+Or ask Bridge, which also confirms that the app and the verification still exist and that the
+token's environment matches your key's:
+
+```ts
+const check = await bridge.otp.verifyToken(token);
+if (check.valid) await markPhoneVerified(user, check.phone);
+else console.warn(check.reason); // same reasons, plus 'verification_mismatch'
+```
+
+See [the widget guide](../../docs/otp/README.md#drop-in-widget) for the hosted page and
+`<bridge-verify>` element.
+
 ## Devices, usage and your key
 
 ```ts
@@ -110,6 +176,9 @@ app.post('/webhooks/bridge', express.raw({ type: 'application/json' }), async (r
         break;
       case 'device.offline':
         await alertOps(`${event.data.name} went offline`);
+        break;
+      case 'otp.blocked':
+        await flagAbuse(event.data.client_ip, event.data.reason); // fraud protection refused a code
         break;
     }
     res.sendStatus(204);

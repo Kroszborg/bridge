@@ -7,11 +7,14 @@ export type {
   MessageList,
   RequestLog,
   RequestLogList,
+  TokenVerification,
   Usage,
   UsageDay,
   UsageHistory,
   UsagePeriod,
   Verification,
+  VerifyBlock,
+  VerifyBlockReason,
   VerifyResult,
   WhoAmI,
 } from '@bridge/api-types';
@@ -45,8 +48,15 @@ export {
   BridgeError,
   type BridgeErrorCode,
   type BridgeErrorDetail,
+  BridgeTokenError,
+  type BridgeTokenErrorReason,
   WebhookVerificationError,
 } from './errors';
+export {
+  type VerifyWidgetTokenOptions,
+  verifyWidgetToken,
+  type WidgetTokenClaims,
+} from './tokens';
 export {
   signWebhook,
   type VerifyWebhookOptions,

@@ -45,6 +45,31 @@ they are always called out here with migration steps.
   Auth0, n8n, Zapier, Make, Firebase and Clerk.
 - Message timeline events `provider_fallback` (with a `reason`) and `provider_accepted`.
 - Docs: iPhones as recipients (code autofill) and why they cannot be gateways.
+- Verify apps (v0.6, in progress): up to 50 per project, each with its own name, message template,
+  code settings, failover, fraud protection, widget, signing secret and statistics. The default app
+  (slug `default`) holds the project's previous settings. `POST /v1/otp` takes `app` (ID or slug)
+  and `client_ip` (the end user's IP address); `POST /v1/otp/verify` takes an optional `app`.
+  Verifications show `app_id`. Audited as `verify_app.created`, `.updated`, `.deleted`,
+  `.secret_revealed` and `.secret_rotated`.
+- Verify delivery failover: a live code whose SMS was not sent within the app's
+  `failover_after_seconds` (default 30, 0 turns it off), or whose send failed unambiguously, is
+  resent once through the project's SMS providers or another online phone. Never after an
+  ambiguous failure or once a phone is sending or has sent it. Verifications show
+  `failover_message_id` and `failover_message_status`. See [docs/otp](docs/otp/README.md#delivery-failover).
+- Verify fraud protection per app: allowed countries, codes per end-user IP per hour (default 10),
+  per number range (default 20 per hour), and an optional per-country hourly cap. Refusals return
+  `otp_blocked` (`403`, or `429` with `Retry-After`), are kept for 30 days in a blocked-attempt
+  report, and are announced as the new `otp.blocked` webhook event.
+- Verify drop-in widget and hosted page: a publishable key (`bpk_…`), allowed origins, exact
+  redirect URIs, a test environment that returns the code, and optional Cloudflare Turnstile.
+  Public endpoints under `/v1/widget/{publishableKey}`. A successful check returns a token (HS256
+  JWT signed with the app's `bvs_…` secret; claims `iss`, `aud`, `sub`, `vid`, `env`, `iat`, `exp`,
+  `jti`) that servers check locally or with `POST /v1/otp/tokens/verify`. See
+  [docs/otp](docs/otp/README.md#drop-in-widget).
+- SDK: `verifyWidgetToken()` checks widget tokens locally with WebCrypto (HS256 only, constant-time
+  signature check, `aud`, `iss`, `exp` and `env`) and throws `BridgeTokenError` with the same
+  reasons as the API; `bridge.otp.verifyToken()` calls `POST /v1/otp/tokens/verify`. The SDK's
+  webhook types include `otp.blocked`, and `BridgeErrorCode` includes `otp_blocked`.
 
 ### Changed
 
@@ -53,6 +78,13 @@ they are always called out here with migration steps.
   `listRequestLogs` is the API-key endpoint.
 - A message's `provider` can now be `fallback` (waiting for an SMS provider) or `msg91`, `twilio`,
   `vonage` or `plivo`, besides `android` and `simulator`.
+- Verify settings are now per app. The resend cooldown (30 seconds) and the hourly cap (5 codes per
+  number) count per app, and a new code cancels only the same app's pending code. Migration
+  `00010` moves each project's `otp_settings` into its default app and drops that table; the
+  project's Verify settings endpoints now read and write the default app.
+- The text of a Verify SMS is kept until its verification finishes, at most 1 hour, instead of
+  being erased as soon as the phone is done with it, so failover can resend it. It stays masked
+  everywhere.
 
 ### Fixed
 

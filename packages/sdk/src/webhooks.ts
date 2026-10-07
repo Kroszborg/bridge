@@ -1,4 +1,4 @@
-import type { Message, Verification } from '@bridge/api-types';
+import type { Message, Verification, VerifyBlock } from '@bridge/api-types';
 import { WebhookVerificationError } from './errors';
 
 /** Data of `device.online` and `device.offline` events. */
@@ -30,6 +30,7 @@ export type WebhookEvent =
   | Envelope<'message.sent' | 'message.delivered' | 'message.failed' | 'message.received', Message>
   | Envelope<'device.online' | 'device.offline', WebhookDevice>
   | Envelope<'otp.verified' | 'otp.failed' | 'otp.expired', Verification>
+  | Envelope<'otp.blocked', VerifyBlock>
   | Envelope<'webhook.test', WebhookTest>;
 
 export type WebhookEventType = WebhookEvent['type'];

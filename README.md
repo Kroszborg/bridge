@@ -26,7 +26,8 @@ phone, or a messaging provider as a fallback or instead) can change without rewr
 > the `bridgectl` CLI, usage charts, request logs, a playground, teams with roles and invite links,
 > an audit log, a public status page, the Verify API for one-time passwords, SMS providers (MSG91,
 > Twilio, Vonage, Plivo) with fallback routing, integrations such as the Supabase Send SMS hook, and
-> an MCP server for AI assistants. Bridge has not yet been verified on enough real phones and provider
+> an MCP server for AI assistants. In progress for 0.6 (Verify Pro): Verify apps per project,
+> delivery failover, fraud protection, and a drop-in widget and hosted page with signed tokens. Bridge has not yet been verified on enough real phones and provider
 > accounts to call it stable. See the [Era 0 plan](docs/architecture/era-0-plan.md) for exactly
 > what works today. Do not run it in production yet.
 
@@ -68,7 +69,8 @@ curl http://localhost:8080/v1/messages \
 Follow it under **Messages**, or with `GET /v1/messages/{id}`, which includes the full delivery timeline.
 To be told when it is delivered, or when a phone receives an SMS, add a webhook endpoint. See
 [Sending messages](docs/messages/README.md) and [Webhooks](docs/webhooks/README.md). For login and
-sign-up codes, use [Verify](docs/otp/README.md): `POST /v1/otp`, then `POST /v1/otp/verify`.
+sign-up codes, use [Verify](docs/otp/README.md): `POST /v1/otp`, then `POST /v1/otp/verify`, or
+drop in the [verification widget](docs/otp/README.md#drop-in-widget) and check its signed token.
 
 **Use Bridge with** [Supabase Auth](docs/integrations/supabase.md),
 [Better Auth](docs/integrations/better-auth.md), [Auth0](docs/integrations/auth0.md),
@@ -134,7 +136,7 @@ one binary and one database.
 | 0.3 | Developer platform: playground, CLI, usage, request logs, teams, audit log, status page |
 | 0.4 | Verify API: `bridge.otp.send()` / `bridge.otp.verify()` with a zero-cost test mode (done, released as v0.4.0-rc.1; see [docs/otp](docs/otp/README.md)) |
 | 0.5 | [SMS providers](docs/providers/README.md) (MSG91, Twilio, Vonage, Plivo) with fallback routing, and [integrations](docs/integrations/README.md) (Supabase hook, Better Auth, Auth0, no-code tools) |
-| 0.6 | Verify Pro: Verify apps per project, delivery failover, fraud protection, drop-in widget and hosted page (in progress) |
+| 0.6 | Verify Pro: [Verify apps](docs/otp/README.md#verify-apps) per project, delivery failover, fraud protection, drop-in widget and hosted page (in progress) |
 | 0.7 | Messaging tools: bulk and scheduled sends, auto-replies with opt-out, forwarding rules (next) |
 
 Bridge is not a bulk-SMS or marketing tool, and it does not help you bypass carrier rules, DLT

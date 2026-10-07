@@ -33,6 +33,7 @@ A project can have up to 10 endpoints.
 | `otp.verified` | A one-time password was entered correctly. `data` is the [verification](../otp/README.md). |
 | `otp.failed` | A verification ran out of attempts. |
 | `otp.expired` | A code lapsed unused (announced within about 2 minutes of expiring, or when it is checked). |
+| `otp.blocked` | [Fraud protection](../otp/README.md#fraud-protection) refused a code. `data` is the blocked attempt: `id`, `app_id`, `environment`, `to`, `client_ip`, `country`, `reason` and `created_at`. |
 
 Messages and verifications made with a test key (`bk_test_…`) produce the same events, with
 `"environment": "test"`. Verification events never include the code. You can build your whole webhook flow without a phone.
@@ -71,7 +72,11 @@ webhook-signature: v1,8C8m4Jd0Ywq1bVqQ3n4rW9pX2H7yZkGmT0sLhJcUeAo=
 
 `data` for `message.*` events is the same object `GET /v1/messages/{id}` returns, without the
 timeline. For `device.*` events it holds the device's `id`, `name`, `status`, `battery_level`,
-`is_charging`, `network_type` and `last_seen_at`. `timestamp` is when the event happened.
+`is_charging`, `network_type` and `last_seen_at`. For `otp.verified`, `otp.failed` and
+`otp.expired` it is the verification, as `GET /v1/otp/{id}` returns it but without the code. For
+`otp.blocked`, `reason` is `country_not_allowed`, `ip_limit`, `range_burst`, `country_limit` or
+`captcha_failed`, and `client_ip` and `country` may be `null`. `timestamp` is when the event
+happened.
 
 | Header | Meaning |
 | --- | --- |

@@ -26,6 +26,9 @@ you want real SMS.
 | `list_devices` | Paired phones: online status, battery, SIMs, send limits | No |
 | `get_usage` | Counts and delivery rate for 24 hours and 30 days | No |
 
+The verification tools use the project's default [Verify app](../otp/README.md#verify-apps), and
+`check_verification_code` with a number checks that number's latest pending code of any app.
+
 Read-only tools are marked as such, so clients that ask before acting on the world will ask before
 `send_sms` and `send_verification_code`. The server also tells the assistant to confirm the number
 and text before sending with a live key. Each `send_sms` call carries a fresh idempotency key, so a
