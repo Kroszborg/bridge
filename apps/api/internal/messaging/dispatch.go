@@ -358,9 +358,18 @@ func (s *Service) SweepAssignments(ctx context.Context) error {
 	return nil
 }
 
-// RedactBodies removes message bodies older than the retention period.
+// OTPBodyRetention is how long a Verify code's message keeps its text when
+// its verification has not finished: the longest code lifetime. Until then the
+// code can be resent through another route.
+const OTPBodyRetention = time.Hour
+
+// RedactBodies removes message bodies older than the retention period, and
+// Verify codes' bodies older than OTPBodyRetention.
 func (s *Service) RedactBodies(ctx context.Context) (int64, error) {
-	return s.q.RedactMessageBodies(ctx, s.now().Add(-s.cfg.Retention))
+	now := s.now()
+	return s.q.RedactMessageBodies(ctx, dbq.RedactMessageBodiesParams{
+		Before: now.Add(-s.cfg.Retention), OtpBefore: now.Add(-OTPBodyRetention),
+	})
 }
 
 func sanitizeCode(code, fallback string) string {

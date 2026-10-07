@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"net/netip"
+	"strconv"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -11,6 +13,7 @@ import (
 	"bridge/internal/db/dbq"
 	"bridge/internal/messaging"
 	"bridge/internal/otp"
+	"bridge/internal/secretbox"
 )
 
 // Verification is a one-time password sent to a number.
@@ -46,6 +49,8 @@ type OTPSettings struct {
 
 type otpSendBody struct {
 	To             string         `json:"to" minLength:"3" maxLength:"32" example:"+919876543210" doc:"Destination in E.164 format."`
+	App            string         `json:"app,omitempty" maxLength:"40" example:"default" doc:"The Verify app: its ID (vap_…) or slug. Leave out for the default app."`
+	ClientIP       string         `json:"client_ip,omitempty" maxLength:"45" example:"203.0.113.7" doc:"Your end user's IP address. Enables the app's per-IP hourly limit."`
 	AndroidAppHash string         `json:"android_app_hash,omitempty" pattern:"^[A-Za-z0-9+/]{11}$" doc:"Your Android app's 11-character SMS Retriever hash. Added as the last line so the app can read the code without SMS permission."`
 	Metadata       map[string]any `json:"metadata,omitempty" doc:"Your own key-value data, returned with the verification. At most 32 keys and 4 KB."`
 }
@@ -53,6 +58,7 @@ type otpSendBody struct {
 type otpVerifyBody struct {
 	ID   string `json:"id,omitempty" pattern:"^otp_[0-9a-z]{26}$" doc:"The verification to check. Or pass to."`
 	To   string `json:"to,omitempty" maxLength:"32" example:"+919876543210" doc:"Checks the latest pending code sent to this number. Or pass id."`
+	App  string `json:"app,omitempty" maxLength:"40" doc:"Only match verifications of this Verify app (ID or slug). With to, picks among several apps' pending codes."`
 	Code string `json:"code" minLength:"4" maxLength:"10" example:"482913"`
 }
 
@@ -62,6 +68,7 @@ type OTPPath struct {
 
 type ListOTPQuery struct {
 	Limit         int    `query:"limit" minimum:"1" maximum:"100" default:"25"`
+	App           string `query:"app" doc:"Filter by Verify app: its ID or slug."`
 	StartingAfter string `query:"starting_after" doc:"A verification ID; returns verifications created before it."`
 	Status        string `query:"status" enum:"pending,verified,expired,failed,canceled"`
 	To            string `query:"to" doc:"Filter by number (E.164)."`
@@ -73,10 +80,12 @@ func (s *Server) registerOTP(api huma.API) {
 		OperationID: "sendVerification", Method: http.MethodPost, Path: "/v1/otp", Tags: []string{"Developer API"},
 		Summary: "Send a verification code",
 		Description: "Generates a code, sends it by SMS and returns the verification. Sending a new code to the same number " +
-			"cancels the previous one. One code per number every 30 seconds, and at most 5 per hour. " +
+			"cancels the previous one of the same app. One code per number every 30 seconds, and at most 5 per hour. " +
+			"The app's fraud protection may refuse the code with `otp_blocked` (403 for a country that is not allowed, " +
+			"429 for the hourly IP, number-range and country limits). " +
 			"Test keys send nothing and return the code in `code`.",
 		Security: apiKeyAuth, DefaultStatus: http.StatusCreated,
-		Errors: []int{http.StatusUnauthorized, http.StatusTooManyRequests},
+		Errors: []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusTooManyRequests},
 	}, func(ctx context.Context, in *struct{ Body otpSendBody }) (*struct{ Body Verification }, error) {
 		k := principalFrom(ctx).APIKey
 		project, err := s.q.GetProjectByID(ctx, k.ProjectID)
@@ -85,8 +94,8 @@ func (s *Server) registerOTP(api huma.API) {
 		}
 		return s.sendOTP(ctx, otp.SendRequest{
 			ProjectID: k.ProjectID, ProjectName: project.Name, Environment: k.Environment, APIKeyID: &k.ID,
-			To: in.Body.To, AndroidAppHash: in.Body.AndroidAppHash, Metadata: in.Body.Metadata,
-		})
+			To: in.Body.To, AndroidAppHash: in.Body.AndroidAppHash, Metadata: in.Body.Metadata, App: in.Body.App,
+		}, in.Body.ClientIP)
 	})
 
 	huma.Register(api, huma.Operation{
@@ -129,8 +138,12 @@ func (s *Server) registerOTP(api huma.API) {
 			e := dbq.APIEnvironment(in.Environment)
 			env = &e
 		}
+		appID, err := s.appFilter(ctx, in.ProjectID, in.App)
+		if err != nil {
+			return nil, err
+		}
 		items, more, err := s.otp.List(ctx, otp.ListRequest{
-			ProjectID: in.ProjectID, Environment: env, Status: in.Status, To: in.To,
+			ProjectID: in.ProjectID, AppID: deref(appID), Environment: env, Status: in.Status, To: in.To,
 			StartingAfter: in.StartingAfter, Limit: in.Limit,
 		})
 		if err != nil {
@@ -145,11 +158,16 @@ func (s *Server) registerOTP(api huma.API) {
 	}, func(ctx context.Context, in *struct {
 		ProjectPath
 		Environment string `query:"environment" enum:"live,test" default:"live"`
+		App         string `query:"app" doc:"Only this Verify app: its ID or slug."`
 	}) (*struct{ Body otp.VerificationStats }, error) {
 		if _, err := s.projectForUser(ctx, in.ProjectID); err != nil {
 			return nil, err
 		}
-		st, err := s.otp.Stats(ctx, in.ProjectID, dbq.APIEnvironment(in.Environment), time.Now().Add(-30*24*time.Hour))
+		appID, err := s.appFilter(ctx, in.ProjectID, in.App)
+		if err != nil {
+			return nil, err
+		}
+		st, err := s.otp.Stats(ctx, in.ProjectID, appID, dbq.APIEnvironment(in.Environment), time.Now().Add(-30*24*time.Hour))
 		if err != nil {
 			return nil, err
 		}
@@ -158,7 +176,8 @@ func (s *Server) registerOTP(api huma.API) {
 
 	huma.Register(api, huma.Operation{
 		OperationID: "getProjectOTPSettings", Method: http.MethodGet, Path: "/v1/projects/{projectId}/otp/settings", Tags: []string{"Verify"},
-		Summary: "Get verification settings", Security: sessionAuth, Errors: []int{http.StatusNotFound},
+		Summary: "Get verification settings", Description: "The code settings of the project's default Verify app.",
+		Security: sessionAuth, Errors: []int{http.StatusNotFound},
 	}, func(ctx context.Context, in *ProjectPath) (*struct{ Body OTPSettings }, error) {
 		p, err := s.projectForUser(ctx, in.ProjectID)
 		if err != nil {
@@ -173,7 +192,8 @@ func (s *Server) registerOTP(api huma.API) {
 
 	huma.Register(api, huma.Operation{
 		OperationID: "updateProjectOTPSettings", Metadata: adminOnly, Method: http.MethodPut, Path: "/v1/projects/{projectId}/otp/settings", Tags: []string{"Verify"},
-		Summary: "Update verification settings", Security: sessionAuth, Errors: []int{http.StatusNotFound},
+		Summary: "Update verification settings", Description: "Sets the code settings of the project's default Verify app; its other settings stay.",
+		Security: sessionAuth, Errors: []int{http.StatusNotFound},
 	}, func(ctx context.Context, in *struct {
 		ProjectPath
 		Body OTPSettingsInput
@@ -206,7 +226,7 @@ func (s *Server) registerOTP(api huma.API) {
 		OperationID: "sendProjectVerification", Method: http.MethodPost, Path: "/v1/projects/{projectId}/otp", Tags: []string{"Verify"},
 		Summary:     "Send a verification code from the dashboard",
 		Description: "Same as `POST /v1/otp`, authenticated by the session, with the environment chosen per request.",
-		Security:    sessionAuth, DefaultStatus: http.StatusCreated, Errors: []int{http.StatusNotFound, http.StatusTooManyRequests},
+		Security:    sessionAuth, DefaultStatus: http.StatusCreated, Errors: []int{http.StatusForbidden, http.StatusNotFound, http.StatusTooManyRequests},
 	}, func(ctx context.Context, in *struct {
 		ProjectPath
 		Environment string `query:"environment" enum:"live,test" default:"test"`
@@ -218,8 +238,8 @@ func (s *Server) registerOTP(api huma.API) {
 		}
 		return s.sendOTP(ctx, otp.SendRequest{
 			ProjectID: in.ProjectID, ProjectName: p.Name, Environment: env, To: in.Body.To,
-			AndroidAppHash: in.Body.AndroidAppHash, Metadata: in.Body.Metadata,
-		})
+			AndroidAppHash: in.Body.AndroidAppHash, Metadata: in.Body.Metadata, App: in.Body.App,
+		}, in.Body.ClientIP)
 	})
 
 	huma.Register(api, huma.Operation{
@@ -253,7 +273,15 @@ func (s *Server) playgroundProject(ctx context.Context, projectID, environment s
 	return p, dbq.ApiEnvironmentTest, nil
 }
 
-func (s *Server) sendOTP(ctx context.Context, req otp.SendRequest) (*struct{ Body Verification }, error) {
+func (s *Server) sendOTP(ctx context.Context, req otp.SendRequest, clientIP string) (*struct{ Body Verification }, error) {
+	if clientIP != "" {
+		ip, err := netip.ParseAddr(clientIP)
+		if err != nil {
+			return nil, huma.Error422UnprocessableEntity("validation failed", &huma.ErrorDetail{
+				Location: "body.client_ip", Message: "Use an IPv4 or IPv6 address, such as 203.0.113.7.", Value: clientIP})
+		}
+		req.ClientIP = ip.Unmap()
+	}
 	v, err := s.otp.Send(ctx, req)
 	if err != nil {
 		return nil, otpError(err)
@@ -263,7 +291,11 @@ func (s *Server) sendOTP(ctx context.Context, req otp.SendRequest) (*struct{ Bod
 }
 
 func (s *Server) verifyOTP(ctx context.Context, projectID string, env dbq.APIEnvironment, b otpVerifyBody) (*struct{ Body VerifyResult }, error) {
-	res, err := s.otp.Verify(ctx, otp.VerifyRequest{ProjectID: projectID, Environment: env, ID: b.ID, To: b.To, Code: b.Code})
+	appID, err := s.appFilter(ctx, projectID, b.App)
+	if err != nil {
+		return nil, err
+	}
+	res, err := s.otp.Verify(ctx, otp.VerifyRequest{ProjectID: projectID, Environment: env, AppID: deref(appID), ID: b.ID, To: b.To, Code: b.Code})
 	if err != nil {
 		return nil, otpError(err)
 	}
@@ -290,16 +322,71 @@ func toOTPSettings(st otp.Settings, projectName string) OTPSettings {
 	return out
 }
 
+// appFilter resolves an optional app reference (ID or slug) to an app ID.
+func (s *Server) appFilter(ctx context.Context, projectID, ref string) (*string, error) {
+	if ref == "" {
+		return nil, nil
+	}
+	app, err := s.otp.ResolveApp(ctx, projectID, ref)
+	if err != nil {
+		return nil, otpError(err)
+	}
+	return &app.ID, nil
+}
+
 func otpError(err error) error {
 	var rl *messaging.RateLimitError
+	var blocked *otp.BlockedError
 	switch {
 	case errors.Is(err, otp.ErrNotFound):
 		return Errorf(http.StatusNotFound, CodeNotFound,
 			"No matching verification. If you passed to, no code is pending for that number: send a new one.")
+	case errors.Is(err, otp.ErrAppNotFound):
+		return Errorf(http.StatusNotFound, CodeNotFound, "No Verify app with this ID or slug in the project.")
+	case errors.As(err, &blocked):
+		return blockedError(blocked)
+	case errors.Is(err, otp.ErrCaptchaUnavailable):
+		return Errorf(http.StatusServiceUnavailable, CodeUnavailable, "The CAPTCHA could not be checked right now. Try again in a moment.")
+	case errors.Is(err, secretbox.ErrNoKey):
+		return Errorf(http.StatusConflict, CodeConflict,
+			"This server cannot store Verify secrets yet. Set BRIDGE_SECRET_KEY (openssl rand -base64 32) and restart Bridge.")
+	case errors.Is(err, otp.ErrDefaultApp):
+		return Errorf(http.StatusConflict, CodeConflict, "The default app cannot be deleted. Change its settings instead.")
+	case errors.Is(err, otp.ErrTooManyApps):
+		return Errorf(http.StatusConflict, CodeConflict, "A project can have at most 50 Verify apps. Delete one first.")
 	case errors.As(err, &rl) && (rl.Scope == "otp_resend" || rl.Scope == "otp_destination"):
 		return rateLimitedError(rl)
 	}
 	return messagingError(err)
+}
+
+// blockedError explains which fraud check refused a code.
+func blockedError(b *otp.BlockedError) error {
+	country := "this country's"
+	if b.Block.Country != nil {
+		country = *b.Block.Country
+	}
+	var status int
+	var msg string
+	switch b.Block.Reason {
+	case otp.BlockCountryNotAllowed:
+		status, msg = http.StatusForbidden, "This app does not send codes to "+country+" numbers. Allow the country in the app's fraud settings."
+	case otp.BlockCaptchaFailed:
+		status, msg = http.StatusForbidden, "The CAPTCHA check failed. Complete the challenge and try again."
+	case otp.BlockIPLimit:
+		status, msg = http.StatusTooManyRequests, "Too many codes were requested from this IP address in the last hour."
+	case otp.BlockRangeBurst:
+		status, msg = http.StatusTooManyRequests, "Too many codes were requested for numbers in this range in the last hour."
+	default:
+		status, msg = http.StatusTooManyRequests, "Too many codes were sent to "+country+" numbers in the last hour."
+	}
+	apiErr := Errorf(status, CodeOTPBlocked, msg)
+	if status != http.StatusTooManyRequests {
+		return apiErr
+	}
+	secs := max(1, int(b.RetryAfter.Seconds()))
+	apiErr.Body.Message += " Retry after " + strconv.Itoa(secs) + " seconds."
+	return huma.ErrorWithHeaders(apiErr, http.Header{"Retry-After": {strconv.Itoa(secs)}})
 }
 
 func deref(p *string) string {

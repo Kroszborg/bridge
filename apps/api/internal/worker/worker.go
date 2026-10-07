@@ -76,7 +76,7 @@ func (w *MaintenanceWorker) Work(ctx context.Context, _ *river.Job[MaintenanceAr
 		return err
 	}
 	// Expiring codes also announces otp.expired.
-	otpsExpired, otpsDeleted, err := w.otp.Maintain(ctx)
+	otps, err := w.otp.Maintain(ctx)
 	if err != nil {
 		return err
 	}
@@ -88,7 +88,8 @@ func (w *MaintenanceWorker) Work(ctx context.Context, _ *river.Job[MaintenanceAr
 	}
 	w.log.Info("maintenance complete", "status_samples_deleted", samples, "expired_sessions", sessions, "stale_rate_limits", counters,
 		"expired_pairing_tokens", tokens, "stale_devices_marked_offline", devices, "message_bodies_redacted", redacted,
-		"webhook_events_deleted", events, "request_logs_deleted", logs, "otps_expired", otpsExpired, "otps_deleted", otpsDeleted)
+		"webhook_events_deleted", events, "request_logs_deleted", logs, "otps_expired", otps.Expired, "otps_deleted", otps.Deleted,
+		"otp_blocks_deleted", otps.BlocksDeleted)
 	return nil
 }
 
@@ -97,14 +98,16 @@ func otpService(pool *pgxpool.Pool, svc *messaging.Service, hooks *webhook.Servi
 	if hooks != nil {
 		emitter = hooks
 	}
-	return otp.New(pool, svc, nil, emitter, logger)
+	return otp.New(otp.Options{Pool: pool, Messaging: svc, Emitter: emitter, Logger: logger})
 }
 
 // NewClient builds a River client that processes jobs, and wires it into the
 // messaging and webhook services so jobs can schedule follow-up jobs.
 func NewClient(pool *pgxpool.Pool, logger *slog.Logger, svc *messaging.Service, hooks *webhook.Service, health *status.Service, retention Retention) (*river.Client[pgx.Tx], error) {
 	workers := river.NewWorkers()
-	river.AddWorker(workers, &MaintenanceWorker{q: dbq.New(pool), log: logger, messaging: svc, webhooks: hooks, otp: otpService(pool, svc, hooks, logger), status: health, retention: retention})
+	verify := otpService(pool, svc, hooks, logger)
+	river.AddWorker(workers, &MaintenanceWorker{q: dbq.New(pool), log: logger, messaging: svc, webhooks: hooks, otp: verify, status: health, retention: retention})
+	otp.Register(workers, verify)
 	periodic := []*river.PeriodicJob{}
 	if health != nil {
 		status.Register(workers, health)

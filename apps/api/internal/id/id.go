@@ -35,6 +35,8 @@ const (
 	RequestLog      = "log"
 	Invite          = "inv"
 	OTP             = "otp"
+	VerifyApp       = "vap"
+	OTPBlock        = "blk"
 	ProviderAccount = "prv"
 	Integration     = "int"
 	Request         = "req"

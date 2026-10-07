@@ -470,35 +470,38 @@ type OrganizationMember struct {
 	CreatedAt      time.Time
 }
 
-type OtpSetting struct {
-	ProjectID    string
-	AppName      *string
-	Template     *string
-	CodeLength   int16
-	TtlSeconds   int32
-	MaxAttempts  int16
-	WebOtpDomain *string
-	UpdatedAt    time.Time
+type OtpBlock struct {
+	ID          string
+	ProjectID   string
+	AppID       string
+	Environment APIEnvironment
+	Recipient   string
+	ClientIp    *netip.Addr
+	Country     *string
+	Reason      string
+	CreatedAt   time.Time
 }
 
 type OtpVerification struct {
-	ID          string
-	ProjectID   string
-	Environment APIEnvironment
-	APIKeyID    *string
-	Recipient   string
-	Status      OtpStatus
-	CodeHash    []byte
-	TestCode    *string
-	CodeLength  int16
-	Attempts    int16
-	MaxAttempts int16
-	MessageID   *string
-	Metadata    json.RawMessage
-	ExpiresAt   time.Time
-	VerifiedAt  *time.Time
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID                string
+	ProjectID         string
+	Environment       APIEnvironment
+	APIKeyID          *string
+	Recipient         string
+	Status            OtpStatus
+	CodeHash          []byte
+	TestCode          *string
+	CodeLength        int16
+	Attempts          int16
+	MaxAttempts       int16
+	MessageID         *string
+	Metadata          json.RawMessage
+	ExpiresAt         time.Time
+	VerifiedAt        *time.Time
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+	AppID             *string
+	FailoverMessageID *string
 }
 
 type Project struct {
@@ -573,6 +576,33 @@ type User struct {
 	EmailVerifiedAt *time.Time
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
+}
+
+type VerifyApp struct {
+	ID                   string
+	ProjectID            string
+	Slug                 string
+	Name                 string
+	AppName              *string
+	Template             *string
+	CodeLength           int16
+	TtlSeconds           int32
+	MaxAttempts          int16
+	WebOtpDomain         *string
+	FailoverAfterSeconds int32
+	AllowedCountries     []string
+	IpHourlyLimit        int32
+	RangeHourlyLimit     int32
+	CountryHourlyLimit   *int32
+	PublishableKey       string
+	AllowedOrigins       []string
+	RedirectUris         []string
+	WidgetEnvironment    APIEnvironment
+	TurnstileSiteKey     *string
+	TurnstileSecret      []byte
+	Secret               []byte
+	CreatedAt            time.Time
+	UpdatedAt            time.Time
 }
 
 type WebhookDelivery struct {

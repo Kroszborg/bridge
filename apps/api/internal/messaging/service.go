@@ -165,6 +165,15 @@ type SendRequest struct {
 	// OnCreate runs inside the transaction that inserts the message, so a
 	// caller's own rows commit or roll back together with it.
 	OnCreate func(ctx context.Context, q *dbq.Queries, msg dbq.Message) error
+	// FollowUps are jobs queued in the same transaction, such as a Verify
+	// code's delivery check.
+	FollowUps []FollowUp
+}
+
+// FollowUp is a job to queue together with a message.
+type FollowUp struct {
+	Args river.JobArgs
+	Opts *river.InsertOpts
 }
 
 // Message purposes.
@@ -299,6 +308,11 @@ func (s *Service) Send(ctx context.Context, r SendRequest) (msg dbq.Message, rep
 	if _, err := s.jobs.InsertTx(ctx, tx, job, nil); err != nil {
 		return msg, false, fmt.Errorf("queue message job: %w", err)
 	}
+	for _, f := range r.FollowUps {
+		if _, err := s.jobs.InsertTx(ctx, tx, f.Args, f.Opts); err != nil {
+			return msg, false, fmt.Errorf("queue follow-up job: %w", err)
+		}
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return msg, false, err
 	}
@@ -372,6 +386,9 @@ func (s *Service) transition(ctx context.Context, q *dbq.Queries, m dbq.Message,
 	}
 	if ev := statusEvent(to); ev != "" {
 		s.emit(ctx, updated, ev)
+	}
+	if to == message.Failed {
+		s.otpMessageFailed(ctx, updated)
 	}
 	return updated, true, nil
 }

@@ -255,6 +255,136 @@
         ],
         "type": "object"
       },
+      "Block": {
+        "additionalProperties": false,
+        "properties": {
+          "app_id": {
+            "examples": [
+              "vap_01ja8z3k5wq2v7c9e4r2n0w6yb"
+            ],
+            "type": "string"
+          },
+          "client_ip": {
+            "description": "The end user's IP address, when known.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "country": {
+            "description": "ISO 3166-1 alpha-2 country of the number.",
+            "examples": [
+              "IN"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "environment": {
+            "enum": [
+              "live",
+              "test"
+            ],
+            "type": "string"
+          },
+          "id": {
+            "examples": [
+              "blk_01ja8z3k5wq2v7c9e4r2n0w6yb"
+            ],
+            "type": "string"
+          },
+          "reason": {
+            "enum": [
+              "country_not_allowed",
+              "ip_limit",
+              "range_burst",
+              "country_limit",
+              "captcha_failed"
+            ],
+            "type": "string"
+          },
+          "to": {
+            "examples": [
+              "+919876543210"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "app_id",
+          "environment",
+          "to",
+          "client_ip",
+          "country",
+          "reason",
+          "created_at"
+        ],
+        "type": "object"
+      },
+      "BlockList": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/Block"
+            },
+            "type": "array"
+          },
+          "has_more": {
+            "description": "Pass the last block's ID as starting_after to fetch the next page.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "data",
+          "has_more"
+        ],
+        "type": "object"
+      },
+      "BlockStats": {
+        "additionalProperties": false,
+        "properties": {
+          "captcha_failed": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "country_limit": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "country_not_allowed": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "ip_limit": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "range_burst": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "total": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "country_not_allowed",
+          "ip_limit",
+          "range_burst",
+          "country_limit",
+          "captcha_failed"
+        ],
+        "type": "object"
+      },
       "ChangePasswordRequest": {
         "additionalProperties": false,
         "properties": {
@@ -287,6 +417,28 @@
         "required": [
           "ok",
           "detail"
+        ],
+        "type": "object"
+      },
+      "CheckWidgetCodeRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "examples": [
+              "482913"
+            ],
+            "maxLength": 10,
+            "minLength": 4,
+            "type": "string"
+          },
+          "verification_id": {
+            "pattern": "^otp_[0-9a-z]{26}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "verification_id",
+          "code"
         ],
         "type": "object"
       },
@@ -388,7 +540,8 @@
                 "device.offline",
                 "otp.verified",
                 "otp.failed",
-                "otp.expired"
+                "otp.expired",
+                "otp.blocked"
               ],
               "type": "string"
             },
@@ -553,6 +706,195 @@
         ],
         "type": "object"
       },
+      "CreatedVerifyApp": {
+        "additionalProperties": false,
+        "properties": {
+          "allowed_countries": {
+            "description": "ISO 3166-1 alpha-2 codes. Empty allows every country.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "allowed_origins": {
+            "description": "Origins whose pages may embed the widget. The dashboard origin (hosted page) is always allowed.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "app_name": {
+            "description": "Replaces {app} in the message. Null uses the project name.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "code_length": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "country_hourly_limit": {
+            "description": "Codes per hour to any one country. Null is no cap.",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "default_template": {
+            "type": "string"
+          },
+          "effective_app_name": {
+            "type": "string"
+          },
+          "failover_after_seconds": {
+            "description": "Live codes whose SMS no phone accepted within this many seconds (or that failed) are resent once through another route: the project's SMS providers, or another online phone. 0 is off.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "id": {
+            "examples": [
+              "vap_01ja8z3k5wq2v7c9e4r2n0w6yb"
+            ],
+            "type": "string"
+          },
+          "ip_hourly_limit": {
+            "description": "Codes per end-user IP address per hour (from client_ip, or the widget's caller). 0 is off.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "is_default": {
+            "description": "Used when a request names no app. It cannot be deleted.",
+            "type": "boolean"
+          },
+          "max_attempts": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "examples": [
+              "Default"
+            ],
+            "type": "string"
+          },
+          "preview": {
+            "description": "The SMS these settings produce, with an example code.",
+            "type": "string"
+          },
+          "publishable_key": {
+            "description": "Identifies the app to the drop-in widget and hosted page. Safe to expose.",
+            "examples": [
+              "bpk_9fK2…"
+            ],
+            "type": "string"
+          },
+          "range_hourly_limit": {
+            "description": "Codes per hour to numbers that differ only in their last 3 digits. Catches sequential-number pumping. 0 is off.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "redirect_uris": {
+            "description": "Exact URLs the hosted page may send the user back to.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "secret": {
+            "description": "Signs verification tokens (HS256; the secret string is the key). Null without BRIDGE_SECRET_KEY.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "secret_set": {
+            "description": "Whether the app has a token signing secret. It is created when needed once BRIDGE_SECRET_KEY is set.",
+            "type": "boolean"
+          },
+          "slug": {
+            "description": "Pass it (or the ID) as app when sending a code.",
+            "examples": [
+              "default"
+            ],
+            "type": "string"
+          },
+          "template": {
+            "description": "The SMS text with {code}, and optionally {app} and {minutes}. Null uses the default.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ttl_seconds": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "turnstile_secret_set": {
+            "type": "boolean"
+          },
+          "turnstile_site_key": {
+            "description": "Cloudflare Turnstile site key. When set, widget sends need a valid Turnstile token.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "web_otp_domain": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "widget_environment": {
+            "description": "test widgets send nothing and show the code, for development.",
+            "enum": [
+              "live",
+              "test"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "secret",
+          "id",
+          "slug",
+          "name",
+          "is_default",
+          "app_name",
+          "template",
+          "code_length",
+          "ttl_seconds",
+          "max_attempts",
+          "web_otp_domain",
+          "default_template",
+          "effective_app_name",
+          "preview",
+          "failover_after_seconds",
+          "allowed_countries",
+          "ip_hourly_limit",
+          "range_hourly_limit",
+          "country_hourly_limit",
+          "publishable_key",
+          "allowed_origins",
+          "redirect_uris",
+          "widget_environment",
+          "turnstile_site_key",
+          "turnstile_secret_set",
+          "secret_set",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
       "CreatedWebhookEndpoint": {
         "additionalProperties": false,
         "properties": {
@@ -585,7 +927,8 @@
                 "device.offline",
                 "otp.verified",
                 "otp.failed",
-                "otp.expired"
+                "otp.expired",
+                "otp.blocked"
               ],
               "type": "string"
             },
@@ -2092,6 +2435,22 @@
             "pattern": "^[A-Za-z0-9+/]{11}$",
             "type": "string"
           },
+          "app": {
+            "description": "The Verify app: its ID (vap_…) or slug. Leave out for the default app.",
+            "examples": [
+              "default"
+            ],
+            "maxLength": 40,
+            "type": "string"
+          },
+          "client_ip": {
+            "description": "Your end user's IP address. Enables the app's per-IP hourly limit.",
+            "examples": [
+              "203.0.113.7"
+            ],
+            "maxLength": 45,
+            "type": "string"
+          },
           "metadata": {
             "additionalProperties": {},
             "description": "Your own key-value data, returned with the verification. At most 32 keys and 4 KB.",
@@ -2115,6 +2474,11 @@
       "OtpVerifyBody": {
         "additionalProperties": false,
         "properties": {
+          "app": {
+            "description": "Only match verifications of this Verify app (ID or slug). With to, picks among several apps' pending codes.",
+            "maxLength": 40,
+            "type": "string"
+          },
           "code": {
             "examples": [
               "482913"
@@ -2998,6 +3362,29 @@
         ],
         "type": "object"
       },
+      "SendWidgetCodeRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "to": {
+            "description": "The number to verify, in E.164 format.",
+            "examples": [
+              "+919876543210"
+            ],
+            "maxLength": 32,
+            "minLength": 3,
+            "type": "string"
+          },
+          "turnstile_token": {
+            "description": "The Cloudflare Turnstile response, when the app uses Turnstile.",
+            "maxLength": 2048,
+            "type": "string"
+          }
+        },
+        "required": [
+          "to"
+        ],
+        "type": "object"
+      },
       "Session": {
         "additionalProperties": false,
         "properties": {
@@ -3495,6 +3882,79 @@
         ],
         "type": "object"
       },
+      "TokenVerification": {
+        "additionalProperties": false,
+        "properties": {
+          "app_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "environment": {
+            "enum": [
+              "live",
+              "test"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "expires_at": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "phone": {
+            "description": "The verified number (E.164).",
+            "examples": [
+              "+919876543210"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reason": {
+            "description": "Why the token is not valid.",
+            "enum": [
+              "malformed",
+              "unknown_app",
+              "bad_signature",
+              "wrong_issuer",
+              "expired",
+              "environment_mismatch",
+              "verification_mismatch"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "valid": {
+            "type": "boolean"
+          },
+          "verification_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "valid",
+          "reason",
+          "phone",
+          "verification_id",
+          "app_id",
+          "environment",
+          "expires_at"
+        ],
+        "type": "object"
+      },
       "UnifiedPushConfig": {
         "additionalProperties": false,
         "properties": {
@@ -3607,7 +4067,8 @@
                 "device.offline",
                 "otp.verified",
                 "otp.failed",
-                "otp.expired"
+                "otp.expired",
+                "otp.blocked"
               ],
               "type": "string"
             },
@@ -3866,6 +4327,16 @@
       "Verification": {
         "additionalProperties": false,
         "properties": {
+          "app_id": {
+            "description": "The Verify app the code belongs to. Null if the app was deleted.",
+            "examples": [
+              "vap_01ja8z3k5wq2v7c9e4r2n0w6yb"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "attempts": {
             "description": "Wrong codes entered so far, plus the right one if verified.",
             "format": "int64",
@@ -3893,6 +4364,28 @@
           "expires_at": {
             "format": "date-time",
             "type": "string"
+          },
+          "failover_message_id": {
+            "description": "The second SMS, sent through another route because the first was not sent in time.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "failover_message_status": {
+            "description": "Delivery status of the failover SMS.",
+            "enum": [
+              "created",
+              "queued",
+              "sending",
+              "sent",
+              "delivered",
+              "failed"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "id": {
             "examples": [
@@ -3968,6 +4461,9 @@
           "verified_at",
           "message_id",
           "message_status",
+          "app_id",
+          "failover_message_id",
+          "failover_message_status",
           "metadata",
           "created_at"
         ],
@@ -3996,6 +4492,10 @@
       "VerificationStats": {
         "additionalProperties": false,
         "properties": {
+          "blocked": {
+            "$ref": "#/components/schemas/BlockStats",
+            "description": "Send attempts refused by fraud protection, by reason."
+          },
           "canceled": {
             "format": "int64",
             "type": "integer"
@@ -4013,6 +4513,11 @@
             "type": "integer"
           },
           "failed": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "failovers": {
+            "description": "Verifications whose code was resent through another route.",
             "format": "int64",
             "type": "integer"
           },
@@ -4041,8 +4546,461 @@
           "failed",
           "canceled",
           "conversion_rate",
-          "median_seconds_to_verify"
+          "median_seconds_to_verify",
+          "failovers",
+          "blocked"
         ],
+        "type": "object"
+      },
+      "VerifyApp": {
+        "additionalProperties": false,
+        "properties": {
+          "allowed_countries": {
+            "description": "ISO 3166-1 alpha-2 codes. Empty allows every country.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "allowed_origins": {
+            "description": "Origins whose pages may embed the widget. The dashboard origin (hosted page) is always allowed.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "app_name": {
+            "description": "Replaces {app} in the message. Null uses the project name.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "code_length": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "country_hourly_limit": {
+            "description": "Codes per hour to any one country. Null is no cap.",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "default_template": {
+            "type": "string"
+          },
+          "effective_app_name": {
+            "type": "string"
+          },
+          "failover_after_seconds": {
+            "description": "Live codes whose SMS no phone accepted within this many seconds (or that failed) are resent once through another route: the project's SMS providers, or another online phone. 0 is off.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "id": {
+            "examples": [
+              "vap_01ja8z3k5wq2v7c9e4r2n0w6yb"
+            ],
+            "type": "string"
+          },
+          "ip_hourly_limit": {
+            "description": "Codes per end-user IP address per hour (from client_ip, or the widget's caller). 0 is off.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "is_default": {
+            "description": "Used when a request names no app. It cannot be deleted.",
+            "type": "boolean"
+          },
+          "max_attempts": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "examples": [
+              "Default"
+            ],
+            "type": "string"
+          },
+          "preview": {
+            "description": "The SMS these settings produce, with an example code.",
+            "type": "string"
+          },
+          "publishable_key": {
+            "description": "Identifies the app to the drop-in widget and hosted page. Safe to expose.",
+            "examples": [
+              "bpk_9fK2…"
+            ],
+            "type": "string"
+          },
+          "range_hourly_limit": {
+            "description": "Codes per hour to numbers that differ only in their last 3 digits. Catches sequential-number pumping. 0 is off.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "redirect_uris": {
+            "description": "Exact URLs the hosted page may send the user back to.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "secret_set": {
+            "description": "Whether the app has a token signing secret. It is created when needed once BRIDGE_SECRET_KEY is set.",
+            "type": "boolean"
+          },
+          "slug": {
+            "description": "Pass it (or the ID) as app when sending a code.",
+            "examples": [
+              "default"
+            ],
+            "type": "string"
+          },
+          "template": {
+            "description": "The SMS text with {code}, and optionally {app} and {minutes}. Null uses the default.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ttl_seconds": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "turnstile_secret_set": {
+            "type": "boolean"
+          },
+          "turnstile_site_key": {
+            "description": "Cloudflare Turnstile site key. When set, widget sends need a valid Turnstile token.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "web_otp_domain": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "widget_environment": {
+            "description": "test widgets send nothing and show the code, for development.",
+            "enum": [
+              "live",
+              "test"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "is_default",
+          "app_name",
+          "template",
+          "code_length",
+          "ttl_seconds",
+          "max_attempts",
+          "web_otp_domain",
+          "default_template",
+          "effective_app_name",
+          "preview",
+          "failover_after_seconds",
+          "allowed_countries",
+          "ip_hourly_limit",
+          "range_hourly_limit",
+          "country_hourly_limit",
+          "publishable_key",
+          "allowed_origins",
+          "redirect_uris",
+          "widget_environment",
+          "turnstile_site_key",
+          "turnstile_secret_set",
+          "secret_set",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "VerifyAppCreateInput": {
+        "additionalProperties": false,
+        "properties": {
+          "allowed_countries": {
+            "description": "ISO 3166-1 alpha-2 codes. An empty list allows every country.",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 250,
+            "type": "array"
+          },
+          "allowed_origins": {
+            "description": "https origins, such as https://shop.example.com (http only for localhost).",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "type": "array"
+          },
+          "app_name": {
+            "description": "Replaces {app}. An empty string uses the project name.",
+            "maxLength": 40,
+            "type": "string"
+          },
+          "code_length": {
+            "format": "int64",
+            "maximum": 10,
+            "minimum": 4,
+            "type": "integer"
+          },
+          "country_hourly_limit": {
+            "description": "0 removes the cap.",
+            "format": "int64",
+            "maximum": 1000000,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "failover_after_seconds": {
+            "description": "0 turns failover off. Default 30.",
+            "format": "int64",
+            "maximum": 600,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "ip_hourly_limit": {
+            "description": "Default 10. 0 is off.",
+            "format": "int64",
+            "maximum": 100000,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "max_attempts": {
+            "format": "int64",
+            "maximum": 10,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "name": {
+            "examples": [
+              "Acme Shop"
+            ],
+            "maxLength": 60,
+            "minLength": 1,
+            "type": "string"
+          },
+          "range_hourly_limit": {
+            "description": "Default 20. 0 is off.",
+            "format": "int64",
+            "maximum": 100000,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "redirect_uris": {
+            "description": "Absolute https URLs, matched exactly.",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "type": "array"
+          },
+          "slug": {
+            "description": "Derived from the name when left out. Cannot be changed later.",
+            "pattern": "^[a-z0-9][a-z0-9-]{0,39}$",
+            "type": "string"
+          },
+          "template": {
+            "description": "The SMS text with {code}. An empty string uses the default template.",
+            "maxLength": 300,
+            "type": "string"
+          },
+          "ttl_seconds": {
+            "format": "int64",
+            "maximum": 3600,
+            "minimum": 60,
+            "type": "integer"
+          },
+          "turnstile_secret": {
+            "description": "Turnstile secret key. Write-only; stored encrypted.",
+            "maxLength": 200,
+            "type": "string",
+            "writeOnly": true
+          },
+          "turnstile_site_key": {
+            "description": "An empty string removes Turnstile (send an empty turnstile_secret too).",
+            "maxLength": 100,
+            "type": "string"
+          },
+          "web_otp_domain": {
+            "description": "An empty string removes it.",
+            "maxLength": 253,
+            "type": "string"
+          },
+          "widget_environment": {
+            "enum": [
+              "live",
+              "test"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "VerifyAppList": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/VerifyApp"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "VerifyAppSecret": {
+        "additionalProperties": false,
+        "properties": {
+          "secret": {
+            "description": "Verify tokens with HS256 using this string, as UTF-8 bytes, as the key.",
+            "examples": [
+              "bvs_…"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "secret"
+        ],
+        "type": "object"
+      },
+      "VerifyAppUpdateInput": {
+        "additionalProperties": false,
+        "properties": {
+          "allowed_countries": {
+            "description": "ISO 3166-1 alpha-2 codes. An empty list allows every country.",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 250,
+            "type": "array"
+          },
+          "allowed_origins": {
+            "description": "https origins, such as https://shop.example.com (http only for localhost).",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "type": "array"
+          },
+          "app_name": {
+            "description": "Replaces {app}. An empty string uses the project name.",
+            "maxLength": 40,
+            "type": "string"
+          },
+          "code_length": {
+            "format": "int64",
+            "maximum": 10,
+            "minimum": 4,
+            "type": "integer"
+          },
+          "country_hourly_limit": {
+            "description": "0 removes the cap.",
+            "format": "int64",
+            "maximum": 1000000,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "failover_after_seconds": {
+            "description": "0 turns failover off. Default 30.",
+            "format": "int64",
+            "maximum": 600,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "ip_hourly_limit": {
+            "description": "Default 10. 0 is off.",
+            "format": "int64",
+            "maximum": 100000,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "max_attempts": {
+            "format": "int64",
+            "maximum": 10,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "name": {
+            "maxLength": 60,
+            "minLength": 1,
+            "type": "string"
+          },
+          "range_hourly_limit": {
+            "description": "Default 20. 0 is off.",
+            "format": "int64",
+            "maximum": 100000,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "redirect_uris": {
+            "description": "Absolute https URLs, matched exactly.",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "type": "array"
+          },
+          "template": {
+            "description": "The SMS text with {code}. An empty string uses the default template.",
+            "maxLength": 300,
+            "type": "string"
+          },
+          "ttl_seconds": {
+            "format": "int64",
+            "maximum": 3600,
+            "minimum": 60,
+            "type": "integer"
+          },
+          "turnstile_secret": {
+            "description": "Turnstile secret key. Write-only; stored encrypted.",
+            "maxLength": 200,
+            "type": "string",
+            "writeOnly": true
+          },
+          "turnstile_site_key": {
+            "description": "An empty string removes Turnstile (send an empty turnstile_secret too).",
+            "maxLength": 100,
+            "type": "string"
+          },
+          "web_otp_domain": {
+            "description": "An empty string removes it.",
+            "maxLength": 253,
+            "type": "string"
+          },
+          "widget_environment": {
+            "enum": [
+              "live",
+              "test"
+            ],
+            "type": "string"
+          }
+        },
         "type": "object"
       },
       "VerifyResult": {
@@ -4059,6 +5017,20 @@
         "required": [
           "valid",
           "verification"
+        ],
+        "type": "object"
+      },
+      "VerifyVerificationTokenRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "token": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
         ],
         "type": "object"
       },
@@ -4182,7 +5154,8 @@
                 "device.offline",
                 "otp.verified",
                 "otp.failed",
-                "otp.expired"
+                "otp.expired",
+                "otp.blocked"
               ],
               "type": "string"
             },
@@ -4297,6 +5270,132 @@
           "environment",
           "api_key_id",
           "api_key_name"
+        ],
+        "type": "object"
+      },
+      "WidgetConfig": {
+        "additionalProperties": false,
+        "properties": {
+          "app_name": {
+            "description": "The name to show, as in the SMS.",
+            "examples": [
+              "Acme"
+            ],
+            "type": "string"
+          },
+          "code_length": {
+            "examples": [
+              6
+            ],
+            "format": "int64",
+            "type": "integer"
+          },
+          "environment": {
+            "description": "test sends nothing and returns the code.",
+            "enum": [
+              "live",
+              "test"
+            ],
+            "type": "string"
+          },
+          "ttl_seconds": {
+            "examples": [
+              600
+            ],
+            "format": "int64",
+            "type": "integer"
+          },
+          "turnstile_site_key": {
+            "description": "When set, render Cloudflare Turnstile and send its token with each send.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "app_name",
+          "code_length",
+          "ttl_seconds",
+          "turnstile_site_key",
+          "environment"
+        ],
+        "type": "object"
+      },
+      "WidgetRedirectCheck": {
+        "additionalProperties": false,
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "WidgetSendResult": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "description": "Only for test-environment widgets.",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "resend_available_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "verification_id": {
+            "examples": [
+              "otp_01ja8z3k5wq2v7c9e4r2n0w6yb"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "verification_id",
+          "expires_at",
+          "resend_available_at"
+        ],
+        "type": "object"
+      },
+      "WidgetVerifyResult": {
+        "additionalProperties": false,
+        "properties": {
+          "attempts_remaining": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "verified",
+              "expired",
+              "failed",
+              "canceled"
+            ],
+            "type": "string"
+          },
+          "token": {
+            "description": "Only when valid: a signed JWT (HS256, the app's secret) proving the number was verified. Send it to your server and check it there, or with POST /v1/otp/tokens/verify.",
+            "type": "string"
+          },
+          "token_expires_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "valid": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "valid",
+          "status",
+          "attempts_remaining"
         ],
         "type": "object"
       }
@@ -6963,7 +8062,7 @@
     },
     "/v1/otp": {
       "post": {
-        "description": "Generates a code, sends it by SMS and returns the verification. Sending a new code to the same number cancels the previous one. One code per number every 30 seconds, and at most 5 per hour. Test keys send nothing and return the code in `code`.",
+        "description": "Generates a code, sends it by SMS and returns the verification. Sending a new code to the same number cancels the previous one of the same app. One code per number every 30 seconds, and at most 5 per hour. The app's fraud protection may refuse the code with `otp_blocked` (403 for a country that is not allowed, 429 for the hourly IP, number-range and country limits). Test keys send nothing and return the code in `code`.",
         "operationId": "sendVerification",
         "requestBody": {
           "content": {
@@ -6995,6 +8094,26 @@
               }
             },
             "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
           },
           "422": {
             "content": {
@@ -7033,6 +8152,73 @@
           }
         ],
         "summary": "Send a verification code",
+        "tags": [
+          "Developer API"
+        ]
+      }
+    },
+    "/v1/otp/tokens/verify": {
+      "post": {
+        "description": "Checks a token issued by the Verify widget or hosted page: its signature under the app's secret, issuer, expiry, environment (it must match the API key's) and the verification it names. You can also verify tokens yourself: they are HS256 JWTs signed with the app's secret, with `aud` = app ID, `sub` = phone number and `vid` = verification ID.",
+        "operationId": "verifyVerificationToken",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyVerificationTokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenVerification"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Check a verification token",
         "tags": [
           "Developer API"
         ]
@@ -8902,6 +10088,16 @@
             }
           },
           {
+            "description": "Filter by Verify app: its ID or slug.",
+            "explode": false,
+            "in": "query",
+            "name": "app",
+            "schema": {
+              "description": "Filter by Verify app: its ID or slug.",
+              "type": "string"
+            }
+          },
+          {
             "description": "A verification ID; returns verifications created before it.",
             "explode": false,
             "in": "query",
@@ -9052,6 +10248,16 @@
             },
             "description": "Created"
           },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
           "404": {
             "content": {
               "application/json": {
@@ -9106,6 +10312,7 @@
     },
     "/v1/projects/{projectId}/otp/settings": {
       "get": {
+        "description": "The code settings of the project's default Verify app.",
         "operationId": "getProjectOTPSettings",
         "parameters": [
           {
@@ -9174,6 +10381,7 @@
         ]
       },
       "put": {
+        "description": "Sets the code settings of the project's default Verify app; its other settings stay.",
         "operationId": "updateProjectOTPSettings",
         "parameters": [
           {
@@ -9278,6 +10486,16 @@
                 "live",
                 "test"
               ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "Only this Verify app: its ID or slug.",
+            "explode": false,
+            "in": "query",
+            "name": "app",
+            "schema": {
+              "description": "Only this Verify app: its ID or slug.",
               "type": "string"
             }
           }
@@ -10426,6 +11644,845 @@
         "summary": "Get daily usage",
         "tags": [
           "Messages"
+        ]
+      }
+    },
+    "/v1/projects/{projectId}/verify-apps": {
+      "get": {
+        "description": "The default app comes first.",
+        "operationId": "listVerifyApps",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifyAppList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "List Verify apps",
+        "tags": [
+          "Verify"
+        ]
+      },
+      "post": {
+        "description": "Returns the app's token signing secret once; reveal it again with the secret endpoint. Omitted settings take their defaults; app_name defaults to the app's name.",
+        "operationId": "createVerifyApp",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyAppCreateInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedVerifyApp"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Create a Verify app",
+        "tags": [
+          "Verify"
+        ]
+      }
+    },
+    "/v1/projects/{projectId}/verify-apps/{appId}": {
+      "delete": {
+        "description": "Its widget stops working and its tokens stop verifying. Past verifications are kept without an app. The default app cannot be deleted.",
+        "operationId": "deleteVerifyApp",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "appId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "vap_01ja8z3k5wq2v7c9e4r2n0w6yb"
+              ],
+              "pattern": "^vap_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Delete a Verify app",
+        "tags": [
+          "Verify"
+        ]
+      },
+      "get": {
+        "operationId": "getVerifyApp",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "appId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "vap_01ja8z3k5wq2v7c9e4r2n0w6yb"
+              ],
+              "pattern": "^vap_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifyApp"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Get a Verify app",
+        "tags": [
+          "Verify"
+        ]
+      },
+      "patch": {
+        "description": "Omitted fields stay unchanged. Lists replace the stored list.",
+        "operationId": "updateVerifyApp",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "appId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "vap_01ja8z3k5wq2v7c9e4r2n0w6yb"
+              ],
+              "pattern": "^vap_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyAppUpdateInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifyApp"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Update a Verify app",
+        "tags": [
+          "Verify"
+        ]
+      }
+    },
+    "/v1/projects/{projectId}/verify-apps/{appId}/blocks": {
+      "get": {
+        "description": "Newest first. Kept for 30 days.",
+        "operationId": "listVerifyAppBlocks",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "appId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "vap_01ja8z3k5wq2v7c9e4r2n0w6yb"
+              ],
+              "pattern": "^vap_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 25,
+              "format": "int64",
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "A block ID; returns blocks created before it.",
+            "explode": false,
+            "in": "query",
+            "name": "starting_after",
+            "schema": {
+              "description": "A block ID; returns blocks created before it.",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "reason",
+            "schema": {
+              "enum": [
+                "country_not_allowed",
+                "ip_limit",
+                "range_burst",
+                "country_limit",
+                "captcha_failed"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "environment",
+            "schema": {
+              "enum": [
+                "live",
+                "test"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlockList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "List blocked send attempts",
+        "tags": [
+          "Verify"
+        ]
+      }
+    },
+    "/v1/projects/{projectId}/verify-apps/{appId}/secret": {
+      "get": {
+        "description": "Every reveal is recorded in the audit log.",
+        "operationId": "getVerifyAppSecret",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "appId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "vap_01ja8z3k5wq2v7c9e4r2n0w6yb"
+              ],
+              "pattern": "^vap_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifyAppSecret"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Reveal the token signing secret",
+        "tags": [
+          "Verify"
+        ]
+      },
+      "post": {
+        "description": "Returns the new secret. Tokens signed with the old one stop verifying at once.",
+        "operationId": "rotateVerifyAppSecret",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "appId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "vap_01ja8z3k5wq2v7c9e4r2n0w6yb"
+              ],
+              "pattern": "^vap_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifyAppSecret"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Rotate the token signing secret",
+        "tags": [
+          "Verify"
+        ]
+      }
+    },
+    "/v1/projects/{projectId}/verify-apps/{appId}/stats": {
+      "get": {
+        "description": "Verifications by status, failovers, and blocked attempts by reason.",
+        "operationId": "getVerifyAppStats",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "appId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "vap_01ja8z3k5wq2v7c9e4r2n0w6yb"
+              ],
+              "pattern": "^vap_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "environment",
+            "schema": {
+              "default": "live",
+              "enum": [
+                "live",
+                "test"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerificationStats"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Verify app statistics for the last 30 days",
+        "tags": [
+          "Verify"
         ]
       }
     },
@@ -11652,6 +13709,410 @@
           "Developer API"
         ]
       }
+    },
+    "/v1/widget/{publishableKey}": {
+      "get": {
+        "operationId": "getWidgetConfig",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "publishableKey",
+            "required": true,
+            "schema": {
+              "examples": [
+                "bpk_9fK2mQ7xR4tV8wY1zA3bC5dE6gH0jL2n"
+              ],
+              "pattern": "^bpk_[0-9A-Za-z]{32}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WidgetConfig"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Get the widget's settings",
+        "tags": [
+          "Widget"
+        ]
+      }
+    },
+    "/v1/widget/{publishableKey}/redirect-check": {
+      "get": {
+        "description": "200 when redirect_uri exactly matches one of the app's redirect URIs; 400 otherwise. The hosted page checks this before starting.",
+        "operationId": "checkWidgetRedirect",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "publishableKey",
+            "required": true,
+            "schema": {
+              "examples": [
+                "bpk_9fK2mQ7xR4tV8wY1zA3bC5dE6gH0jL2n"
+              ],
+              "pattern": "^bpk_[0-9A-Za-z]{32}$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The URL the hosted page would send the user back to.",
+            "explode": false,
+            "in": "query",
+            "name": "redirect_uri",
+            "schema": {
+              "description": "The URL the hosted page would send the user back to.",
+              "maxLength": 2048,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WidgetRedirectCheck"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Check a hosted page redirect URI",
+        "tags": [
+          "Widget"
+        ]
+      }
+    },
+    "/v1/widget/{publishableKey}/send": {
+      "post": {
+        "description": "Applies the app's fraud protection with the caller's IP address, and its Turnstile check when configured. Refusals use the `otp_blocked` error code (403 or 429).",
+        "operationId": "sendWidgetCode",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "publishableKey",
+            "required": true,
+            "schema": {
+              "examples": [
+                "bpk_9fK2mQ7xR4tV8wY1zA3bC5dE6gH0jL2n"
+              ],
+              "pattern": "^bpk_[0-9A-Za-z]{32}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendWidgetCodeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WidgetSendResult"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Send a code from the widget",
+        "tags": [
+          "Widget"
+        ]
+      }
+    },
+    "/v1/widget/{publishableKey}/verify": {
+      "post": {
+        "description": "A wrong code uses one attempt. A right one returns a signed token (valid 10 minutes) that proves the number was verified; pass it to your server.",
+        "operationId": "checkWidgetCode",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "publishableKey",
+            "required": true,
+            "schema": {
+              "examples": [
+                "bpk_9fK2mQ7xR4tV8wY1zA3bC5dE6gH0jL2n"
+              ],
+              "pattern": "^bpk_[0-9A-Za-z]{32}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckWidgetCodeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WidgetVerifyResult"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Check a code from the widget",
+        "tags": [
+          "Widget"
+        ]
+      }
     }
   },
   "servers": [
@@ -11690,8 +14151,12 @@
       "name": "Messages"
     },
     {
-      "description": "One-time passwords for the dashboard.",
+      "description": "One-time passwords and Verify apps for the dashboard.",
       "name": "Verify"
+    },
+    {
+      "description": "Public endpoints for the drop-in Verify widget and hosted page, identified by an app's publishable key.",
+      "name": "Widget"
     },
     {
       "description": "Connections to other services, such as Supabase Auth's Send SMS hook.",

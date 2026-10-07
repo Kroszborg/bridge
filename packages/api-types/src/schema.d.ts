@@ -534,9 +534,29 @@ export interface paths {
         put?: never;
         /**
          * Send a verification code
-         * @description Generates a code, sends it by SMS and returns the verification. Sending a new code to the same number cancels the previous one. One code per number every 30 seconds, and at most 5 per hour. Test keys send nothing and return the code in `code`.
+         * @description Generates a code, sends it by SMS and returns the verification. Sending a new code to the same number cancels the previous one of the same app. One code per number every 30 seconds, and at most 5 per hour. The app's fraud protection may refuse the code with `otp_blocked` (403 for a country that is not allowed, 429 for the hourly IP, number-range and country limits). Test keys send nothing and return the code in `code`.
          */
         post: operations["sendVerification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/otp/tokens/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a verification token
+         * @description Checks a token issued by the Verify widget or hosted page: its signature under the app's secret, issuer, expiry, environment (it must match the API key's) and the verification it names. You can also verify tokens yourself: they are HS256 JWTs signed with the app's secret, with `aud` = app ID, `sub` = phone number and `vid` = verification ID.
+         */
+        post: operations["verifyVerificationToken"];
         delete?: never;
         options?: never;
         head?: never;
@@ -833,9 +853,15 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get verification settings */
+        /**
+         * Get verification settings
+         * @description The code settings of the project's default Verify app.
+         */
         get: operations["getProjectOTPSettings"];
-        /** Update verification settings */
+        /**
+         * Update verification settings
+         * @description Sets the code settings of the project's default Verify app; its other settings stay.
+         */
         put: operations["updateProjectOTPSettings"];
         post?: never;
         delete?: never;
@@ -1021,6 +1047,119 @@ export interface paths {
         };
         /** Get daily usage */
         get: operations["getProjectUsageHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/projects/{projectId}/verify-apps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Verify apps
+         * @description The default app comes first.
+         */
+        get: operations["listVerifyApps"];
+        put?: never;
+        /**
+         * Create a Verify app
+         * @description Returns the app's token signing secret once; reveal it again with the secret endpoint. Omitted settings take their defaults; app_name defaults to the app's name.
+         */
+        post: operations["createVerifyApp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/projects/{projectId}/verify-apps/{appId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a Verify app */
+        get: operations["getVerifyApp"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a Verify app
+         * @description Its widget stops working and its tokens stop verifying. Past verifications are kept without an app. The default app cannot be deleted.
+         */
+        delete: operations["deleteVerifyApp"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a Verify app
+         * @description Omitted fields stay unchanged. Lists replace the stored list.
+         */
+        patch: operations["updateVerifyApp"];
+        trace?: never;
+    };
+    "/v1/projects/{projectId}/verify-apps/{appId}/blocks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List blocked send attempts
+         * @description Newest first. Kept for 30 days.
+         */
+        get: operations["listVerifyAppBlocks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/projects/{projectId}/verify-apps/{appId}/secret": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Reveal the token signing secret
+         * @description Every reveal is recorded in the audit log.
+         */
+        get: operations["getVerifyAppSecret"];
+        put?: never;
+        /**
+         * Rotate the token signing secret
+         * @description Returns the new secret. Tokens signed with the old one stop verifying at once.
+         */
+        post: operations["rotateVerifyAppSecret"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/projects/{projectId}/verify-apps/{appId}/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Verify app statistics for the last 30 days
+         * @description Verifications by status, failovers, and blocked attempts by reason.
+         */
+        get: operations["getVerifyAppStats"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1292,6 +1431,83 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/widget/{publishableKey}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get the widget's settings */
+        get: operations["getWidgetConfig"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/widget/{publishableKey}/redirect-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check a hosted page redirect URI
+         * @description 200 when redirect_uri exactly matches one of the app's redirect URIs; 400 otherwise. The hosted page checks this before starting.
+         */
+        get: operations["checkWidgetRedirect"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/widget/{publishableKey}/send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a code from the widget
+         * @description Applies the app's fraud protection with the caller's IP address, and its Turnstile check when configured. Refusals use the `otp_blocked` error code (403 or 429).
+         */
+        post: operations["sendWidgetCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/widget/{publishableKey}/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a code from the widget
+         * @description A wrong code uses one attempt. A right one returns a signed token (valid 10 minutes) that proves the number was verified; pass it to your server.
+         */
+        post: operations["checkWidgetCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1369,6 +1585,46 @@ export interface components {
             data: components["schemas"]["AuditEntry"][];
             has_more: boolean;
         };
+        Block: {
+            /** @example vap_01ja8z3k5wq2v7c9e4r2n0w6yb */
+            app_id: string;
+            /** @description The end user's IP address, when known. */
+            client_ip: string | null;
+            /**
+             * @description ISO 3166-1 alpha-2 country of the number.
+             * @example IN
+             */
+            country: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** @enum {string} */
+            environment: "live" | "test";
+            /** @example blk_01ja8z3k5wq2v7c9e4r2n0w6yb */
+            id: string;
+            /** @enum {string} */
+            reason: "country_not_allowed" | "ip_limit" | "range_burst" | "country_limit" | "captcha_failed";
+            /** @example +919876543210 */
+            to: string;
+        };
+        BlockList: {
+            data: components["schemas"]["Block"][];
+            /** @description Pass the last block's ID as starting_after to fetch the next page. */
+            has_more: boolean;
+        };
+        BlockStats: {
+            /** Format: int64 */
+            captcha_failed: number;
+            /** Format: int64 */
+            country_limit: number;
+            /** Format: int64 */
+            country_not_allowed: number;
+            /** Format: int64 */
+            ip_limit: number;
+            /** Format: int64 */
+            range_burst: number;
+            /** Format: int64 */
+            total: number;
+        };
         ChangePasswordRequest: {
             current_password: string;
             new_password: string;
@@ -1376,6 +1632,11 @@ export interface components {
         CheckProviderResponse: {
             detail: string;
             ok: boolean;
+        };
+        CheckWidgetCodeRequest: {
+            /** @example 482913 */
+            code: string;
+            verification_id: string;
         };
         CreateAPIKeyInputBody: {
             /**
@@ -1412,7 +1673,7 @@ export interface components {
         CreateWebhookRequest: {
             description?: string;
             /** @description Leave out to receive every event. */
-            events?: ("message.sent" | "message.delivered" | "message.failed" | "message.received" | "device.online" | "device.offline" | "otp.verified" | "otp.failed" | "otp.expired")[];
+            events?: ("message.sent" | "message.delivered" | "message.failed" | "message.received" | "device.online" | "device.offline" | "otp.verified" | "otp.failed" | "otp.expired" | "otp.blocked")[];
             /** @example https://example.com/webhooks/bridge */
             url: string;
         };
@@ -1468,6 +1729,81 @@ export interface components {
              */
             url: string;
         };
+        CreatedVerifyApp: {
+            /** @description ISO 3166-1 alpha-2 codes. Empty allows every country. */
+            allowed_countries: string[];
+            /** @description Origins whose pages may embed the widget. The dashboard origin (hosted page) is always allowed. */
+            allowed_origins: string[];
+            /** @description Replaces {app} in the message. Null uses the project name. */
+            app_name: string | null;
+            /** Format: int64 */
+            code_length: number;
+            /**
+             * Format: int64
+             * @description Codes per hour to any one country. Null is no cap.
+             */
+            country_hourly_limit: number | null;
+            /** Format: date-time */
+            created_at: string;
+            default_template: string;
+            effective_app_name: string;
+            /**
+             * Format: int64
+             * @description Live codes whose SMS no phone accepted within this many seconds (or that failed) are resent once through another route: the project's SMS providers, or another online phone. 0 is off.
+             */
+            failover_after_seconds: number;
+            /** @example vap_01ja8z3k5wq2v7c9e4r2n0w6yb */
+            id: string;
+            /**
+             * Format: int64
+             * @description Codes per end-user IP address per hour (from client_ip, or the widget's caller). 0 is off.
+             */
+            ip_hourly_limit: number;
+            /** @description Used when a request names no app. It cannot be deleted. */
+            is_default: boolean;
+            /** Format: int64 */
+            max_attempts: number;
+            /** @example Default */
+            name: string;
+            /** @description The SMS these settings produce, with an example code. */
+            preview: string;
+            /**
+             * @description Identifies the app to the drop-in widget and hosted page. Safe to expose.
+             * @example bpk_9fK2…
+             */
+            publishable_key: string;
+            /**
+             * Format: int64
+             * @description Codes per hour to numbers that differ only in their last 3 digits. Catches sequential-number pumping. 0 is off.
+             */
+            range_hourly_limit: number;
+            /** @description Exact URLs the hosted page may send the user back to. */
+            redirect_uris: string[];
+            /** @description Signs verification tokens (HS256; the secret string is the key). Null without BRIDGE_SECRET_KEY. */
+            secret: string | null;
+            /** @description Whether the app has a token signing secret. It is created when needed once BRIDGE_SECRET_KEY is set. */
+            secret_set: boolean;
+            /**
+             * @description Pass it (or the ID) as app when sending a code.
+             * @example default
+             */
+            slug: string;
+            /** @description The SMS text with {code}, and optionally {app} and {minutes}. Null uses the default. */
+            template: string | null;
+            /** Format: int64 */
+            ttl_seconds: number;
+            turnstile_secret_set: boolean;
+            /** @description Cloudflare Turnstile site key. When set, widget sends need a valid Turnstile token. */
+            turnstile_site_key: string | null;
+            /** Format: date-time */
+            updated_at: string;
+            web_otp_domain: string | null;
+            /**
+             * @description test widgets send nothing and show the code, for development.
+             * @enum {string}
+             */
+            widget_environment: "live" | "test";
+        };
         CreatedWebhookEndpoint: {
             /** Format: date-time */
             created_at: string;
@@ -1476,7 +1812,7 @@ export interface components {
             disabled_reason: string | null;
             enabled: boolean;
             /** @description Subscribed event types. Empty means every event. */
-            events: ("message.sent" | "message.delivered" | "message.failed" | "message.received" | "device.online" | "device.offline" | "otp.verified" | "otp.failed" | "otp.expired")[];
+            events: ("message.sent" | "message.delivered" | "message.failed" | "message.received" | "device.online" | "device.offline" | "otp.verified" | "otp.failed" | "otp.expired" | "otp.blocked")[];
             /**
              * Format: date-time
              * @description Start of the current run of failed deliveries. Bridge disables the endpoint after 5 days.
@@ -1972,6 +2308,16 @@ export interface components {
         OtpSendBody: {
             /** @description Your Android app's 11-character SMS Retriever hash. Added as the last line so the app can read the code without SMS permission. */
             android_app_hash?: string;
+            /**
+             * @description The Verify app: its ID (vap_…) or slug. Leave out for the default app.
+             * @example default
+             */
+            app?: string;
+            /**
+             * @description Your end user's IP address. Enables the app's per-IP hourly limit.
+             * @example 203.0.113.7
+             */
+            client_ip?: string;
             /** @description Your own key-value data, returned with the verification. At most 32 keys and 4 KB. */
             metadata?: {
                 [key: string]: unknown;
@@ -1983,6 +2329,8 @@ export interface components {
             to: string;
         };
         OtpVerifyBody: {
+            /** @description Only match verifications of this Verify app (ID or slug). With to, picks among several apps' pending codes. */
+            app?: string;
             /** @example 482913 */
             code: string;
             /** @description The verification to check. Or pass to. */
@@ -2268,6 +2616,15 @@ export interface components {
              */
             to: string;
         };
+        SendWidgetCodeRequest: {
+            /**
+             * @description The number to verify, in E.164 format.
+             * @example +919876543210
+             */
+            to: string;
+            /** @description The Cloudflare Turnstile response, when the app uses Turnstile. */
+            turnstile_token?: string;
+        };
         Session: {
             /** Format: date-time */
             created_at: string;
@@ -2418,6 +2775,25 @@ export interface components {
             /** @example +919876543210 */
             to: string;
         };
+        TokenVerification: {
+            app_id: string | null;
+            /** @enum {string|null} */
+            environment: "live" | "test" | null;
+            /** Format: date-time */
+            expires_at: string | null;
+            /**
+             * @description The verified number (E.164).
+             * @example +919876543210
+             */
+            phone: string | null;
+            /**
+             * @description Why the token is not valid.
+             * @enum {string|null}
+             */
+            reason: "malformed" | "unknown_app" | "bad_signature" | "wrong_issuer" | "expired" | "environment_mismatch" | "verification_mismatch" | null;
+            valid: boolean;
+            verification_id: string | null;
+        };
         UnifiedPushConfig: {
             /** @description Pass to the UnifiedPush distributor when registering. */
             vapid_public_key: string;
@@ -2454,7 +2830,7 @@ export interface components {
             description?: string;
             enabled?: boolean;
             /** @description Replaces the subscription. An empty list subscribes to every event. */
-            events?: ("message.sent" | "message.delivered" | "message.failed" | "message.received" | "device.online" | "device.offline" | "otp.verified" | "otp.failed" | "otp.expired")[];
+            events?: ("message.sent" | "message.delivered" | "message.failed" | "message.received" | "device.online" | "device.offline" | "otp.verified" | "otp.failed" | "otp.expired" | "otp.blocked")[];
             url?: string;
         };
         Usage: {
@@ -2564,6 +2940,11 @@ export interface components {
         };
         Verification: {
             /**
+             * @description The Verify app the code belongs to. Null if the app was deleted.
+             * @example vap_01ja8z3k5wq2v7c9e4r2n0w6yb
+             */
+            app_id: string | null;
+            /**
              * Format: int64
              * @description Wrong codes entered so far, plus the right one if verified.
              */
@@ -2578,6 +2959,13 @@ export interface components {
             environment: "live" | "test";
             /** Format: date-time */
             expires_at: string;
+            /** @description The second SMS, sent through another route because the first was not sent in time. */
+            failover_message_id: string | null;
+            /**
+             * @description Delivery status of the failover SMS.
+             * @enum {string|null}
+             */
+            failover_message_status: "created" | "queued" | "sending" | "sent" | "delivered" | "failed" | null;
             /** @example otp_01ja8z3k5wq2v7c9e4r2n0w6yb */
             id: string;
             /** @description The SMS that carries the code. */
@@ -2611,6 +2999,8 @@ export interface components {
             has_more: boolean;
         };
         VerificationStats: {
+            /** @description Send attempts refused by fraud protection, by reason. */
+            blocked: components["schemas"]["BlockStats"];
             /** Format: int64 */
             canceled: number;
             /**
@@ -2622,6 +3012,11 @@ export interface components {
             expired: number;
             /** Format: int64 */
             failed: number;
+            /**
+             * Format: int64
+             * @description Verifications whose code was resent through another route.
+             */
+            failovers: number;
             /** Format: double */
             median_seconds_to_verify: number;
             /** Format: int64 */
@@ -2631,10 +3026,193 @@ export interface components {
             /** Format: int64 */
             verified: number;
         };
+        VerifyApp: {
+            /** @description ISO 3166-1 alpha-2 codes. Empty allows every country. */
+            allowed_countries: string[];
+            /** @description Origins whose pages may embed the widget. The dashboard origin (hosted page) is always allowed. */
+            allowed_origins: string[];
+            /** @description Replaces {app} in the message. Null uses the project name. */
+            app_name: string | null;
+            /** Format: int64 */
+            code_length: number;
+            /**
+             * Format: int64
+             * @description Codes per hour to any one country. Null is no cap.
+             */
+            country_hourly_limit: number | null;
+            /** Format: date-time */
+            created_at: string;
+            default_template: string;
+            effective_app_name: string;
+            /**
+             * Format: int64
+             * @description Live codes whose SMS no phone accepted within this many seconds (or that failed) are resent once through another route: the project's SMS providers, or another online phone. 0 is off.
+             */
+            failover_after_seconds: number;
+            /** @example vap_01ja8z3k5wq2v7c9e4r2n0w6yb */
+            id: string;
+            /**
+             * Format: int64
+             * @description Codes per end-user IP address per hour (from client_ip, or the widget's caller). 0 is off.
+             */
+            ip_hourly_limit: number;
+            /** @description Used when a request names no app. It cannot be deleted. */
+            is_default: boolean;
+            /** Format: int64 */
+            max_attempts: number;
+            /** @example Default */
+            name: string;
+            /** @description The SMS these settings produce, with an example code. */
+            preview: string;
+            /**
+             * @description Identifies the app to the drop-in widget and hosted page. Safe to expose.
+             * @example bpk_9fK2…
+             */
+            publishable_key: string;
+            /**
+             * Format: int64
+             * @description Codes per hour to numbers that differ only in their last 3 digits. Catches sequential-number pumping. 0 is off.
+             */
+            range_hourly_limit: number;
+            /** @description Exact URLs the hosted page may send the user back to. */
+            redirect_uris: string[];
+            /** @description Whether the app has a token signing secret. It is created when needed once BRIDGE_SECRET_KEY is set. */
+            secret_set: boolean;
+            /**
+             * @description Pass it (or the ID) as app when sending a code.
+             * @example default
+             */
+            slug: string;
+            /** @description The SMS text with {code}, and optionally {app} and {minutes}. Null uses the default. */
+            template: string | null;
+            /** Format: int64 */
+            ttl_seconds: number;
+            turnstile_secret_set: boolean;
+            /** @description Cloudflare Turnstile site key. When set, widget sends need a valid Turnstile token. */
+            turnstile_site_key: string | null;
+            /** Format: date-time */
+            updated_at: string;
+            web_otp_domain: string | null;
+            /**
+             * @description test widgets send nothing and show the code, for development.
+             * @enum {string}
+             */
+            widget_environment: "live" | "test";
+        };
+        VerifyAppCreateInput: {
+            /** @description ISO 3166-1 alpha-2 codes. An empty list allows every country. */
+            allowed_countries?: string[];
+            /** @description https origins, such as https://shop.example.com (http only for localhost). */
+            allowed_origins?: string[];
+            /** @description Replaces {app}. An empty string uses the project name. */
+            app_name?: string;
+            /** Format: int64 */
+            code_length?: number;
+            /**
+             * Format: int64
+             * @description 0 removes the cap.
+             */
+            country_hourly_limit?: number;
+            /**
+             * Format: int64
+             * @description 0 turns failover off. Default 30.
+             */
+            failover_after_seconds?: number;
+            /**
+             * Format: int64
+             * @description Default 10. 0 is off.
+             */
+            ip_hourly_limit?: number;
+            /** Format: int64 */
+            max_attempts?: number;
+            /** @example Acme Shop */
+            name: string;
+            /**
+             * Format: int64
+             * @description Default 20. 0 is off.
+             */
+            range_hourly_limit?: number;
+            /** @description Absolute https URLs, matched exactly. */
+            redirect_uris?: string[];
+            /** @description Derived from the name when left out. Cannot be changed later. */
+            slug?: string;
+            /** @description The SMS text with {code}. An empty string uses the default template. */
+            template?: string;
+            /** Format: int64 */
+            ttl_seconds?: number;
+            /** @description Turnstile secret key. Write-only; stored encrypted. */
+            turnstile_secret?: string;
+            /** @description An empty string removes Turnstile (send an empty turnstile_secret too). */
+            turnstile_site_key?: string;
+            /** @description An empty string removes it. */
+            web_otp_domain?: string;
+            /** @enum {string} */
+            widget_environment?: "live" | "test";
+        };
+        VerifyAppList: {
+            data: components["schemas"]["VerifyApp"][];
+        };
+        VerifyAppSecret: {
+            /**
+             * @description Verify tokens with HS256 using this string, as UTF-8 bytes, as the key.
+             * @example bvs_…
+             */
+            secret: string;
+        };
+        VerifyAppUpdateInput: {
+            /** @description ISO 3166-1 alpha-2 codes. An empty list allows every country. */
+            allowed_countries?: string[];
+            /** @description https origins, such as https://shop.example.com (http only for localhost). */
+            allowed_origins?: string[];
+            /** @description Replaces {app}. An empty string uses the project name. */
+            app_name?: string;
+            /** Format: int64 */
+            code_length?: number;
+            /**
+             * Format: int64
+             * @description 0 removes the cap.
+             */
+            country_hourly_limit?: number;
+            /**
+             * Format: int64
+             * @description 0 turns failover off. Default 30.
+             */
+            failover_after_seconds?: number;
+            /**
+             * Format: int64
+             * @description Default 10. 0 is off.
+             */
+            ip_hourly_limit?: number;
+            /** Format: int64 */
+            max_attempts?: number;
+            name?: string;
+            /**
+             * Format: int64
+             * @description Default 20. 0 is off.
+             */
+            range_hourly_limit?: number;
+            /** @description Absolute https URLs, matched exactly. */
+            redirect_uris?: string[];
+            /** @description The SMS text with {code}. An empty string uses the default template. */
+            template?: string;
+            /** Format: int64 */
+            ttl_seconds?: number;
+            /** @description Turnstile secret key. Write-only; stored encrypted. */
+            turnstile_secret?: string;
+            /** @description An empty string removes Turnstile (send an empty turnstile_secret too). */
+            turnstile_site_key?: string;
+            /** @description An empty string removes it. */
+            web_otp_domain?: string;
+            /** @enum {string} */
+            widget_environment?: "live" | "test";
+        };
         VerifyResult: {
             /** @description true only when this request's code was right. */
             valid: boolean;
             verification: components["schemas"]["Verification"];
+        };
+        VerifyVerificationTokenRequest: {
+            token: string;
         };
         WakeResult: {
             message: string;
@@ -2669,7 +3247,7 @@ export interface components {
             disabled_reason: string | null;
             enabled: boolean;
             /** @description Subscribed event types. Empty means every event. */
-            events: ("message.sent" | "message.delivered" | "message.failed" | "message.received" | "device.online" | "device.offline" | "otp.verified" | "otp.failed" | "otp.expired")[];
+            events: ("message.sent" | "message.delivered" | "message.failed" | "message.received" | "device.online" | "device.offline" | "otp.verified" | "otp.failed" | "otp.expired" | "otp.blocked")[];
             /**
              * Format: date-time
              * @description Start of the current run of failed deliveries. Bridge disables the endpoint after 5 days.
@@ -2700,6 +3278,54 @@ export interface components {
             project_id: string;
             project_name: string;
         };
+        WidgetConfig: {
+            /**
+             * @description The name to show, as in the SMS.
+             * @example Acme
+             */
+            app_name: string;
+            /**
+             * Format: int64
+             * @example 6
+             */
+            code_length: number;
+            /**
+             * @description test sends nothing and returns the code.
+             * @enum {string}
+             */
+            environment: "live" | "test";
+            /**
+             * Format: int64
+             * @example 600
+             */
+            ttl_seconds: number;
+            /** @description When set, render Cloudflare Turnstile and send its token with each send. */
+            turnstile_site_key: string | null;
+        };
+        WidgetRedirectCheck: {
+            ok: boolean;
+        };
+        WidgetSendResult: {
+            /** @description Only for test-environment widgets. */
+            code?: string;
+            /** Format: date-time */
+            expires_at: string;
+            /** Format: date-time */
+            resend_available_at: string;
+            /** @example otp_01ja8z3k5wq2v7c9e4r2n0w6yb */
+            verification_id: string;
+        };
+        WidgetVerifyResult: {
+            /** Format: int64 */
+            attempts_remaining: number;
+            /** @enum {string} */
+            status: "pending" | "verified" | "expired" | "failed" | "canceled";
+            /** @description Only when valid: a signed JWT (HS256, the app's secret) proving the number was verified. Send it to your server and check it there, or with POST /v1/otp/tokens/verify. */
+            token?: string;
+            /** Format: date-time */
+            token_expires_at?: string;
+            valid: boolean;
+        };
     };
     responses: never;
     parameters: never;
@@ -2713,14 +3339,19 @@ export type AddProviderRequest = components['schemas']['AddProviderRequest'];
 export type AuditActor = components['schemas']['AuditActor'];
 export type AuditEntry = components['schemas']['AuditEntry'];
 export type AuditList = components['schemas']['AuditList'];
+export type Block = components['schemas']['Block'];
+export type BlockList = components['schemas']['BlockList'];
+export type BlockStats = components['schemas']['BlockStats'];
 export type ChangePasswordRequest = components['schemas']['ChangePasswordRequest'];
 export type CheckProviderResponse = components['schemas']['CheckProviderResponse'];
+export type CheckWidgetCodeRequest = components['schemas']['CheckWidgetCodeRequest'];
 export type CreateApiKeyInputBody = components['schemas']['CreateAPIKeyInputBody'];
 export type CreateIntegrationRequest = components['schemas']['CreateIntegrationRequest'];
 export type CreateInviteRequest = components['schemas']['CreateInviteRequest'];
 export type CreateWebhookRequest = components['schemas']['CreateWebhookRequest'];
 export type CreatedApiKey = components['schemas']['CreatedAPIKey'];
 export type CreatedInvite = components['schemas']['CreatedInvite'];
+export type CreatedVerifyApp = components['schemas']['CreatedVerifyApp'];
 export type CreatedWebhookEndpoint = components['schemas']['CreatedWebhookEndpoint'];
 export type DeleteMeRequest = components['schemas']['DeleteMeRequest'];
 export type DeleteProjectRequest = components['schemas']['DeleteProjectRequest'];
@@ -2770,6 +3401,7 @@ export type Routing = components['schemas']['Routing'];
 export type Sim = components['schemas']['SIM'];
 export type SelfDevice = components['schemas']['SelfDevice'];
 export type SendBody = components['schemas']['SendBody'];
+export type SendWidgetCodeRequest = components['schemas']['SendWidgetCodeRequest'];
 export type Session = components['schemas']['Session'];
 export type SignupInputBody = components['schemas']['SignupInputBody'];
 export type Status = components['schemas']['Status'];
@@ -2785,6 +3417,7 @@ export type SystemInstance = components['schemas']['SystemInstance'];
 export type SystemQueue = components['schemas']['SystemQueue'];
 export type TestDeviceRequest = components['schemas']['TestDeviceRequest'];
 export type TestProjectDeviceRequest = components['schemas']['TestProjectDeviceRequest'];
+export type TokenVerification = components['schemas']['TokenVerification'];
 export type UnifiedPushConfig = components['schemas']['UnifiedPushConfig'];
 export type UpdateDeviceRequest = components['schemas']['UpdateDeviceRequest'];
 export type UpdateIntegrationRequest = components['schemas']['UpdateIntegrationRequest'];
@@ -2799,13 +3432,23 @@ export type User = components['schemas']['User'];
 export type Verification = components['schemas']['Verification'];
 export type VerificationList = components['schemas']['VerificationList'];
 export type VerificationStats = components['schemas']['VerificationStats'];
+export type VerifyApp = components['schemas']['VerifyApp'];
+export type VerifyAppCreateInput = components['schemas']['VerifyAppCreateInput'];
+export type VerifyAppList = components['schemas']['VerifyAppList'];
+export type VerifyAppSecret = components['schemas']['VerifyAppSecret'];
+export type VerifyAppUpdateInput = components['schemas']['VerifyAppUpdateInput'];
 export type VerifyResult = components['schemas']['VerifyResult'];
+export type VerifyVerificationTokenRequest = components['schemas']['VerifyVerificationTokenRequest'];
 export type WakeResult = components['schemas']['WakeResult'];
 export type WebhookDelivery = components['schemas']['WebhookDelivery'];
 export type WebhookEndpoint = components['schemas']['WebhookEndpoint'];
 export type WebhookSecret = components['schemas']['WebhookSecret'];
 export type WebhookTestResult = components['schemas']['WebhookTestResult'];
 export type WhoAmI = components['schemas']['WhoAmI'];
+export type WidgetConfig = components['schemas']['WidgetConfig'];
+export type WidgetRedirectCheck = components['schemas']['WidgetRedirectCheck'];
+export type WidgetSendResult = components['schemas']['WidgetSendResult'];
+export type WidgetVerifyResult = components['schemas']['WidgetVerifyResult'];
 export type $defs = Record<string, never>;
 export interface operations {
     login: {
@@ -4720,6 +5363,24 @@ export interface operations {
                     "application/json": components["schemas"]["APIError"];
                 };
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
             /** @description Unprocessable Entity */
             422: {
                 headers: {
@@ -4731,6 +5392,57 @@ export interface operations {
             };
             /** @description Too Many Requests */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    verifyVerificationToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VerifyVerificationTokenRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenVerification"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5916,6 +6628,8 @@ export interface operations {
         parameters: {
             query?: {
                 limit?: number;
+                /** @description Filter by Verify app: its ID or slug. */
+                app?: string;
                 /** @description A verification ID; returns verifications created before it. */
                 starting_after?: string;
                 status?: "pending" | "verified" | "expired" | "failed" | "canceled";
@@ -5993,6 +6707,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Verification"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
                 };
             };
             /** @description Not Found */
@@ -6139,6 +6862,8 @@ export interface operations {
         parameters: {
             query?: {
                 environment?: "live" | "test";
+                /** @description Only this Verify app: its ID or slug. */
+                app?: string;
             };
             header?: never;
             path: {
@@ -6816,6 +7541,513 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UsageHistory"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    listVerifyApps: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VerifyAppList"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    createVerifyApp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VerifyAppCreateInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedVerifyApp"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    getVerifyApp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                appId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VerifyApp"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    deleteVerifyApp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                appId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    updateVerifyApp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                appId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VerifyAppUpdateInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VerifyApp"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    listVerifyAppBlocks: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description A block ID; returns blocks created before it. */
+                starting_after?: string;
+                reason?: "country_not_allowed" | "ip_limit" | "range_burst" | "country_limit" | "captcha_failed";
+                environment?: "live" | "test";
+            };
+            header?: never;
+            path: {
+                projectId: string;
+                appId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlockList"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    getVerifyAppSecret: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                appId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VerifyAppSecret"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    rotateVerifyAppSecret: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                appId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VerifyAppSecret"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    getVerifyAppStats: {
+        parameters: {
+            query?: {
+                environment?: "live" | "test";
+            };
+            header?: never;
+            path: {
+                projectId: string;
+                appId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VerificationStats"];
                 };
             };
             /** @description Not Found */
@@ -7593,6 +8825,312 @@ export interface operations {
             };
             /** @description Unauthorized */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    getWidgetConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                publishableKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WidgetConfig"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    checkWidgetRedirect: {
+        parameters: {
+            query?: {
+                /** @description The URL the hosted page would send the user back to. */
+                redirect_uri?: string;
+            };
+            header?: never;
+            path: {
+                publishableKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WidgetRedirectCheck"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    sendWidgetCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                publishableKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SendWidgetCodeRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WidgetSendResult"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    checkWidgetCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                publishableKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CheckWidgetCodeRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WidgetVerifyResult"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -86,7 +86,11 @@ func New(o Options) *Server {
 		if o.Webhooks != nil { // a nil *webhook.Service must not become a non-nil interface
 			emitter = o.Webhooks
 		}
-		s.otp = otp.New(o.Pool, o.Messaging, limiter, emitter, o.Logger)
+		box, _ := secretbox.New(o.Config.SecretKey)
+		s.otp = otp.New(otp.Options{
+			Pool: o.Pool, Messaging: o.Messaging, Limiter: limiter, Emitter: emitter, Logger: o.Logger, Box: box,
+			Issuer: o.Config.PublicURL.String(), TurnstileURL: o.Config.TurnstileVerifyURL,
+		})
 	}
 	return s
 }
@@ -102,6 +106,7 @@ func (s *Server) Handler() http.Handler {
 		securityHeaders(s.cfg.PublicURL.Scheme == "https"),
 		originCheck(s.cfg.DashboardOrigin()),
 		requestLog(s.reqlog),
+		s.widgetCORS,
 	)
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "version": s.version})
@@ -143,6 +148,8 @@ func (s *Server) register(api huma.API) {
 	s.registerAccount(api)
 	s.registerStatus(api)
 	s.registerOTP(api)
+	s.registerVerifyApps(api)
+	s.registerWidget(api)
 	s.registerProviders(api)
 	s.registerIntegrations(api)
 }
@@ -198,7 +205,8 @@ func newAPI(r chi.Router, version, serverURL string, logger *slog.Logger) huma.A
 		{Name: "Devices", Description: "Paired Android gateways."},
 		{Name: "Gateway", Description: "Endpoints used by the Bridge Android app itself."},
 		{Name: "Messages", Description: "Message history for the dashboard."},
-		{Name: "Verify", Description: "One-time passwords for the dashboard."},
+		{Name: "Verify", Description: "One-time passwords and Verify apps for the dashboard."},
+		{Name: "Widget", Description: "Public endpoints for the drop-in Verify widget and hosted page, identified by an app's publishable key."},
 		{Name: "Integrations", Description: "Connections to other services, such as Supabase Auth's Send SMS hook."},
 		{Name: "Providers", Description: "SMS providers (MSG91, Twilio, Vonage, Plivo) and routing between them and your phones."},
 		{Name: "Status", Description: "Service health for the public status page and operators."},

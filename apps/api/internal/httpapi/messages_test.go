@@ -370,7 +370,7 @@ func TestBodiesAreRedactedAfterRetention(t *testing.T) {
 	if _, err := testDB.Pool.Exec(ctx, "UPDATE messages SET created_at = now() - interval '31 days' WHERE id = $1", id); err != nil {
 		t.Fatal(err)
 	}
-	n, err := dbq.New(testDB.Pool).RedactMessageBodies(ctx, time.Now().Add(-30*24*time.Hour))
+	n, err := dbq.New(testDB.Pool).RedactMessageBodies(ctx, dbq.RedactMessageBodiesParams{Before: time.Now().Add(-30 * 24 * time.Hour), OtpBefore: time.Now().Add(-time.Hour)})
 	if err != nil || n < 1 {
 		t.Fatalf("redacted %d: %v", n, err)
 	}

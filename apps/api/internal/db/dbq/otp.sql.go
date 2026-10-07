@@ -8,24 +8,44 @@ package dbq
 import (
 	"context"
 	"encoding/json"
+	"net/netip"
 	"time"
 )
 
 const cancelPendingOTPs = `-- name: CancelPendingOTPs :exec
 UPDATE otp_verifications SET status = 'canceled', code_hash = NULL, updated_at = now()
-WHERE project_id = $1 AND environment = $2 AND recipient = $3 AND status = 'pending'
+WHERE project_id = $1 AND app_id = $2::text AND environment = $3
+  AND recipient = $4 AND status = 'pending'
 `
 
 type CancelPendingOTPsParams struct {
 	ProjectID   string
+	AppID       string
 	Environment APIEnvironment
 	Recipient   string
 }
 
-// A new code replaces any code still pending for the same number.
+// A new code replaces any code of the same app still pending for the same number.
 func (q *Queries) CancelPendingOTPs(ctx context.Context, arg CancelPendingOTPsParams) error {
-	_, err := q.db.Exec(ctx, cancelPendingOTPs, arg.ProjectID, arg.Environment, arg.Recipient)
+	_, err := q.db.Exec(ctx, cancelPendingOTPs,
+		arg.ProjectID,
+		arg.AppID,
+		arg.Environment,
+		arg.Recipient,
+	)
 	return err
+}
+
+const deleteOldOTPBlocks = `-- name: DeleteOldOTPBlocks :execrows
+DELETE FROM otp_blocks WHERE created_at < $1
+`
+
+func (q *Queries) DeleteOldOTPBlocks(ctx context.Context, before time.Time) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteOldOTPBlocks, before)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const deleteOldOTPs = `-- name: DeleteOldOTPs :execrows
@@ -40,10 +60,28 @@ func (q *Queries) DeleteOldOTPs(ctx context.Context, before time.Time) (int64, e
 	return result.RowsAffected(), nil
 }
 
+const deleteVerifyApp = `-- name: DeleteVerifyApp :execrows
+DELETE FROM verify_apps WHERE id = $1 AND project_id = $2 AND slug <> 'default'
+`
+
+type DeleteVerifyAppParams struct {
+	ID        string
+	ProjectID string
+}
+
+// The default app cannot be deleted.
+func (q *Queries) DeleteVerifyApp(ctx context.Context, arg DeleteVerifyAppParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteVerifyApp, arg.ID, arg.ProjectID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const expireOTP = `-- name: ExpireOTP :one
 UPDATE otp_verifications SET status = 'expired', code_hash = NULL, updated_at = now()
 WHERE id = $1 AND status = 'pending'
-RETURNING id, project_id, environment, api_key_id, recipient, status, code_hash, test_code, code_length, attempts, max_attempts, message_id, metadata, expires_at, verified_at, created_at, updated_at
+RETURNING id, project_id, environment, api_key_id, recipient, status, code_hash, test_code, code_length, attempts, max_attempts, message_id, metadata, expires_at, verified_at, created_at, updated_at, app_id, failover_message_id
 `
 
 func (q *Queries) ExpireOTP(ctx context.Context, id string) (OtpVerification, error) {
@@ -67,6 +105,8 @@ func (q *Queries) ExpireOTP(ctx context.Context, id string) (OtpVerification, er
 		&i.VerifiedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AppID,
+		&i.FailoverMessageID,
 	)
 	return i, err
 }
@@ -74,7 +114,7 @@ func (q *Queries) ExpireOTP(ctx context.Context, id string) (OtpVerification, er
 const expireOTPs = `-- name: ExpireOTPs :many
 UPDATE otp_verifications SET status = 'expired', code_hash = NULL, updated_at = now()
 WHERE status = 'pending' AND expires_at < now()
-RETURNING id, project_id, environment, api_key_id, recipient, status, code_hash, test_code, code_length, attempts, max_attempts, message_id, metadata, expires_at, verified_at, created_at, updated_at
+RETURNING id, project_id, environment, api_key_id, recipient, status, code_hash, test_code, code_length, attempts, max_attempts, message_id, metadata, expires_at, verified_at, created_at, updated_at, app_id, failover_message_id
 `
 
 func (q *Queries) ExpireOTPs(ctx context.Context) ([]OtpVerification, error) {
@@ -104,6 +144,8 @@ func (q *Queries) ExpireOTPs(ctx context.Context) ([]OtpVerification, error) {
 			&i.VerifiedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.AppID,
+			&i.FailoverMessageID,
 		); err != nil {
 			return nil, err
 		}
@@ -123,7 +165,7 @@ UPDATE otp_verifications SET
     code_hash   = CASE WHEN $1::otp_status = 'pending' THEN code_hash ELSE NULL END,
     updated_at  = now()
 WHERE id = $2
-RETURNING id, project_id, environment, api_key_id, recipient, status, code_hash, test_code, code_length, attempts, max_attempts, message_id, metadata, expires_at, verified_at, created_at, updated_at
+RETURNING id, project_id, environment, api_key_id, recipient, status, code_hash, test_code, code_length, attempts, max_attempts, message_id, metadata, expires_at, verified_at, created_at, updated_at, app_id, failover_message_id
 `
 
 type FinishOTPAttemptParams struct {
@@ -154,24 +196,44 @@ func (q *Queries) FinishOTPAttempt(ctx context.Context, arg FinishOTPAttemptPara
 		&i.VerifiedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AppID,
+		&i.FailoverMessageID,
 	)
 	return i, err
 }
 
-const getOTPForUpdate = `-- name: GetOTPForUpdate :one
-SELECT id, project_id, environment, api_key_id, recipient, status, code_hash, test_code, code_length, attempts, max_attempts, message_id, metadata, expires_at, verified_at, created_at, updated_at FROM otp_verifications
-WHERE id = $1 AND project_id = $2 AND environment = $3
-FOR UPDATE
+const getOTPBlock = `-- name: GetOTPBlock :one
+SELECT id, project_id, app_id, environment, recipient, client_ip, country, reason, created_at FROM otp_blocks WHERE id = $1 AND app_id = $2
 `
 
-type GetOTPForUpdateParams struct {
-	ID          string
-	ProjectID   string
-	Environment APIEnvironment
+type GetOTPBlockParams struct {
+	ID    string
+	AppID string
 }
 
-func (q *Queries) GetOTPForUpdate(ctx context.Context, arg GetOTPForUpdateParams) (OtpVerification, error) {
-	row := q.db.QueryRow(ctx, getOTPForUpdate, arg.ID, arg.ProjectID, arg.Environment)
+func (q *Queries) GetOTPBlock(ctx context.Context, arg GetOTPBlockParams) (OtpBlock, error) {
+	row := q.db.QueryRow(ctx, getOTPBlock, arg.ID, arg.AppID)
+	var i OtpBlock
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.AppID,
+		&i.Environment,
+		&i.Recipient,
+		&i.ClientIp,
+		&i.Country,
+		&i.Reason,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getOTPByID = `-- name: GetOTPByID :one
+SELECT id, project_id, environment, api_key_id, recipient, status, code_hash, test_code, code_length, attempts, max_attempts, message_id, metadata, expires_at, verified_at, created_at, updated_at, app_id, failover_message_id FROM otp_verifications WHERE id = $1
+`
+
+func (q *Queries) GetOTPByID(ctx context.Context, id string) (OtpVerification, error) {
+	row := q.db.QueryRow(ctx, getOTPByID, id)
 	var i OtpVerification
 	err := row.Scan(
 		&i.ID,
@@ -191,34 +253,63 @@ func (q *Queries) GetOTPForUpdate(ctx context.Context, arg GetOTPForUpdateParams
 		&i.VerifiedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AppID,
+		&i.FailoverMessageID,
 	)
 	return i, err
 }
 
-const getOTPSettings = `-- name: GetOTPSettings :one
-SELECT project_id, app_name, template, code_length, ttl_seconds, max_attempts, web_otp_domain, updated_at FROM otp_settings WHERE project_id = $1
+const getOTPForUpdate = `-- name: GetOTPForUpdate :one
+SELECT id, project_id, environment, api_key_id, recipient, status, code_hash, test_code, code_length, attempts, max_attempts, message_id, metadata, expires_at, verified_at, created_at, updated_at, app_id, failover_message_id FROM otp_verifications
+WHERE id = $1 AND project_id = $2 AND environment = $3
+  AND ($4::text IS NULL OR app_id = $4)
+FOR UPDATE
 `
 
-func (q *Queries) GetOTPSettings(ctx context.Context, projectID string) (OtpSetting, error) {
-	row := q.db.QueryRow(ctx, getOTPSettings, projectID)
-	var i OtpSetting
+type GetOTPForUpdateParams struct {
+	ID          string
+	ProjectID   string
+	Environment APIEnvironment
+	AppID       *string
+}
+
+func (q *Queries) GetOTPForUpdate(ctx context.Context, arg GetOTPForUpdateParams) (OtpVerification, error) {
+	row := q.db.QueryRow(ctx, getOTPForUpdate,
+		arg.ID,
+		arg.ProjectID,
+		arg.Environment,
+		arg.AppID,
+	)
+	var i OtpVerification
 	err := row.Scan(
+		&i.ID,
 		&i.ProjectID,
-		&i.AppName,
-		&i.Template,
+		&i.Environment,
+		&i.APIKeyID,
+		&i.Recipient,
+		&i.Status,
+		&i.CodeHash,
+		&i.TestCode,
 		&i.CodeLength,
-		&i.TtlSeconds,
+		&i.Attempts,
 		&i.MaxAttempts,
-		&i.WebOtpDomain,
+		&i.MessageID,
+		&i.Metadata,
+		&i.ExpiresAt,
+		&i.VerifiedAt,
+		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AppID,
+		&i.FailoverMessageID,
 	)
 	return i, err
 }
 
 const getOTPView = `-- name: GetOTPView :one
-SELECT o.id, o.project_id, o.environment, o.api_key_id, o.recipient, o.status, o.code_hash, o.test_code, o.code_length, o.attempts, o.max_attempts, o.message_id, o.metadata, o.expires_at, o.verified_at, o.created_at, o.updated_at, m.status AS message_status
+SELECT o.id, o.project_id, o.environment, o.api_key_id, o.recipient, o.status, o.code_hash, o.test_code, o.code_length, o.attempts, o.max_attempts, o.message_id, o.metadata, o.expires_at, o.verified_at, o.created_at, o.updated_at, o.app_id, o.failover_message_id, m.status AS message_status, fm.status AS failover_message_status
 FROM otp_verifications o
 LEFT JOIN messages m ON m.id = o.message_id
+LEFT JOIN messages fm ON fm.id = o.failover_message_id
 WHERE o.id = $1 AND o.project_id = $2
   AND ($3::api_environment IS NULL OR o.environment = $3)
 `
@@ -230,24 +321,27 @@ type GetOTPViewParams struct {
 }
 
 type GetOTPViewRow struct {
-	ID            string
-	ProjectID     string
-	Environment   APIEnvironment
-	APIKeyID      *string
-	Recipient     string
-	Status        OtpStatus
-	CodeHash      []byte
-	TestCode      *string
-	CodeLength    int16
-	Attempts      int16
-	MaxAttempts   int16
-	MessageID     *string
-	Metadata      json.RawMessage
-	ExpiresAt     time.Time
-	VerifiedAt    *time.Time
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
-	MessageStatus *MessageStatus
+	ID                    string
+	ProjectID             string
+	Environment           APIEnvironment
+	APIKeyID              *string
+	Recipient             string
+	Status                OtpStatus
+	CodeHash              []byte
+	TestCode              *string
+	CodeLength            int16
+	Attempts              int16
+	MaxAttempts           int16
+	MessageID             *string
+	Metadata              json.RawMessage
+	ExpiresAt             time.Time
+	VerifiedAt            *time.Time
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
+	AppID                 *string
+	FailoverMessageID     *string
+	MessageStatus         *MessageStatus
+	FailoverMessageStatus *MessageStatus
 }
 
 func (q *Queries) GetOTPView(ctx context.Context, arg GetOTPViewParams) (GetOTPViewRow, error) {
@@ -271,25 +365,207 @@ func (q *Queries) GetOTPView(ctx context.Context, arg GetOTPViewParams) (GetOTPV
 		&i.VerifiedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AppID,
+		&i.FailoverMessageID,
 		&i.MessageStatus,
+		&i.FailoverMessageStatus,
 	)
 	return i, err
 }
 
+const getVerifyApp = `-- name: GetVerifyApp :one
+SELECT id, project_id, slug, name, app_name, template, code_length, ttl_seconds, max_attempts, web_otp_domain, failover_after_seconds, allowed_countries, ip_hourly_limit, range_hourly_limit, country_hourly_limit, publishable_key, allowed_origins, redirect_uris, widget_environment, turnstile_site_key, turnstile_secret, secret, created_at, updated_at FROM verify_apps WHERE id = $1 AND project_id = $2
+`
+
+type GetVerifyAppParams struct {
+	ID        string
+	ProjectID string
+}
+
+func (q *Queries) GetVerifyApp(ctx context.Context, arg GetVerifyAppParams) (VerifyApp, error) {
+	row := q.db.QueryRow(ctx, getVerifyApp, arg.ID, arg.ProjectID)
+	var i VerifyApp
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Slug,
+		&i.Name,
+		&i.AppName,
+		&i.Template,
+		&i.CodeLength,
+		&i.TtlSeconds,
+		&i.MaxAttempts,
+		&i.WebOtpDomain,
+		&i.FailoverAfterSeconds,
+		&i.AllowedCountries,
+		&i.IpHourlyLimit,
+		&i.RangeHourlyLimit,
+		&i.CountryHourlyLimit,
+		&i.PublishableKey,
+		&i.AllowedOrigins,
+		&i.RedirectUris,
+		&i.WidgetEnvironment,
+		&i.TurnstileSiteKey,
+		&i.TurnstileSecret,
+		&i.Secret,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getVerifyAppByID = `-- name: GetVerifyAppByID :one
+SELECT id, project_id, slug, name, app_name, template, code_length, ttl_seconds, max_attempts, web_otp_domain, failover_after_seconds, allowed_countries, ip_hourly_limit, range_hourly_limit, country_hourly_limit, publishable_key, allowed_origins, redirect_uris, widget_environment, turnstile_site_key, turnstile_secret, secret, created_at, updated_at FROM verify_apps WHERE id = $1
+`
+
+func (q *Queries) GetVerifyAppByID(ctx context.Context, id string) (VerifyApp, error) {
+	row := q.db.QueryRow(ctx, getVerifyAppByID, id)
+	var i VerifyApp
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Slug,
+		&i.Name,
+		&i.AppName,
+		&i.Template,
+		&i.CodeLength,
+		&i.TtlSeconds,
+		&i.MaxAttempts,
+		&i.WebOtpDomain,
+		&i.FailoverAfterSeconds,
+		&i.AllowedCountries,
+		&i.IpHourlyLimit,
+		&i.RangeHourlyLimit,
+		&i.CountryHourlyLimit,
+		&i.PublishableKey,
+		&i.AllowedOrigins,
+		&i.RedirectUris,
+		&i.WidgetEnvironment,
+		&i.TurnstileSiteKey,
+		&i.TurnstileSecret,
+		&i.Secret,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getVerifyAppByPublishableKey = `-- name: GetVerifyAppByPublishableKey :one
+SELECT id, project_id, slug, name, app_name, template, code_length, ttl_seconds, max_attempts, web_otp_domain, failover_after_seconds, allowed_countries, ip_hourly_limit, range_hourly_limit, country_hourly_limit, publishable_key, allowed_origins, redirect_uris, widget_environment, turnstile_site_key, turnstile_secret, secret, created_at, updated_at FROM verify_apps WHERE publishable_key = $1
+`
+
+func (q *Queries) GetVerifyAppByPublishableKey(ctx context.Context, publishableKey string) (VerifyApp, error) {
+	row := q.db.QueryRow(ctx, getVerifyAppByPublishableKey, publishableKey)
+	var i VerifyApp
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Slug,
+		&i.Name,
+		&i.AppName,
+		&i.Template,
+		&i.CodeLength,
+		&i.TtlSeconds,
+		&i.MaxAttempts,
+		&i.WebOtpDomain,
+		&i.FailoverAfterSeconds,
+		&i.AllowedCountries,
+		&i.IpHourlyLimit,
+		&i.RangeHourlyLimit,
+		&i.CountryHourlyLimit,
+		&i.PublishableKey,
+		&i.AllowedOrigins,
+		&i.RedirectUris,
+		&i.WidgetEnvironment,
+		&i.TurnstileSiteKey,
+		&i.TurnstileSecret,
+		&i.Secret,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getVerifyAppBySlug = `-- name: GetVerifyAppBySlug :one
+SELECT id, project_id, slug, name, app_name, template, code_length, ttl_seconds, max_attempts, web_otp_domain, failover_after_seconds, allowed_countries, ip_hourly_limit, range_hourly_limit, country_hourly_limit, publishable_key, allowed_origins, redirect_uris, widget_environment, turnstile_site_key, turnstile_secret, secret, created_at, updated_at FROM verify_apps WHERE project_id = $1 AND slug = $2
+`
+
+type GetVerifyAppBySlugParams struct {
+	ProjectID string
+	Slug      string
+}
+
+func (q *Queries) GetVerifyAppBySlug(ctx context.Context, arg GetVerifyAppBySlugParams) (VerifyApp, error) {
+	row := q.db.QueryRow(ctx, getVerifyAppBySlug, arg.ProjectID, arg.Slug)
+	var i VerifyApp
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Slug,
+		&i.Name,
+		&i.AppName,
+		&i.Template,
+		&i.CodeLength,
+		&i.TtlSeconds,
+		&i.MaxAttempts,
+		&i.WebOtpDomain,
+		&i.FailoverAfterSeconds,
+		&i.AllowedCountries,
+		&i.IpHourlyLimit,
+		&i.RangeHourlyLimit,
+		&i.CountryHourlyLimit,
+		&i.PublishableKey,
+		&i.AllowedOrigins,
+		&i.RedirectUris,
+		&i.WidgetEnvironment,
+		&i.TurnstileSiteKey,
+		&i.TurnstileSecret,
+		&i.Secret,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const insertDefaultVerifyApp = `-- name: InsertDefaultVerifyApp :exec
+INSERT INTO verify_apps (id, project_id, slug, name, publishable_key, secret)
+VALUES ($1, $2, 'default', 'Default', $3, $4)
+ON CONFLICT (project_id, slug) DO NOTHING
+`
+
+type InsertDefaultVerifyAppParams struct {
+	ID             string
+	ProjectID      string
+	PublishableKey string
+	Secret         []byte
+}
+
+// Creates the project's default app unless another request just did.
+func (q *Queries) InsertDefaultVerifyApp(ctx context.Context, arg InsertDefaultVerifyAppParams) error {
+	_, err := q.db.Exec(ctx, insertDefaultVerifyApp,
+		arg.ID,
+		arg.ProjectID,
+		arg.PublishableKey,
+		arg.Secret,
+	)
+	return err
+}
+
 const insertOTP = `-- name: InsertOTP :one
 INSERT INTO otp_verifications (
-    id, project_id, environment, api_key_id, recipient, code_hash, test_code,
+    id, project_id, app_id, environment, api_key_id, recipient, code_hash, test_code,
     code_length, max_attempts, message_id, metadata, expires_at
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7,
-    $8, $9, $10, $11, $12
+    $1, $2, $3::text, $4, $5, $6, $7, $8,
+    $9, $10, $11, $12, $13
 )
-RETURNING id, project_id, environment, api_key_id, recipient, status, code_hash, test_code, code_length, attempts, max_attempts, message_id, metadata, expires_at, verified_at, created_at, updated_at
+RETURNING id, project_id, environment, api_key_id, recipient, status, code_hash, test_code, code_length, attempts, max_attempts, message_id, metadata, expires_at, verified_at, created_at, updated_at, app_id, failover_message_id
 `
 
 type InsertOTPParams struct {
 	ID          string
 	ProjectID   string
+	AppID       string
 	Environment APIEnvironment
 	APIKeyID    *string
 	Recipient   string
@@ -306,6 +582,7 @@ func (q *Queries) InsertOTP(ctx context.Context, arg InsertOTPParams) (OtpVerifi
 	row := q.db.QueryRow(ctx, insertOTP,
 		arg.ID,
 		arg.ProjectID,
+		arg.AppID,
 		arg.Environment,
 		arg.APIKeyID,
 		arg.Recipient,
@@ -336,25 +613,169 @@ func (q *Queries) InsertOTP(ctx context.Context, arg InsertOTPParams) (OtpVerifi
 		&i.VerifiedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AppID,
+		&i.FailoverMessageID,
+	)
+	return i, err
+}
+
+const insertOTPBlock = `-- name: InsertOTPBlock :one
+INSERT INTO otp_blocks (id, project_id, app_id, environment, recipient, client_ip, country, reason)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, project_id, app_id, environment, recipient, client_ip, country, reason, created_at
+`
+
+type InsertOTPBlockParams struct {
+	ID          string
+	ProjectID   string
+	AppID       string
+	Environment APIEnvironment
+	Recipient   string
+	ClientIp    *netip.Addr
+	Country     *string
+	Reason      string
+}
+
+func (q *Queries) InsertOTPBlock(ctx context.Context, arg InsertOTPBlockParams) (OtpBlock, error) {
+	row := q.db.QueryRow(ctx, insertOTPBlock,
+		arg.ID,
+		arg.ProjectID,
+		arg.AppID,
+		arg.Environment,
+		arg.Recipient,
+		arg.ClientIp,
+		arg.Country,
+		arg.Reason,
+	)
+	var i OtpBlock
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.AppID,
+		&i.Environment,
+		&i.Recipient,
+		&i.ClientIp,
+		&i.Country,
+		&i.Reason,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const insertVerifyApp = `-- name: InsertVerifyApp :one
+INSERT INTO verify_apps (
+    id, project_id, slug, name, app_name, template, code_length, ttl_seconds, max_attempts, web_otp_domain,
+    failover_after_seconds, allowed_countries, ip_hourly_limit, range_hourly_limit, country_hourly_limit,
+    publishable_key, allowed_origins, redirect_uris, widget_environment, turnstile_site_key, turnstile_secret, secret
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+    $11, $12, $13, $14, $15,
+    $16, $17, $18, $19, $20, $21, $22
+)
+RETURNING id, project_id, slug, name, app_name, template, code_length, ttl_seconds, max_attempts, web_otp_domain, failover_after_seconds, allowed_countries, ip_hourly_limit, range_hourly_limit, country_hourly_limit, publishable_key, allowed_origins, redirect_uris, widget_environment, turnstile_site_key, turnstile_secret, secret, created_at, updated_at
+`
+
+type InsertVerifyAppParams struct {
+	ID                   string
+	ProjectID            string
+	Slug                 string
+	Name                 string
+	AppName              *string
+	Template             *string
+	CodeLength           int16
+	TtlSeconds           int32
+	MaxAttempts          int16
+	WebOtpDomain         *string
+	FailoverAfterSeconds int32
+	AllowedCountries     []string
+	IpHourlyLimit        int32
+	RangeHourlyLimit     int32
+	CountryHourlyLimit   *int32
+	PublishableKey       string
+	AllowedOrigins       []string
+	RedirectUris         []string
+	WidgetEnvironment    APIEnvironment
+	TurnstileSiteKey     *string
+	TurnstileSecret      []byte
+	Secret               []byte
+}
+
+func (q *Queries) InsertVerifyApp(ctx context.Context, arg InsertVerifyAppParams) (VerifyApp, error) {
+	row := q.db.QueryRow(ctx, insertVerifyApp,
+		arg.ID,
+		arg.ProjectID,
+		arg.Slug,
+		arg.Name,
+		arg.AppName,
+		arg.Template,
+		arg.CodeLength,
+		arg.TtlSeconds,
+		arg.MaxAttempts,
+		arg.WebOtpDomain,
+		arg.FailoverAfterSeconds,
+		arg.AllowedCountries,
+		arg.IpHourlyLimit,
+		arg.RangeHourlyLimit,
+		arg.CountryHourlyLimit,
+		arg.PublishableKey,
+		arg.AllowedOrigins,
+		arg.RedirectUris,
+		arg.WidgetEnvironment,
+		arg.TurnstileSiteKey,
+		arg.TurnstileSecret,
+		arg.Secret,
+	)
+	var i VerifyApp
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Slug,
+		&i.Name,
+		&i.AppName,
+		&i.Template,
+		&i.CodeLength,
+		&i.TtlSeconds,
+		&i.MaxAttempts,
+		&i.WebOtpDomain,
+		&i.FailoverAfterSeconds,
+		&i.AllowedCountries,
+		&i.IpHourlyLimit,
+		&i.RangeHourlyLimit,
+		&i.CountryHourlyLimit,
+		&i.PublishableKey,
+		&i.AllowedOrigins,
+		&i.RedirectUris,
+		&i.WidgetEnvironment,
+		&i.TurnstileSiteKey,
+		&i.TurnstileSecret,
+		&i.Secret,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
 
 const latestOTPForRecipient = `-- name: LatestOTPForRecipient :one
-SELECT id, project_id, environment, api_key_id, recipient, status, code_hash, test_code, code_length, attempts, max_attempts, message_id, metadata, expires_at, verified_at, created_at, updated_at FROM otp_verifications
-WHERE project_id = $1 AND environment = $2 AND recipient = $3
+SELECT id, project_id, environment, api_key_id, recipient, status, code_hash, test_code, code_length, attempts, max_attempts, message_id, metadata, expires_at, verified_at, created_at, updated_at, app_id, failover_message_id FROM otp_verifications
+WHERE project_id = $1 AND app_id = $2::text AND environment = $3 AND recipient = $4
 ORDER BY created_at DESC, id DESC
 LIMIT 1
 `
 
 type LatestOTPForRecipientParams struct {
 	ProjectID   string
+	AppID       string
 	Environment APIEnvironment
 	Recipient   string
 }
 
 func (q *Queries) LatestOTPForRecipient(ctx context.Context, arg LatestOTPForRecipientParams) (OtpVerification, error) {
-	row := q.db.QueryRow(ctx, latestOTPForRecipient, arg.ProjectID, arg.Environment, arg.Recipient)
+	row := q.db.QueryRow(ctx, latestOTPForRecipient,
+		arg.ProjectID,
+		arg.AppID,
+		arg.Environment,
+		arg.Recipient,
+	)
 	var i OtpVerification
 	err := row.Scan(
 		&i.ID,
@@ -374,13 +795,16 @@ func (q *Queries) LatestOTPForRecipient(ctx context.Context, arg LatestOTPForRec
 		&i.VerifiedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AppID,
+		&i.FailoverMessageID,
 	)
 	return i, err
 }
 
 const latestPendingOTPForUpdate = `-- name: LatestPendingOTPForUpdate :one
-SELECT id, project_id, environment, api_key_id, recipient, status, code_hash, test_code, code_length, attempts, max_attempts, message_id, metadata, expires_at, verified_at, created_at, updated_at FROM otp_verifications
+SELECT id, project_id, environment, api_key_id, recipient, status, code_hash, test_code, code_length, attempts, max_attempts, message_id, metadata, expires_at, verified_at, created_at, updated_at, app_id, failover_message_id FROM otp_verifications
 WHERE project_id = $1 AND environment = $2 AND recipient = $3 AND status = 'pending'
+  AND ($4::text IS NULL OR app_id = $4)
 ORDER BY created_at DESC, id DESC
 LIMIT 1
 FOR UPDATE
@@ -390,10 +814,16 @@ type LatestPendingOTPForUpdateParams struct {
 	ProjectID   string
 	Environment APIEnvironment
 	Recipient   string
+	AppID       *string
 }
 
 func (q *Queries) LatestPendingOTPForUpdate(ctx context.Context, arg LatestPendingOTPForUpdateParams) (OtpVerification, error) {
-	row := q.db.QueryRow(ctx, latestPendingOTPForUpdate, arg.ProjectID, arg.Environment, arg.Recipient)
+	row := q.db.QueryRow(ctx, latestPendingOTPForUpdate,
+		arg.ProjectID,
+		arg.Environment,
+		arg.Recipient,
+		arg.AppID,
+	)
 	var i OtpVerification
 	err := row.Scan(
 		&i.ID,
@@ -413,27 +843,89 @@ func (q *Queries) LatestPendingOTPForUpdate(ctx context.Context, arg LatestPendi
 		&i.VerifiedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AppID,
+		&i.FailoverMessageID,
 	)
 	return i, err
 }
 
+const listOTPBlocks = `-- name: ListOTPBlocks :many
+SELECT id, project_id, app_id, environment, recipient, client_ip, country, reason, created_at FROM otp_blocks
+WHERE app_id = $1
+  AND ($2::api_environment IS NULL OR environment = $2)
+  AND ($3::text IS NULL OR reason = $3)
+  AND ($4::timestamptz IS NULL
+       OR (created_at, id) < ($4::timestamptz, $5::text))
+ORDER BY created_at DESC, id DESC
+LIMIT $6
+`
+
+type ListOTPBlocksParams struct {
+	AppID         string
+	Environment   *APIEnvironment
+	Reason        *string
+	BeforeCreated *time.Time
+	BeforeID      *string
+	RowLimit      int32
+}
+
+func (q *Queries) ListOTPBlocks(ctx context.Context, arg ListOTPBlocksParams) ([]OtpBlock, error) {
+	rows, err := q.db.Query(ctx, listOTPBlocks,
+		arg.AppID,
+		arg.Environment,
+		arg.Reason,
+		arg.BeforeCreated,
+		arg.BeforeID,
+		arg.RowLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []OtpBlock{}
+	for rows.Next() {
+		var i OtpBlock
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.AppID,
+			&i.Environment,
+			&i.Recipient,
+			&i.ClientIp,
+			&i.Country,
+			&i.Reason,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listOTPViews = `-- name: ListOTPViews :many
-SELECT o.id, o.project_id, o.environment, o.api_key_id, o.recipient, o.status, o.code_hash, o.test_code, o.code_length, o.attempts, o.max_attempts, o.message_id, o.metadata, o.expires_at, o.verified_at, o.created_at, o.updated_at, m.status AS message_status
+SELECT o.id, o.project_id, o.environment, o.api_key_id, o.recipient, o.status, o.code_hash, o.test_code, o.code_length, o.attempts, o.max_attempts, o.message_id, o.metadata, o.expires_at, o.verified_at, o.created_at, o.updated_at, o.app_id, o.failover_message_id, m.status AS message_status, fm.status AS failover_message_status
 FROM otp_verifications o
 LEFT JOIN messages m ON m.id = o.message_id
+LEFT JOIN messages fm ON fm.id = o.failover_message_id
 WHERE o.project_id = $1
   AND ($2::api_environment IS NULL OR o.environment = $2)
-  AND ($3::otp_status IS NULL OR o.status = $3)
-  AND ($4::text IS NULL OR o.recipient = $4)
-  AND ($5::timestamptz IS NULL
-       OR (o.created_at, o.id) < ($5::timestamptz, $6::text))
+  AND ($3::text IS NULL OR o.app_id = $3)
+  AND ($4::otp_status IS NULL OR o.status = $4)
+  AND ($5::text IS NULL OR o.recipient = $5)
+  AND ($6::timestamptz IS NULL
+       OR (o.created_at, o.id) < ($6::timestamptz, $7::text))
 ORDER BY o.created_at DESC, o.id DESC
-LIMIT $7
+LIMIT $8
 `
 
 type ListOTPViewsParams struct {
 	ProjectID     string
 	Environment   *APIEnvironment
+	AppID         *string
 	Status        *OtpStatus
 	Recipient     *string
 	BeforeCreated *time.Time
@@ -442,30 +934,34 @@ type ListOTPViewsParams struct {
 }
 
 type ListOTPViewsRow struct {
-	ID            string
-	ProjectID     string
-	Environment   APIEnvironment
-	APIKeyID      *string
-	Recipient     string
-	Status        OtpStatus
-	CodeHash      []byte
-	TestCode      *string
-	CodeLength    int16
-	Attempts      int16
-	MaxAttempts   int16
-	MessageID     *string
-	Metadata      json.RawMessage
-	ExpiresAt     time.Time
-	VerifiedAt    *time.Time
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
-	MessageStatus *MessageStatus
+	ID                    string
+	ProjectID             string
+	Environment           APIEnvironment
+	APIKeyID              *string
+	Recipient             string
+	Status                OtpStatus
+	CodeHash              []byte
+	TestCode              *string
+	CodeLength            int16
+	Attempts              int16
+	MaxAttempts           int16
+	MessageID             *string
+	Metadata              json.RawMessage
+	ExpiresAt             time.Time
+	VerifiedAt            *time.Time
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
+	AppID                 *string
+	FailoverMessageID     *string
+	MessageStatus         *MessageStatus
+	FailoverMessageStatus *MessageStatus
 }
 
 func (q *Queries) ListOTPViews(ctx context.Context, arg ListOTPViewsParams) ([]ListOTPViewsRow, error) {
 	rows, err := q.db.Query(ctx, listOTPViews,
 		arg.ProjectID,
 		arg.Environment,
+		arg.AppID,
 		arg.Status,
 		arg.Recipient,
 		arg.BeforeCreated,
@@ -497,8 +993,105 @@ func (q *Queries) ListOTPViews(ctx context.Context, arg ListOTPViewsParams) ([]L
 			&i.VerifiedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.AppID,
+			&i.FailoverMessageID,
 			&i.MessageStatus,
+			&i.FailoverMessageStatus,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listVerifyApps = `-- name: ListVerifyApps :many
+SELECT id, project_id, slug, name, app_name, template, code_length, ttl_seconds, max_attempts, web_otp_domain, failover_after_seconds, allowed_countries, ip_hourly_limit, range_hourly_limit, country_hourly_limit, publishable_key, allowed_origins, redirect_uris, widget_environment, turnstile_site_key, turnstile_secret, secret, created_at, updated_at FROM verify_apps WHERE project_id = $1 ORDER BY (slug = 'default') DESC, created_at, id
+`
+
+func (q *Queries) ListVerifyApps(ctx context.Context, projectID string) ([]VerifyApp, error) {
+	rows, err := q.db.Query(ctx, listVerifyApps, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []VerifyApp{}
+	for rows.Next() {
+		var i VerifyApp
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Slug,
+			&i.Name,
+			&i.AppName,
+			&i.Template,
+			&i.CodeLength,
+			&i.TtlSeconds,
+			&i.MaxAttempts,
+			&i.WebOtpDomain,
+			&i.FailoverAfterSeconds,
+			&i.AllowedCountries,
+			&i.IpHourlyLimit,
+			&i.RangeHourlyLimit,
+			&i.CountryHourlyLimit,
+			&i.PublishableKey,
+			&i.AllowedOrigins,
+			&i.RedirectUris,
+			&i.WidgetEnvironment,
+			&i.TurnstileSiteKey,
+			&i.TurnstileSecret,
+			&i.Secret,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const oTPBlockCounts = `-- name: OTPBlockCounts :many
+SELECT reason, count(*)::int AS blocks
+FROM otp_blocks
+WHERE project_id = $1 AND environment = $2 AND created_at >= $3
+  AND ($4::text IS NULL OR app_id = $4)
+GROUP BY reason
+`
+
+type OTPBlockCountsParams struct {
+	ProjectID   string
+	Environment APIEnvironment
+	Since       time.Time
+	AppID       *string
+}
+
+type OTPBlockCountsRow struct {
+	Reason string
+	Blocks int32
+}
+
+func (q *Queries) OTPBlockCounts(ctx context.Context, arg OTPBlockCountsParams) ([]OTPBlockCountsRow, error) {
+	rows, err := q.db.Query(ctx, oTPBlockCounts,
+		arg.ProjectID,
+		arg.Environment,
+		arg.Since,
+		arg.AppID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []OTPBlockCountsRow{}
+	for rows.Next() {
+		var i OTPBlockCountsRow
+		if err := rows.Scan(&i.Reason, &i.Blocks); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -516,16 +1109,19 @@ SELECT count(*)::int                                     AS total,
        count(*) FILTER (WHERE status = 'expired')::int  AS expired,
        count(*) FILTER (WHERE status = 'failed')::int   AS failed,
        count(*) FILTER (WHERE status = 'canceled')::int AS canceled,
+       count(*) FILTER (WHERE failover_message_id IS NOT NULL)::int AS failovers,
        COALESCE(percentile_cont(0.5) WITHIN GROUP (ORDER BY extract(epoch FROM verified_at - created_at))
                 FILTER (WHERE status = 'verified'), 0)::float8 AS median_seconds_to_verify
 FROM otp_verifications
 WHERE project_id = $1 AND environment = $2 AND created_at >= $3
+  AND ($4::text IS NULL OR app_id = $4)
 `
 
 type OTPStatsParams struct {
 	ProjectID   string
 	Environment APIEnvironment
 	Since       time.Time
+	AppID       *string
 }
 
 type OTPStatsRow struct {
@@ -535,11 +1131,17 @@ type OTPStatsRow struct {
 	Expired               int32
 	Failed                int32
 	Canceled              int32
+	Failovers             int32
 	MedianSecondsToVerify float64
 }
 
 func (q *Queries) OTPStats(ctx context.Context, arg OTPStatsParams) (OTPStatsRow, error) {
-	row := q.db.QueryRow(ctx, oTPStats, arg.ProjectID, arg.Environment, arg.Since)
+	row := q.db.QueryRow(ctx, oTPStats,
+		arg.ProjectID,
+		arg.Environment,
+		arg.Since,
+		arg.AppID,
+	)
 	var i OTPStatsRow
 	err := row.Scan(
 		&i.Total,
@@ -548,6 +1150,7 @@ func (q *Queries) OTPStats(ctx context.Context, arg OTPStatsParams) (OTPStatsRow
 		&i.Expired,
 		&i.Failed,
 		&i.Canceled,
+		&i.Failovers,
 		&i.MedianSecondsToVerify,
 	)
 	return i, err
@@ -564,50 +1167,197 @@ func (q *Queries) RedactMessage(ctx context.Context, id string) error {
 	return err
 }
 
-const upsertOTPSettings = `-- name: UpsertOTPSettings :one
-INSERT INTO otp_settings (project_id, app_name, template, code_length, ttl_seconds, max_attempts, web_otp_domain)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-ON CONFLICT (project_id) DO UPDATE SET
-    app_name       = EXCLUDED.app_name,
-    template       = EXCLUDED.template,
-    code_length    = EXCLUDED.code_length,
-    ttl_seconds    = EXCLUDED.ttl_seconds,
-    max_attempts   = EXCLUDED.max_attempts,
-    web_otp_domain = EXCLUDED.web_otp_domain,
-    updated_at     = now()
-RETURNING project_id, app_name, template, code_length, ttl_seconds, max_attempts, web_otp_domain, updated_at
+const setOTPFailover = `-- name: SetOTPFailover :execrows
+UPDATE otp_verifications SET failover_message_id = $1::text, updated_at = now()
+WHERE id = $2 AND failover_message_id IS NULL AND status = 'pending'
 `
 
-type UpsertOTPSettingsParams struct {
-	ProjectID    string
-	AppName      *string
-	Template     *string
-	CodeLength   int16
-	TtlSeconds   int32
-	MaxAttempts  int16
-	WebOtpDomain *string
+type SetOTPFailoverParams struct {
+	FailoverMessageID string
+	ID                string
 }
 
-func (q *Queries) UpsertOTPSettings(ctx context.Context, arg UpsertOTPSettingsParams) (OtpSetting, error) {
-	row := q.db.QueryRow(ctx, upsertOTPSettings,
-		arg.ProjectID,
-		arg.AppName,
-		arg.Template,
-		arg.CodeLength,
-		arg.TtlSeconds,
-		arg.MaxAttempts,
-		arg.WebOtpDomain,
-	)
-	var i OtpSetting
+// Claims a verification's one failover; a second claim changes nothing.
+func (q *Queries) SetOTPFailover(ctx context.Context, arg SetOTPFailoverParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setOTPFailover, arg.FailoverMessageID, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const setVerifyAppSecret = `-- name: SetVerifyAppSecret :one
+UPDATE verify_apps SET secret = $1, updated_at = now()
+WHERE id = $2 AND project_id = $3
+RETURNING id, project_id, slug, name, app_name, template, code_length, ttl_seconds, max_attempts, web_otp_domain, failover_after_seconds, allowed_countries, ip_hourly_limit, range_hourly_limit, country_hourly_limit, publishable_key, allowed_origins, redirect_uris, widget_environment, turnstile_site_key, turnstile_secret, secret, created_at, updated_at
+`
+
+type SetVerifyAppSecretParams struct {
+	Secret    []byte
+	ID        string
+	ProjectID string
+}
+
+func (q *Queries) SetVerifyAppSecret(ctx context.Context, arg SetVerifyAppSecretParams) (VerifyApp, error) {
+	row := q.db.QueryRow(ctx, setVerifyAppSecret, arg.Secret, arg.ID, arg.ProjectID)
+	var i VerifyApp
 	err := row.Scan(
+		&i.ID,
 		&i.ProjectID,
+		&i.Slug,
+		&i.Name,
 		&i.AppName,
 		&i.Template,
 		&i.CodeLength,
 		&i.TtlSeconds,
 		&i.MaxAttempts,
 		&i.WebOtpDomain,
+		&i.FailoverAfterSeconds,
+		&i.AllowedCountries,
+		&i.IpHourlyLimit,
+		&i.RangeHourlyLimit,
+		&i.CountryHourlyLimit,
+		&i.PublishableKey,
+		&i.AllowedOrigins,
+		&i.RedirectUris,
+		&i.WidgetEnvironment,
+		&i.TurnstileSiteKey,
+		&i.TurnstileSecret,
+		&i.Secret,
+		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const setVerifyAppSecretIfMissing = `-- name: SetVerifyAppSecretIfMissing :execrows
+UPDATE verify_apps SET secret = $1, updated_at = now()
+WHERE id = $2 AND secret IS NULL
+`
+
+type SetVerifyAppSecretIfMissingParams struct {
+	Secret []byte
+	ID     string
+}
+
+func (q *Queries) SetVerifyAppSecretIfMissing(ctx context.Context, arg SetVerifyAppSecretIfMissingParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setVerifyAppSecretIfMissing, arg.Secret, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const updateVerifyApp = `-- name: UpdateVerifyApp :one
+UPDATE verify_apps SET
+    name                   = $1,
+    app_name               = $2,
+    template               = $3,
+    code_length            = $4,
+    ttl_seconds            = $5,
+    max_attempts           = $6,
+    web_otp_domain         = $7,
+    failover_after_seconds = $8,
+    allowed_countries      = $9,
+    ip_hourly_limit        = $10,
+    range_hourly_limit     = $11,
+    country_hourly_limit   = $12,
+    allowed_origins        = $13,
+    redirect_uris          = $14,
+    widget_environment     = $15,
+    turnstile_site_key     = $16,
+    turnstile_secret       = $17,
+    updated_at             = now()
+WHERE id = $18 AND project_id = $19
+RETURNING id, project_id, slug, name, app_name, template, code_length, ttl_seconds, max_attempts, web_otp_domain, failover_after_seconds, allowed_countries, ip_hourly_limit, range_hourly_limit, country_hourly_limit, publishable_key, allowed_origins, redirect_uris, widget_environment, turnstile_site_key, turnstile_secret, secret, created_at, updated_at
+`
+
+type UpdateVerifyAppParams struct {
+	Name                 string
+	AppName              *string
+	Template             *string
+	CodeLength           int16
+	TtlSeconds           int32
+	MaxAttempts          int16
+	WebOtpDomain         *string
+	FailoverAfterSeconds int32
+	AllowedCountries     []string
+	IpHourlyLimit        int32
+	RangeHourlyLimit     int32
+	CountryHourlyLimit   *int32
+	AllowedOrigins       []string
+	RedirectUris         []string
+	WidgetEnvironment    APIEnvironment
+	TurnstileSiteKey     *string
+	TurnstileSecret      []byte
+	ID                   string
+	ProjectID            string
+}
+
+func (q *Queries) UpdateVerifyApp(ctx context.Context, arg UpdateVerifyAppParams) (VerifyApp, error) {
+	row := q.db.QueryRow(ctx, updateVerifyApp,
+		arg.Name,
+		arg.AppName,
+		arg.Template,
+		arg.CodeLength,
+		arg.TtlSeconds,
+		arg.MaxAttempts,
+		arg.WebOtpDomain,
+		arg.FailoverAfterSeconds,
+		arg.AllowedCountries,
+		arg.IpHourlyLimit,
+		arg.RangeHourlyLimit,
+		arg.CountryHourlyLimit,
+		arg.AllowedOrigins,
+		arg.RedirectUris,
+		arg.WidgetEnvironment,
+		arg.TurnstileSiteKey,
+		arg.TurnstileSecret,
+		arg.ID,
+		arg.ProjectID,
+	)
+	var i VerifyApp
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Slug,
+		&i.Name,
+		&i.AppName,
+		&i.Template,
+		&i.CodeLength,
+		&i.TtlSeconds,
+		&i.MaxAttempts,
+		&i.WebOtpDomain,
+		&i.FailoverAfterSeconds,
+		&i.AllowedCountries,
+		&i.IpHourlyLimit,
+		&i.RangeHourlyLimit,
+		&i.CountryHourlyLimit,
+		&i.PublishableKey,
+		&i.AllowedOrigins,
+		&i.RedirectUris,
+		&i.WidgetEnvironment,
+		&i.TurnstileSiteKey,
+		&i.TurnstileSecret,
+		&i.Secret,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const verifyAppSlugExists = `-- name: VerifyAppSlugExists :one
+SELECT EXISTS (SELECT 1 FROM verify_apps WHERE project_id = $1 AND slug = $2)
+`
+
+type VerifyAppSlugExistsParams struct {
+	ProjectID string
+	Slug      string
+}
+
+func (q *Queries) VerifyAppSlugExists(ctx context.Context, arg VerifyAppSlugExistsParams) (bool, error) {
+	row := q.db.QueryRow(ctx, verifyAppSlugExists, arg.ProjectID, arg.Slug)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
 }

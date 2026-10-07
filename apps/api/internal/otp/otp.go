@@ -5,6 +5,10 @@
 // code can be checked a limited number of times before it expires; once a
 // verification finishes, its hash is erased and the message body (which
 // contains the code) is redacted as soon as the phone is done with it.
+//
+// Codes belong to Verify apps (apps.go): each has its own template, limits,
+// fraud protection (fraud.go), delivery failover (failover.go) and drop-in
+// widget, whose successful checks are proven with signed tokens (token.go).
 package otp
 
 import (
@@ -18,6 +22,8 @@ import (
 	"fmt"
 	"log/slog"
 	"math/big"
+	"net/http"
+	"net/netip"
 	"regexp"
 	"strconv"
 	"strings"
@@ -26,11 +32,14 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/riverqueue/river"
 
 	"bridge/internal/db/dbq"
 	"bridge/internal/id"
 	"bridge/internal/messaging"
 	"bridge/internal/ratelimit"
+	"bridge/internal/secretbox"
+	"bridge/internal/turnstile"
 )
 
 const (
@@ -63,36 +72,64 @@ var (
 
 // Service sends and verifies codes.
 type Service struct {
-	pool    *pgxpool.Pool
-	q       *dbq.Queries
-	msgs    *messaging.Service
-	limiter ratelimit.Limiter
-	log     *slog.Logger
-	emitter Emitter
-	now     func() time.Time
+	pool      *pgxpool.Pool
+	q         *dbq.Queries
+	msgs      *messaging.Service
+	limiter   ratelimit.Limiter
+	log       *slog.Logger
+	emitter   Emitter
+	box       *secretbox.Box
+	turnstile *turnstile.Verifier
+	issuer    string
+	now       func() time.Time
 
 	keyMu sync.Mutex
 	key   []byte
 }
 
 // Emitter announces verification events (otp.verified, otp.failed,
-// otp.expired) to webhooks and the event stream. *webhook.Service satisfies it.
+// otp.expired, otp.blocked) to webhooks and the event stream.
+// *webhook.Service satisfies it.
 type Emitter interface {
 	Emit(ctx context.Context, projectID, eventType string, data any) error
 }
 
-// New builds the service. limiter and emitter may be nil.
-func New(pool *pgxpool.Pool, msgs *messaging.Service, limiter ratelimit.Limiter, emitter Emitter, logger *slog.Logger) *Service {
-	q := dbq.New(pool)
+// Options configure the service. Limiter, Emitter and Box may be nil.
+type Options struct {
+	Pool      *pgxpool.Pool
+	Messaging *messaging.Service
+	Limiter   ratelimit.Limiter
+	Emitter   Emitter
+	Logger    *slog.Logger
+	// Box seals apps' signing and Turnstile secrets (BRIDGE_SECRET_KEY).
+	Box *secretbox.Box
+	// Issuer is the iss claim of verification tokens: the public API URL.
+	Issuer string
+	// TurnstileURL replaces Cloudflare's siteverify endpoint (tests).
+	TurnstileURL string
+	HTTP         *http.Client
+}
+
+// New builds the service.
+func New(o Options) *Service {
+	q := dbq.New(o.Pool)
+	limiter := o.Limiter
 	if limiter == nil {
 		limiter = ratelimit.NewPostgres(q)
 	}
-	return &Service{pool: pool, q: q, msgs: msgs, limiter: limiter, emitter: emitter, log: logger, now: time.Now}
+	box := o.Box
+	if box == nil {
+		box, _ = secretbox.New(nil)
+	}
+	return &Service{
+		pool: o.Pool, q: q, msgs: o.Messaging, limiter: limiter, emitter: o.Emitter, log: o.Logger, box: box,
+		turnstile: turnstile.New(o.TurnstileURL, o.HTTP), issuer: o.Issuer, now: time.Now,
+	}
 }
 
 // ---- Settings --------------------------------------------------------------
 
-// Settings controls how a project's codes look and behave.
+// Settings controls how an app's codes look and behave.
 type Settings struct {
 	AppName      string        // shown as {app}; the project name when empty
 	Template     string        // DefaultTemplate when empty
@@ -118,25 +155,18 @@ func (s Settings) EffectiveTemplate() string {
 	return DefaultTemplate
 }
 
-// Defaults are the settings of a project that never changed them.
+// Defaults are the settings of an app that never changed them.
 func Defaults() Settings {
 	return Settings{CodeLength: DefaultCodeLength, TTL: DefaultTTL, MaxAttempts: DefaultMaxAttempts}
 }
 
-// LoadSettings returns a project's settings, or the defaults.
+// LoadSettings returns the code settings of the project's default app.
 func (s *Service) LoadSettings(ctx context.Context, projectID string) (Settings, error) {
-	row, err := s.q.GetOTPSettings(ctx, projectID)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return Defaults(), nil
-	}
+	app, err := s.DefaultApp(ctx, projectID)
 	if err != nil {
 		return Settings{}, err
 	}
-	return Settings{
-		AppName: deref(row.AppName), Template: deref(row.Template), CodeLength: int(row.CodeLength),
-		TTL: time.Duration(row.TtlSeconds) * time.Second, MaxAttempts: int(row.MaxAttempts),
-		WebOTPDomain: deref(row.WebOtpDomain), Custom: true,
-	}, nil
+	return SettingsOf(app), nil
 }
 
 // Validate checks settings before they are saved.
@@ -164,23 +194,19 @@ func (s Settings) Validate() error {
 	return nil
 }
 
-// SaveSettings validates and stores a project's settings.
+// SaveSettings validates and stores the code settings of the project's
+// default app, keeping its other configuration.
 func (s *Service) SaveSettings(ctx context.Context, projectID string, in Settings) (Settings, error) {
-	in.AppName = strings.TrimSpace(in.AppName)
-	in.Template = strings.TrimSpace(in.Template)
-	in.WebOTPDomain = strings.ToLower(strings.TrimSpace(in.WebOTPDomain))
-	if err := in.Validate(); err != nil {
+	app, err := s.DefaultApp(ctx, projectID)
+	if err != nil {
 		return Settings{}, err
 	}
-	if _, err := s.q.UpsertOTPSettings(ctx, dbq.UpsertOTPSettingsParams{
-		ProjectID: projectID, AppName: nonEmpty(in.AppName), Template: nonEmpty(in.Template),
-		CodeLength: int16(in.CodeLength), TtlSeconds: int32(in.TTL / time.Second), MaxAttempts: int16(in.MaxAttempts),
-		WebOtpDomain: nonEmpty(in.WebOTPDomain),
-	}); err != nil {
+	c := ConfigOf(app)
+	c.Settings = in
+	if app, err = s.UpdateApp(ctx, app, c, nil); err != nil {
 		return Settings{}, err
 	}
-	in.Custom = true
-	return in, nil
+	return SettingsOf(app), nil
 }
 
 // ValidateTemplate requires exactly one {code} and only known placeholders.
@@ -220,17 +246,26 @@ func Render(tpl, app, code string, ttl time.Duration, androidHash, domain string
 
 // SendRequest asks for a new code to one number.
 type SendRequest struct {
-	ProjectID      string
-	ProjectName    string
-	Environment    dbq.APIEnvironment
-	APIKeyID       *string
+	ProjectID   string
+	ProjectName string
+	Environment dbq.APIEnvironment
+	APIKeyID    *string
+	// App is an app ID (vap_...) or slug; empty means the default app.
+	App            string
 	To             string
 	AndroidAppHash string
 	Metadata       map[string]any
+	// ClientIP is the end user's address, for the per-IP limit; zero skips it.
+	ClientIP netip.Addr
+	// Widget marks requests from the drop-in widget or hosted page, which must
+	// pass the app's Turnstile check when it has one.
+	Widget         bool
+	TurnstileToken string
 }
 
-// Send generates a code, cancels any code still pending for the number, and
-// queues the SMS. The returned code is only meant for test keys.
+// Send generates a code, cancels any code of the same app still pending for
+// the number, and queues the SMS. Fraud protection runs first and may refuse
+// with a *BlockedError. The returned code is only meant for test keys.
 func (s *Service) Send(ctx context.Context, r SendRequest) (Verification, error) {
 	to, err := messaging.NormalizeE164(r.To)
 	if err != nil {
@@ -245,13 +280,20 @@ func (s *Service) Send(ctx context.Context, r SendRequest) (Verification, error)
 			return Verification{}, &messaging.ValidationError{Field: "metadata", Message: "Metadata must be a JSON object of at most 32 keys and 4 KB."}
 		}
 	}
-	settings, err := s.LoadSettings(ctx, r.ProjectID)
+	appRow, err := s.ResolveApp(ctx, r.ProjectID, r.App)
 	if err != nil {
+		return Verification{}, err
+	}
+	settings := SettingsOf(appRow)
+	if err := s.checkFraud(ctx, fraudCheck{
+		app: appRow, env: r.Environment, to: to, clientIP: r.ClientIP,
+		captcha: r.Widget && appRow.TurnstileSecret != nil, turnstileToken: r.TurnstileToken,
+	}); err != nil {
 		return Verification{}, err
 	}
 
 	// A short cooldown per number, then an hourly cap.
-	latest, err := s.q.LatestOTPForRecipient(ctx, dbq.LatestOTPForRecipientParams{ProjectID: r.ProjectID, Environment: r.Environment, Recipient: to})
+	latest, err := s.q.LatestOTPForRecipient(ctx, dbq.LatestOTPForRecipientParams{ProjectID: r.ProjectID, AppID: appRow.ID, Environment: r.Environment, Recipient: to})
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return Verification{}, err
 	}
@@ -260,7 +302,7 @@ func (s *Service) Send(ctx context.Context, r SendRequest) (Verification, error)
 			return Verification{}, &messaging.RateLimitError{Scope: "otp_resend", RetryAfter: wait}
 		}
 	}
-	res, err := s.limiter.Hit(ctx, "otp:dest:"+r.ProjectID+":"+string(r.Environment)+":"+to, DestinationHourlyLimit, time.Hour)
+	res, err := s.limiter.Hit(ctx, "otp:dest:"+appRow.ID+":"+string(r.Environment)+":"+to, DestinationHourlyLimit, time.Hour)
 	if err != nil {
 		s.log.Warn("rate limiter unavailable; allowing code", "error", err)
 	} else if !res.Allowed {
@@ -285,18 +327,28 @@ func (s *Service) Send(ctx context.Context, r SendRequest) (Verification, error)
 		testCode = &code
 	}
 
+	// Live codes are checked for delivery after the app's failover delay.
+	var followUps []messaging.FollowUp
+	if r.Environment == dbq.ApiEnvironmentLive && appRow.FailoverAfterSeconds > 0 {
+		followUps = append(followUps, messaging.FollowUp{
+			Args: messaging.OTPFailoverArgs{VerificationID: otpID},
+			Opts: &river.InsertOpts{ScheduledAt: s.now().Add(time.Duration(appRow.FailoverAfterSeconds) * time.Second)},
+		})
+	}
+
 	var row dbq.OtpVerification
 	msg, _, err := s.msgs.Send(ctx, messaging.SendRequest{
 		ProjectID: r.ProjectID, Environment: r.Environment, APIKeyID: r.APIKeyID, To: to, Body: body,
 		Purpose: messaging.PurposeOTP, DisplayBody: &masked, Metadata: map[string]any{"otp_id": otpID},
-		BodyVars: map[string]string{"code": code, "app": app, "minutes": strconv.Itoa(minutesOf(settings.TTL))},
+		BodyVars:  map[string]string{"code": code, "app": app, "minutes": strconv.Itoa(minutesOf(settings.TTL))},
+		FollowUps: followUps,
 		OnCreate: func(ctx context.Context, q *dbq.Queries, m dbq.Message) error {
-			if err := q.CancelPendingOTPs(ctx, dbq.CancelPendingOTPsParams{ProjectID: r.ProjectID, Environment: r.Environment, Recipient: to}); err != nil {
+			if err := q.CancelPendingOTPs(ctx, dbq.CancelPendingOTPsParams{ProjectID: r.ProjectID, AppID: appRow.ID, Environment: r.Environment, Recipient: to}); err != nil {
 				return err
 			}
 			var insertErr error
 			row, insertErr = q.InsertOTP(ctx, dbq.InsertOTPParams{
-				ID: otpID, ProjectID: r.ProjectID, Environment: r.Environment, APIKeyID: r.APIKeyID, Recipient: to,
+				ID: otpID, ProjectID: r.ProjectID, AppID: appRow.ID, Environment: r.Environment, APIKeyID: r.APIKeyID, Recipient: to,
 				CodeHash: hashCode(key, otpID, code), TestCode: testCode, CodeLength: int16(len(code)),
 				MaxAttempts: int16(settings.MaxAttempts), MessageID: &m.ID, Metadata: meta,
 				ExpiresAt: s.now().Add(settings.TTL),
@@ -307,7 +359,7 @@ func (s *Service) Send(ctx context.Context, r SendRequest) (Verification, error)
 	if err != nil {
 		return Verification{}, err
 	}
-	s.log.Info("verification code queued", "otp_id", otpID, "project_id", r.ProjectID, "environment", r.Environment, "message_id", msg.ID)
+	s.log.Info("verification code queued", "otp_id", otpID, "project_id", r.ProjectID, "app_id", appRow.ID, "environment", r.Environment, "message_id", msg.ID)
 	status := msg.Status
 	return s.view(row, &status), nil
 }
@@ -325,8 +377,8 @@ type DeliverRequest struct {
 
 var externalCodePattern = regexp.MustCompile(`^[0-9A-Za-z]{4,12}$`)
 
-// DeliverCode sends an externally generated code with the project's message
-// template. The message is masked like Bridge's own codes; nothing is stored
+// DeliverCode sends an externally generated code with the default app's
+// message template. The message is masked like Bridge's own codes; nothing is stored
 // to verify it.
 func (s *Service) DeliverCode(ctx context.Context, r DeliverRequest) (dbq.Message, error) {
 	if !externalCodePattern.MatchString(r.Code) {
@@ -354,9 +406,11 @@ func (s *Service) DeliverCode(ctx context.Context, r DeliverRequest) (dbq.Messag
 type VerifyRequest struct {
 	ProjectID   string
 	Environment dbq.APIEnvironment
-	ID          string
-	To          string
-	Code        string
+	// AppID, when set, limits the lookup to one app's verifications.
+	AppID string
+	ID    string
+	To    string
+	Code  string
 }
 
 // VerifyResult says whether the code was right, and the verification after the attempt.
@@ -390,13 +444,13 @@ func (s *Service) Verify(ctx context.Context, r VerifyRequest) (VerifyResult, er
 
 	var row dbq.OtpVerification
 	if r.ID != "" {
-		row, err = q.GetOTPForUpdate(ctx, dbq.GetOTPForUpdateParams{ID: r.ID, ProjectID: r.ProjectID, Environment: r.Environment})
+		row, err = q.GetOTPForUpdate(ctx, dbq.GetOTPForUpdateParams{ID: r.ID, ProjectID: r.ProjectID, Environment: r.Environment, AppID: nonEmpty(r.AppID)})
 	} else {
 		to, normErr := messaging.NormalizeE164(r.To)
 		if normErr != nil {
 			return VerifyResult{}, normErr
 		}
-		row, err = q.LatestPendingOTPForUpdate(ctx, dbq.LatestPendingOTPForUpdateParams{ProjectID: r.ProjectID, Environment: r.Environment, Recipient: to})
+		row, err = q.LatestPendingOTPForUpdate(ctx, dbq.LatestPendingOTPForUpdateParams{ProjectID: r.ProjectID, Environment: r.Environment, Recipient: to, AppID: nonEmpty(r.AppID)})
 	}
 	if errors.Is(err, pgx.ErrNoRows) {
 		return VerifyResult{}, ErrNotFound
@@ -430,10 +484,15 @@ func (s *Service) Verify(ctx context.Context, r VerifyRequest) (VerifyResult, er
 	if err := tx.Commit(ctx); err != nil {
 		return VerifyResult{}, err
 	}
-	if row.Status != dbq.OtpStatusPending && row.MessageID != nil {
-		// The code is spent; drop it from the message if the phone is done with it.
-		if err := s.q.RedactMessage(ctx, *row.MessageID); err != nil {
-			s.log.Warn("redact OTP message", "otp_id", row.ID, "error", err)
+	if row.Status != dbq.OtpStatusPending {
+		// The code is spent; drop it from its messages if the phone is done with them.
+		for _, m := range []*string{row.MessageID, row.FailoverMessageID} {
+			if m == nil {
+				continue
+			}
+			if err := s.q.RedactMessage(ctx, *m); err != nil {
+				s.log.Warn("redact OTP message", "otp_id", row.ID, "message_id", *m, "error", err)
+			}
 		}
 	}
 	v, err := s.Get(ctx, r.ProjectID, &r.Environment, row.ID)
@@ -484,6 +543,9 @@ type Verification struct {
 	VerifiedAt        *time.Time     `json:"verified_at" nullable:"true"`
 	MessageID         *string        `json:"message_id" nullable:"true" doc:"The SMS that carries the code."`
 	MessageStatus     *string        `json:"message_status" nullable:"true" enum:"created,queued,sending,sent,delivered,failed" doc:"Delivery status of that SMS."`
+	AppID             *string        `json:"app_id" nullable:"true" example:"vap_01ja8z3k5wq2v7c9e4r2n0w6yb" doc:"The Verify app the code belongs to. Null if the app was deleted."`
+	FailoverMessageID *string        `json:"failover_message_id" nullable:"true" doc:"The second SMS, sent through another route because the first was not sent in time."`
+	FailoverStatus    *string        `json:"failover_message_status" nullable:"true" enum:"created,queued,sending,sent,delivered,failed" doc:"Delivery status of the failover SMS."`
 	Metadata          map[string]any `json:"metadata"`
 	Code              *string        `json:"code,omitempty" doc:"The code itself. Only returned for test keys, so tests can complete a verification without a phone."`
 	CreatedAt         time.Time      `json:"created_at"`
@@ -504,6 +566,7 @@ func (s *Service) Get(ctx context.Context, projectID string, env *dbq.APIEnviron
 // ListRequest filters a project's verifications, newest first.
 type ListRequest struct {
 	ProjectID     string
+	AppID         string
 	Environment   *dbq.APIEnvironment
 	Status        string
 	To            string
@@ -512,7 +575,7 @@ type ListRequest struct {
 }
 
 func (s *Service) List(ctx context.Context, r ListRequest) ([]Verification, bool, error) {
-	params := dbq.ListOTPViewsParams{ProjectID: r.ProjectID, Environment: r.Environment, RowLimit: int32(r.Limit + 1)}
+	params := dbq.ListOTPViewsParams{ProjectID: r.ProjectID, AppID: nonEmpty(r.AppID), Environment: r.Environment, RowLimit: int32(r.Limit + 1)}
 	if r.Status != "" {
 		status := dbq.OtpStatus(r.Status)
 		params.Status = &status
@@ -546,52 +609,74 @@ func (s *Service) List(ctx context.Context, r ListRequest) ([]Verification, bool
 	return out, more, nil
 }
 
-// VerificationStats summarizes a project's verifications since a time.
+// VerificationStats summarizes verifications since a time.
 type VerificationStats struct {
-	Total                 int      `json:"total"`
-	Verified              int      `json:"verified"`
-	Pending               int      `json:"pending"`
-	Expired               int      `json:"expired"`
-	Failed                int      `json:"failed"`
-	Canceled              int      `json:"canceled"`
-	ConversionRate        *float64 `json:"conversion_rate" nullable:"true" doc:"Verified / finished verifications (excluding canceled ones), 0 to 1."`
-	MedianSecondsToVerify float64  `json:"median_seconds_to_verify"`
+	Total                 int        `json:"total"`
+	Verified              int        `json:"verified"`
+	Pending               int        `json:"pending"`
+	Expired               int        `json:"expired"`
+	Failed                int        `json:"failed"`
+	Canceled              int        `json:"canceled"`
+	ConversionRate        *float64   `json:"conversion_rate" nullable:"true" doc:"Verified / finished verifications (excluding canceled ones), 0 to 1."`
+	MedianSecondsToVerify float64    `json:"median_seconds_to_verify"`
+	Failovers             int        `json:"failovers" doc:"Verifications whose code was resent through another route."`
+	Blocked               BlockStats `json:"blocked" doc:"Send attempts refused by fraud protection, by reason."`
 }
 
-func (s *Service) Stats(ctx context.Context, projectID string, env dbq.APIEnvironment, since time.Time) (VerificationStats, error) {
-	r, err := s.q.OTPStats(ctx, dbq.OTPStatsParams{ProjectID: projectID, Environment: env, Since: since})
+// Stats summarizes a project's verifications, or one app's when appID is set.
+func (s *Service) Stats(ctx context.Context, projectID string, appID *string, env dbq.APIEnvironment, since time.Time) (VerificationStats, error) {
+	r, err := s.q.OTPStats(ctx, dbq.OTPStatsParams{ProjectID: projectID, AppID: appID, Environment: env, Since: since})
 	if err != nil {
 		return VerificationStats{}, err
 	}
 	st := VerificationStats{Total: int(r.Total), Verified: int(r.Verified), Pending: int(r.Pending), Expired: int(r.Expired),
-		Failed: int(r.Failed), Canceled: int(r.Canceled), MedianSecondsToVerify: r.MedianSecondsToVerify}
+		Failed: int(r.Failed), Canceled: int(r.Canceled), MedianSecondsToVerify: r.MedianSecondsToVerify, Failovers: int(r.Failovers)}
 	if finished := st.Verified + st.Expired + st.Failed; finished > 0 {
 		rate := float64(st.Verified) / float64(finished)
 		st.ConversionRate = &rate
 	}
+	if st.Blocked, err = s.blockStats(ctx, projectID, appID, env, since); err != nil {
+		return VerificationStats{}, err
+	}
 	return st, nil
 }
 
-// Maintain expires lapsed codes and deletes old verifications.
-func (s *Service) Maintain(ctx context.Context) (expired, deleted int64, err error) {
+// MaintainResult counts what Maintain did.
+type MaintainResult struct {
+	Expired       int64
+	Deleted       int64
+	BlocksDeleted int64
+}
+
+// Maintain expires lapsed codes and deletes old verifications and blocks.
+func (s *Service) Maintain(ctx context.Context) (MaintainResult, error) {
 	rows, err := s.q.ExpireOTPs(ctx)
 	if err != nil {
-		return 0, 0, err
+		return MaintainResult{}, err
 	}
 	for _, row := range rows {
 		s.announce(ctx, row.ProjectID, s.view(row, nil))
 	}
-	deleted, err = s.q.DeleteOldOTPs(ctx, s.now().Add(-HistoryRetention))
-	return int64(len(rows)), deleted, err
+	res := MaintainResult{Expired: int64(len(rows))}
+	if res.Deleted, err = s.q.DeleteOldOTPs(ctx, s.now().Add(-HistoryRetention)); err != nil {
+		return res, err
+	}
+	res.BlocksDeleted, err = s.q.DeleteOldOTPBlocks(ctx, s.now().Add(-BlockRetention))
+	return res, err
 }
 
 func (s *Service) viewRow(r dbq.GetOTPViewRow) Verification {
-	return s.view(dbq.OtpVerification{
+	v := s.view(dbq.OtpVerification{
 		ID: r.ID, ProjectID: r.ProjectID, Environment: r.Environment, APIKeyID: r.APIKeyID, Recipient: r.Recipient,
 		Status: r.Status, TestCode: r.TestCode, CodeLength: r.CodeLength, Attempts: r.Attempts, MaxAttempts: r.MaxAttempts,
 		MessageID: r.MessageID, Metadata: r.Metadata, ExpiresAt: r.ExpiresAt, VerifiedAt: r.VerifiedAt,
-		CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
+		CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt, AppID: r.AppID, FailoverMessageID: r.FailoverMessageID,
 	}, r.MessageStatus)
+	if r.FailoverMessageStatus != nil {
+		fs := string(*r.FailoverMessageStatus)
+		v.FailoverStatus = &fs
+	}
+	return v
 }
 
 func (s *Service) view(r dbq.OtpVerification, msgStatus *dbq.MessageStatus) Verification {
@@ -604,6 +689,7 @@ func (s *Service) view(r dbq.OtpVerification, msgStatus *dbq.MessageStatus) Veri
 		Attempts: int(r.Attempts), AttemptsRemaining: max(0, int(r.MaxAttempts-r.Attempts)),
 		ExpiresAt: r.ExpiresAt, ResendAvailableAt: r.CreatedAt.Add(ResendCooldown), VerifiedAt: r.VerifiedAt,
 		MessageID: r.MessageID, Metadata: map[string]any{}, Code: r.TestCode, CreatedAt: r.CreatedAt,
+		AppID: r.AppID, FailoverMessageID: r.FailoverMessageID,
 	}
 	if status != string(dbq.OtpStatusPending) {
 		v.AttemptsRemaining = 0

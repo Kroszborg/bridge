@@ -99,8 +99,12 @@ LIMIT 200;
 -- name: RedactMessageBodies :execrows
 UPDATE messages SET body = '', body_vars = NULL, body_redacted_at = now(), updated_at = now()
 WHERE body_redacted_at IS NULL
-  -- OTP bodies contain the code, so they go as soon as the phone is done with them.
-  AND (created_at < @before OR purpose = 'otp')
+  AND (created_at < @before
+       -- OTP bodies contain the code. A Verify code's message is kept until its
+       -- verification finishes (which redacts it) or the longest code lifetime has
+       -- passed, so it can be resent through another route; codes delivered for
+       -- other systems go as soon as the phone is done with them.
+       OR (purpose = 'otp' AND (created_at < @otp_before OR NOT (metadata ? 'otp_id'))))
   AND status IN ('sent', 'delivered', 'failed', 'received');
 
 -- name: DeviceWindowCounts :many

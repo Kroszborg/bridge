@@ -36,6 +36,7 @@ const (
 	EventOTPVerified      = "otp.verified"
 	EventOTPFailed        = "otp.failed"
 	EventOTPExpired       = "otp.expired"
+	EventOTPBlocked       = "otp.blocked"
 	// EventTest is sent only by "Send test event", to one endpoint.
 	EventTest = "webhook.test"
 )
@@ -44,7 +45,7 @@ const (
 var EventTypes = []string{
 	EventMessageSent, EventMessageDelivered, EventMessageFailed, EventMessageReceived,
 	EventDeviceOnline, EventDeviceOffline,
-	EventOTPVerified, EventOTPFailed, EventOTPExpired,
+	EventOTPVerified, EventOTPFailed, EventOTPExpired, EventOTPBlocked,
 }
 
 // ValidEventType reports whether t can be subscribed to.

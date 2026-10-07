@@ -25,6 +25,7 @@ const (
 	CodeNotFound                = "not_found"
 	CodeConflict                = "conflict"
 	CodeRateLimited             = "rate_limited"
+	CodeOTPBlocked              = "otp_blocked"
 	CodeInternal                = "internal_error"
 	CodeUnavailable             = "service_unavailable"
 )

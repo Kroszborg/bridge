@@ -46,6 +46,9 @@ type Config struct {
 	// (BRIDGE_SECRET_KEY, 32 bytes as base64 or hex). Nil: they cannot be saved.
 	SecretKey []byte
 	FCM       *FCMConfig
+	// TurnstileVerifyURL replaces Cloudflare Turnstile's siteverify endpoint.
+	// Tests point it at a fake; empty uses Cloudflare.
+	TurnstileVerifyURL string
 }
 
 // FCMConfig enables Firebase Cloud Messaging wake-ups for the gateway app's
