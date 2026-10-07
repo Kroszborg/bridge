@@ -12,9 +12,10 @@ concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
+# Provenance attestations need a public repository (or an organization plan); while the
+# repository is private they are skipped and checksums are the integrity check.
 env:
-  GHCR_NAMESPACE: ghcr.io/${{ github.repository_owner }}
-  DOCKERHUB_NAMESPACE: ${{ vars.DOCKERHUB_NAMESPACE || github.repository_owner }}
+  ATTEST: ${{ !github.event.repository.private }}
 
 jobs:
   prepare:
@@ -22,6 +23,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
+      owner: ${{ steps.version.outputs.owner }}
+      dockerhub_namespace: ${{ steps.version.outputs.dockerhub_namespace }}
     steps:
       - uses: actions/checkout@v7
       - id: version
@@ -32,6 +35,12 @@ jobs:
             echo "::error::Tag $GITHUB_REF_NAME is not vX.Y.Z or vX.Y.Z-rc.N"; exit 1
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          # Image names must be lowercase; account names often are not.
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          echo "owner=$owner" >> "$GITHUB_OUTPUT"
+          echo "dockerhub_namespace=${DOCKERHUB_NAMESPACE_VAR:-$owner}" | tr '[:upper:]' '[:lower:]' >> "$GITHUB_OUTPUT"
+        env:
+          DOCKERHUB_NAMESPACE_VAR: ${{ vars.DOCKERHUB_NAMESPACE }}
       - name: CHANGELOG.md has a section for this version
         run: bash .github/scripts/release-notes.sh "${{ steps.version.outputs.version }}" > /dev/null
 
@@ -64,7 +73,8 @@ jobs:
           args: release --clean --release-notes ${{ runner.temp }}/notes.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - uses: actions/attest-build-provenance@v4
+      - if: env.ATTEST == 'true'
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: |
             dist/*.tar.gz
@@ -98,7 +108,7 @@ jobs:
       - id: meta
         uses: docker/metadata-action@v6
         with:
-          images: ${{ env.GHCR_NAMESPACE }}/bridge-${{ matrix.image }}
+          images: ghcr.io/${{ needs.prepare.outputs.owner }}/bridge-${{ matrix.image }}
       # Each architecture builds natively and is pushed by digest; the merge job tags them.
       - id: build
         uses: docker/build-push-action@v7
@@ -108,7 +118,7 @@ jobs:
           platforms: linux/${{ matrix.arch }}
           build-args: VERSION=${{ needs.prepare.outputs.version }}
           labels: ${{ steps.meta.outputs.labels }}
-          outputs: type=image,name=${{ env.GHCR_NAMESPACE }}/bridge-${{ matrix.image }},push-by-digest=true,name-canonical=true,push=true
+          outputs: type=image,name=ghcr.io/${{ needs.prepare.outputs.owner }}/bridge-${{ matrix.image }},push-by-digest=true,name-canonical=true,push=true
           provenance: mode=max
           sbom: true
           cache-from: type=gha,scope=release-${{ matrix.image }}-${{ matrix.arch }}
@@ -139,7 +149,7 @@ jobs:
         image: [api, dashboard]
     env:
       DOCKERHUB: ${{ secrets.DOCKERHUB_TOKEN != '' && 'true' || 'false' }}
-      IMAGE: ${{ format('ghcr.io/{0}', github.repository_owner) }}/bridge-${{ matrix.image }}
+      IMAGE: ghcr.io/${{ needs.prepare.outputs.owner }}/bridge-${{ matrix.image }}
     steps:
       - uses: actions/download-artifact@v8
         with:
@@ -164,7 +174,7 @@ jobs:
         with:
           images: |
             ${{ env.IMAGE }}
-            ${{ env.DOCKERHUB == 'true' && format('docker.io/{0}/bridge-{1}', env.DOCKERHUB_NAMESPACE, matrix.image) || '' }}
+            ${{ env.DOCKERHUB == 'true' && format('docker.io/{0}/bridge-{1}', needs.prepare.outputs.dockerhub_namespace, matrix.image) || '' }}
           # 1.2.3 and 1.2 always; latest only for releases that are not pre-releases.
           tags: |
             type=semver,pattern={{version}}
@@ -182,7 +192,8 @@ jobs:
         run: |
           digest="$(docker buildx imagetools inspect "$IMAGE:${{ needs.prepare.outputs.version }}" --format '{{json .Manifest}}' | jq -r .digest)"
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
-      - uses: actions/attest-build-provenance@v4
+      - if: env.ATTEST == 'true'
+        uses: actions/attest-build-provenance@v4
         with:
           subject-name: ${{ env.IMAGE }}
           subject-digest: ${{ steps.digest.outputs.digest }}
@@ -239,7 +250,7 @@ jobs:
             cp "$apk" "$GITHUB_WORKSPACE/dist-apk/bridge-gateway-$VERSION-$flavor.apk"
           done
           cd "$GITHUB_WORKSPACE/dist-apk" && sha256sum -- *.apk > apk-checksums.txt
-      - if: env.SIGNING == 'true'
+      - if: env.SIGNING == 'true' && env.ATTEST == 'true'
         uses: actions/attest-build-provenance@v4
         with:
           subject-path: dist-apk/*.apk

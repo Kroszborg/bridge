@@ -22,7 +22,12 @@ gh attestation verify bridgectl_0.3.0_linux_amd64.tar.gz --repo kroszborg/bridge
 gh attestation verify oci://ghcr.io/kroszborg/bridge-api:0.3.0 --repo kroszborg/bridge
 ```
 
-Images are tagged `0.3.0` and `0.3`, plus `latest` for releases that are not pre-releases.
+GitHub creates attestations only for public repositories (or organizations on a paid plan).
+While the repository is private, the workflow skips them, and `checksums.txt` and
+`apk-checksums.txt` are the integrity check.
+
+Images are tagged `0.3.0` and `0.3`, plus `latest` for releases that are not pre-releases. Image
+names are always lowercase, whatever the case of the GitHub account.
 
 ## One-time setup
 
