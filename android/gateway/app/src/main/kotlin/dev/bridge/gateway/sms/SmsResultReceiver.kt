@@ -23,7 +23,8 @@ class SmsResultReceiver : BroadcastReceiver() {
                         ReportFrame(Frames.SMS_SENT, messageId, attempt, segments = outcome.segments),
                     )
                     is SendOutcome.Failed -> {
-                        val f = sendFailure(outcome.code)
+                        // The radio's own cause code, when the phone reports one.
+                        val f = sendFailure(outcome.code, intent.getIntExtra("errorCode", -1))
                         c.reports.enqueue(
                             ReportFrame(Frames.SMS_FAILED, messageId, attempt, errorCode = f.code, errorMessage = f.message, retryable = f.retryable),
                         )

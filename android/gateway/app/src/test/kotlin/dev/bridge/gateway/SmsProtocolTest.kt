@@ -50,6 +50,12 @@ class SmsProtocolTest {
         assertEquals("limit_exceeded", sendFailure(5).code)
         assertFalse("permanent failures are not retried", sendFailure(8).retryable)
         assertEquals("android_error_999", sendFailure(999).code)
+        // A generic failure may already have reached the network: never retried, to avoid duplicates.
+        assertFalse(sendFailure(1).retryable)
+        assertFalse(sendFailure(999).retryable)
+        assertTrue("explicit retry from the network", sendFailure(101).retryable)
+        assertEquals("network_reject", sendFailure(102).code)
+        assertTrue(sendFailure(1, modemError = 38).message.contains("Modem cause 38."))
     }
 
     @Test
