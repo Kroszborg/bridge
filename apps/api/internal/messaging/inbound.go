@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/riverqueue/river"
 
 	"bridge/internal/db/dbq"
 	"bridge/internal/gateway"
@@ -92,7 +93,78 @@ func (s *Service) DeviceInbound(ctx context.Context, deviceID string, in gateway
 	}
 	s.log.Info("incoming SMS stored", "message_id", m.ID, "device_id", d.ID, "from", maskNumber(from), "segments", segments)
 	s.emit(ctx, m, webhook.EventMessageReceived)
+	if s.jobs != nil {
+		// Auto-replies, opt-out keywords and forwarding rules run in the worker.
+		if _, err := s.jobs.Insert(ctx, InboundArgs{MessageID: m.ID}, nil); err != nil {
+			s.log.Error("could not queue incoming SMS automation", "message_id", m.ID, "error", err)
+		}
+	}
 	return nil
+}
+
+// InboundArgs runs a project's automation (auto-replies, opt-out keywords and
+// forwarding rules) for an incoming SMS. internal/automation registers its worker.
+type InboundArgs struct {
+	MessageID string `json:"message_id"`
+}
+
+func (InboundArgs) Kind() string { return "message.inbound_automation" }
+
+func (InboundArgs) InsertOpts() river.InsertOpts {
+	return river.InsertOpts{MaxAttempts: 5, UniqueOpts: river.UniqueOpts{ByArgs: true}}
+}
+
+// CanceledCode is the error code of a queued message canceled before any
+// phone or provider took it, for example by canceling its broadcast.
+const CanceledCode = "canceled"
+
+// CancelQueued fails a message that is still waiting in the queue, unassigned.
+// ok is false when a phone or provider took it meanwhile.
+func (s *Service) CancelQueued(ctx context.Context, messageID, reason string) (ok bool, err error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return false, err
+	}
+	defer tx.Rollback(ctx)
+	q := s.q.WithTx(tx)
+	m, err := q.LockUnassignedMessage(ctx, messageID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if m.Provider != ProviderAndroid && m.Provider != ProviderSimulator {
+		return false, nil // with a provider: it may already be on its way
+	}
+	updated, ok, err := s.applyTransition(ctx, q, m, message.Failed, "canceled", map[string]any{"reason": reason}, CanceledCode,
+		"Canceled before it was sent.", nil)
+	if err != nil || !ok {
+		return false, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return false, err
+	}
+	s.emit(ctx, updated, statusEvent(message.Failed))
+	return true, nil
+}
+
+// Event records a timeline entry on a message.
+func (s *Service) Event(ctx context.Context, q *dbq.Queries, m dbq.Message, typ string, detail map[string]any) error {
+	if q == nil {
+		q = s.q
+	}
+	return s.event(ctx, q, m, typ, nil, nil, detail)
+}
+
+// Emit announces an event about a project to webhooks and the event stream.
+func (s *Service) Emit(ctx context.Context, projectID, eventType string, data any) {
+	if s.emitter == nil {
+		return
+	}
+	if err := s.emitter.Emit(ctx, projectID, eventType, data); err != nil {
+		s.log.Error("could not queue webhook event", "project_id", projectID, "type", eventType, "error", err)
+	}
 }
 
 // emit announces a message event. Failures are logged: the message itself is already stored.

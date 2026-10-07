@@ -40,6 +40,13 @@ const (
 	ProviderAccount = "prv"
 	Integration     = "int"
 	Request         = "req"
+	Broadcast       = "brd"
+	Schedule        = "sch"
+	OptOut          = "uns"
+	AutoReplyRule   = "arr"
+	ForwardingRule  = "fwr"
+	ForwardingDest  = "fwd"
+	ForwardDelivery = "fdl"
 )
 
 var encoding = base32.NewEncoding("0123456789abcdefghjkmnpqrstvwxyz").WithPadding(base32.NoPadding)

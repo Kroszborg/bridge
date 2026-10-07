@@ -77,14 +77,35 @@ func (s *Service) PlanFailover(ctx context.Context, m dbq.Message) (FailoverRout
 			return FailoverRoute{Providers: true}, true, nil
 		}
 	}
+	// Every phone that already had this message is out: the current assignment
+	// may have been taken back by the sweep, so read the assignment history.
+	tried := map[string]bool{}
+	if m.DeviceID != nil {
+		tried[*m.DeviceID] = true
+	}
+	if m.RequestedDeviceID != nil {
+		tried[*m.RequestedDeviceID] = true
+	}
+	events, err := s.q.ListMessageEvents(ctx, m.ID)
+	if err != nil {
+		return FailoverRoute{}, false, err
+	}
+	for _, e := range events {
+		var d struct {
+			DeviceID string `json:"device_id"`
+		}
+		if json.Unmarshal(e.Detail, &d) == nil && d.DeviceID != "" {
+			tried[d.DeviceID] = true
+		}
+	}
 	rows, err := s.q.DispatchCandidates(ctx, m.ProjectID)
 	if err != nil {
 		return FailoverRoute{}, false, err
 	}
 	cands := make([]candidate, 0, len(rows))
 	for _, r := range rows {
-		if (m.DeviceID != nil && r.Device.ID == *m.DeviceID) || (m.RequestedDeviceID != nil && r.Device.ID == *m.RequestedDeviceID) {
-			continue // the original phone
+		if tried[r.Device.ID] {
+			continue // a phone that already had this message
 		}
 		c := candidate{Device: r.Device, RecentSends: int(r.RecentSends)}
 		if r.OldestInWindow.Unix() > 0 {

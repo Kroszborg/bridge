@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"net/netip"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type APIEnvironment string
@@ -319,6 +321,57 @@ type AuditLog struct {
 	CreatedAt      time.Time
 }
 
+type AutoReplyRule struct {
+	ID        string
+	ProjectID string
+	Name      string
+	MatchType string
+	Keywords  []string
+	Reply     *string
+	Action    string
+	Enabled   bool
+	Priority  int32
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+type AutomationSetting struct {
+	ProjectID         string
+	DefaultsCreatedAt time.Time
+}
+
+type Broadcast struct {
+	ID              string
+	ProjectID       string
+	Environment     APIEnvironment
+	Name            string
+	Template        string
+	DeviceID        *string
+	Status          string
+	ScheduledAt     *time.Time
+	TotalRecipients int32
+	SkippedOptedOut int32
+	Duplicates      int32
+	TotalSegments   int32
+	APIKeyID        *string
+	CreatedBy       *string
+	StartedAt       *time.Time
+	CompletedAt     *time.Time
+	CanceledAt      *time.Time
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
+type BroadcastRecipient struct {
+	BroadcastID string
+	Position    int32
+	Recipient   string
+	Vars        []byte
+	Status      string
+	SkipReason  *string
+	MessageID   *string
+}
+
 type Device struct {
 	ID                     string
 	ProjectID              string
@@ -365,6 +418,45 @@ type DevicePairingToken struct {
 	ExpiresAt time.Time
 	UsedAt    *time.Time
 	CreatedAt time.Time
+}
+
+type ForwardingDelivery struct {
+	ID                 string
+	RuleID             string
+	DestinationID      string
+	ProjectID          string
+	MessageID          string
+	Status             string
+	Attempts           int32
+	ResponseStatus     *int32
+	Error              *string
+	ForwardedMessageID *string
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
+}
+
+type ForwardingDestination struct {
+	ID        string
+	RuleID    string
+	ProjectID string
+	Type      string
+	Target    string
+	Format    *string
+	Secret    []byte
+	Position  int32
+	CreatedAt time.Time
+}
+
+type ForwardingRule struct {
+	ID            string
+	ProjectID     string
+	Name          string
+	Enabled       bool
+	Senders       []string
+	Contains      *string
+	SigningSecret string
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
 }
 
 type InstanceHeartbeat struct {
@@ -438,6 +530,15 @@ type MessageEvent struct {
 	ToStatus   *MessageStatus
 	Detail     json.RawMessage
 	CreatedAt  time.Time
+}
+
+type OptOut struct {
+	ID        string
+	ProjectID string
+	Number    string
+	Source    string
+	Keyword   *string
+	CreatedAt time.Time
 }
 
 type Organization struct {
@@ -541,6 +642,33 @@ type RateLimitCounter struct {
 	Key         string
 	WindowStart time.Time
 	Count       int32
+}
+
+type ScheduledMessage struct {
+	ID            string
+	ProjectID     string
+	Environment   APIEnvironment
+	Name          string
+	Recipient     string
+	Body          string
+	DeviceID      *string
+	Kind          string
+	AtTime        string
+	Days          []string
+	DayOfMonth    *int16
+	RunDate       pgtype.Date
+	TimeZone      string
+	EndsAt        *time.Time
+	Paused        bool
+	NextRunAt     *time.Time
+	LastRunAt     *time.Time
+	LastMessageID *string
+	LastError     *string
+	RunCount      int32
+	APIKeyID      *string
+	CreatedBy     *string
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
 }
 
 type ServerKey struct {

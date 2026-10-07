@@ -283,7 +283,11 @@ func (s *Server) send(ctx context.Context, req messaging.SendRequest) (*messageO
 func messagingError(err error) error {
 	var ve *messaging.ValidationError
 	var rl *messaging.RateLimitError
+	var oe *messaging.OptedOutError
 	switch {
+	case errors.As(err, &oe):
+		return Errorf(http.StatusConflict, CodeOptedOut, oe.Number+" opted out of messages from this project (for example by replying STOP). "+
+			"Only one-time passwords can still be sent to it. Remove it from the opt-out list if the person asked to receive messages again.")
 	case errors.As(err, &ve):
 		return huma.Error422UnprocessableEntity("validation failed", &huma.ErrorDetail{Location: "body." + ve.Field, Message: ve.Message})
 	case errors.As(err, &rl):
@@ -305,6 +309,8 @@ func rateLimitedError(rl *messaging.RateLimitError) error {
 		msg = "A code was sent to this number moments ago. Wait before sending another."
 	case "otp_destination":
 		msg = "Too many codes to this number in the last hour."
+	case "broadcast":
+		msg = "This project created too many broadcasts in the last hour."
 	default:
 		msg = "This project queued too many messages in the last hour."
 	}

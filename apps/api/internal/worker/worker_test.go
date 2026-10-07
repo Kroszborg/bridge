@@ -7,11 +7,13 @@ import (
 	"testing"
 	"time"
 
+	"bridge/internal/config"
 	"bridge/internal/db/dbq"
 	"bridge/internal/gateway"
 	"bridge/internal/messaging"
 	"bridge/internal/status"
 	"bridge/internal/testutil"
+	"bridge/internal/tools"
 	"bridge/internal/webhook"
 )
 
@@ -85,7 +87,12 @@ func TestClientStartsAndStops(t *testing.T) {
 	defer d.Close(ctx)
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	client, err := NewClient(d.Pool, logger, testMessaging(d, logger), webhook.New(webhook.Options{Pool: d.Pool, Logger: logger}), status.New(d.Pool, logger, "test"), Retention{})
+	msgs := testMessaging(d, logger)
+	kit, err := tools.New(tools.Options{Config: &config.Config{}, Pool: d.Pool, Logger: logger, Messaging: msgs})
+	if err != nil {
+		t.Fatal(err)
+	}
+	client, err := NewClient(d.Pool, logger, msgs, webhook.New(webhook.Options{Pool: d.Pool, Logger: logger}), status.New(d.Pool, logger, "test"), Options{Tools: kit})
 	if err != nil {
 		t.Fatal(err)
 	}

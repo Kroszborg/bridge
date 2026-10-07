@@ -37,6 +37,10 @@ const (
 	EventOTPFailed        = "otp.failed"
 	EventOTPExpired       = "otp.expired"
 	EventOTPBlocked       = "otp.blocked"
+	// EventBroadcastCompleted: every message of a broadcast was sent or failed.
+	EventBroadcastCompleted = "broadcast.completed"
+	// EventMessageAutoReplied: an auto-reply rule ran for an incoming SMS.
+	EventMessageAutoReplied = "message.auto_replied"
 	// EventTest is sent only by "Send test event", to one endpoint.
 	EventTest = "webhook.test"
 )
@@ -46,6 +50,7 @@ var EventTypes = []string{
 	EventMessageSent, EventMessageDelivered, EventMessageFailed, EventMessageReceived,
 	EventDeviceOnline, EventDeviceOffline,
 	EventOTPVerified, EventOTPFailed, EventOTPExpired, EventOTPBlocked,
+	EventBroadcastCompleted, EventMessageAutoReplied,
 }
 
 // ValidEventType reports whether t can be subscribed to.
@@ -166,7 +171,11 @@ func (e *ValidationError) Error() string { return e.Message }
 
 // ValidateURL checks an endpoint URL. Addresses are checked again when
 // connecting, after DNS resolution, so this only catches obvious mistakes.
-func (s *Service) ValidateURL(raw string) (string, error) {
+func (s *Service) ValidateURL(raw string) (string, error) { return CheckURL(raw, s.allowPrivate) }
+
+// CheckURL validates an outgoing webhook URL; allowPrivate permits private
+// and local addresses (BRIDGE_WEBHOOK_ALLOW_PRIVATE_ENDPOINTS).
+func CheckURL(raw string, allowPrivate bool) (string, error) {
 	raw = strings.TrimSpace(raw)
 	u, err := url.Parse(raw)
 	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" {
@@ -178,7 +187,7 @@ func (s *Service) ValidateURL(raw string) (string, error) {
 	if u.Fragment != "" {
 		return "", &ValidationError{"Remove the #fragment from the URL."}
 	}
-	if !s.allowPrivate && !publicHost(u.Hostname()) {
+	if !allowPrivate && !publicHost(u.Hostname()) {
 		return "", &ValidationError{"This URL points at a private or local address. Use a public URL, or set " +
 			"BRIDGE_WEBHOOK_ALLOW_PRIVATE_ENDPOINTS=true on the server to deliver inside your network."}
 	}

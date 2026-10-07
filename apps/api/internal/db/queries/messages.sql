@@ -175,3 +175,7 @@ LEFT JOIN devices d ON d.id = m.device_id
 WHERE m.project_id = @project_id AND m.environment = @environment AND m.created_at >= @since AND m.device_id IS NOT NULL
 GROUP BY m.device_id
 ORDER BY outbound DESC, inbound DESC;
+
+-- name: LockUnassignedMessage :one
+-- Locks a queued message no phone has taken, so dispatch waits while it is canceled.
+SELECT * FROM messages WHERE id = $1 AND status = 'queued' AND device_id IS NULL FOR UPDATE;

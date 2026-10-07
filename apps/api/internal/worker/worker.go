@@ -14,7 +14,9 @@ import (
 	"bridge/internal/db/dbq"
 	"bridge/internal/messaging"
 	"bridge/internal/otp"
+	"bridge/internal/schedule"
 	"bridge/internal/status"
+	"bridge/internal/tools"
 	"bridge/internal/webhook"
 )
 
@@ -33,6 +35,7 @@ type MaintenanceWorker struct {
 	webhooks  *webhook.Service
 	otp       *otp.Service
 	status    *status.Service
+	tools     *tools.Services
 	retention Retention
 }
 
@@ -80,6 +83,13 @@ func (w *MaintenanceWorker) Work(ctx context.Context, _ *river.Job[MaintenanceAr
 	if err != nil {
 		return err
 	}
+	// Forwarding logs name messages, so they follow the message retention period too.
+	var forwards int64
+	if w.tools != nil {
+		if forwards, err = w.tools.Automation.DeleteOld(ctx, time.Now().Add(-w.messaging.Retention())); err != nil {
+			return err
+		}
+	}
 	var samples int64
 	if w.status != nil {
 		if samples, err = w.status.Prune(ctx); err != nil {
@@ -89,7 +99,7 @@ func (w *MaintenanceWorker) Work(ctx context.Context, _ *river.Job[MaintenanceAr
 	w.log.Info("maintenance complete", "status_samples_deleted", samples, "expired_sessions", sessions, "stale_rate_limits", counters,
 		"expired_pairing_tokens", tokens, "stale_devices_marked_offline", devices, "message_bodies_redacted", redacted,
 		"webhook_events_deleted", events, "request_logs_deleted", logs, "otps_expired", otps.Expired, "otps_deleted", otps.Deleted,
-		"otp_blocks_deleted", otps.BlocksDeleted)
+		"otp_blocks_deleted", otps.BlocksDeleted, "forwarding_deliveries_deleted", forwards)
 	return nil
 }
 
@@ -101,13 +111,28 @@ func otpService(pool *pgxpool.Pool, svc *messaging.Service, hooks *webhook.Servi
 	return otp.New(otp.Options{Pool: pool, Messaging: svc, Emitter: emitter, Logger: logger})
 }
 
+// Options configures the worker.
+type Options struct {
+	Retention Retention
+	// Tools are the messaging tools' services (required).
+	Tools *tools.Services
+	// ScheduleInterval is how often due scheduled messages are claimed.
+	// Default schedule.TickInterval (a minute); tests shorten it.
+	ScheduleInterval time.Duration
+}
+
 // NewClient builds a River client that processes jobs, and wires it into the
-// messaging and webhook services so jobs can schedule follow-up jobs.
-func NewClient(pool *pgxpool.Pool, logger *slog.Logger, svc *messaging.Service, hooks *webhook.Service, health *status.Service, retention Retention) (*river.Client[pgx.Tx], error) {
+// messaging, webhook and tools services so jobs can schedule follow-up jobs.
+func NewClient(pool *pgxpool.Pool, logger *slog.Logger, svc *messaging.Service, hooks *webhook.Service, health *status.Service, o Options) (*river.Client[pgx.Tx], error) {
 	workers := river.NewWorkers()
 	verify := otpService(pool, svc, hooks, logger)
-	river.AddWorker(workers, &MaintenanceWorker{q: dbq.New(pool), log: logger, messaging: svc, webhooks: hooks, otp: verify, status: health, retention: retention})
+	river.AddWorker(workers, &MaintenanceWorker{q: dbq.New(pool), log: logger, messaging: svc, webhooks: hooks, otp: verify, status: health, tools: o.Tools, retention: o.Retention})
 	otp.Register(workers, verify)
+	o.Tools.Register(workers)
+	scheduleEvery := o.ScheduleInterval
+	if scheduleEvery == 0 {
+		scheduleEvery = schedule.TickInterval
+	}
 	periodic := []*river.PeriodicJob{}
 	if health != nil {
 		status.Register(workers, health)
@@ -144,6 +169,11 @@ func NewClient(pool *pgxpool.Pool, logger *slog.Logger, svc *messaging.Service, 
 				func() (river.JobArgs, *river.InsertOpts) { return webhook.PresenceArgs{}, nil },
 				nil,
 			),
+			river.NewPeriodicJob(
+				river.PeriodicInterval(scheduleEvery),
+				func() (river.JobArgs, *river.InsertOpts) { return schedule.TickArgs{}, nil },
+				&river.PeriodicJobOpts{RunOnStart: true},
+			),
 		),
 	})
 	if err != nil {
@@ -151,6 +181,7 @@ func NewClient(pool *pgxpool.Pool, logger *slog.Logger, svc *messaging.Service, 
 	}
 	svc.SetJobInserter(client)
 	hooks.SetJobInserter(client)
+	o.Tools.SetJobInserter(client)
 	return client, nil
 }
 

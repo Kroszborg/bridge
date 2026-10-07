@@ -31,6 +31,7 @@ import (
 	"bridge/internal/secretbox"
 	"bridge/internal/status"
 	"bridge/internal/testutil"
+	"bridge/internal/tools"
 	"bridge/internal/webhook"
 	"bridge/internal/worker"
 )
@@ -109,7 +110,12 @@ func newServer(t *testing.T, mutate ...func(*config.Config)) *httptest.Server {
 	health := status.New(testDB.Pool, logger, "test")
 	go health.Heartbeat(ctx, "api")
 	go health.Heartbeat(ctx, "worker")
-	jobs, err := worker.NewClient(testDB.Pool, logger, msgs, hooks, health, worker.Retention{})
+	kit, err := tools.New(tools.Options{Config: cfg, Pool: testDB.Pool, Logger: logger, Messaging: msgs, BroadcastPoll: 200 * time.Millisecond})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Due schedules are claimed every quarter second instead of every minute.
+	jobs, err := worker.NewClient(testDB.Pool, logger, msgs, hooks, health, worker.Options{Tools: kit, ScheduleInterval: 250 * time.Millisecond})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -122,7 +128,7 @@ func newServer(t *testing.T, mutate ...func(*config.Config)) *httptest.Server {
 	go func() { _ = broker.Run(ctx) }()
 	srv := httptest.NewServer(httpapi.New(httpapi.Options{
 		Config: cfg, Pool: testDB.Pool, Logger: logger, Version: "test", Hub: hub, Push: pushService, Messaging: msgs, Webhooks: hooks,
-		RequestLog: requests, Events: broker, Status: health, Providers: providers,
+		RequestLog: requests, Events: broker, Status: health, Providers: providers, Tools: kit,
 	}).Handler())
 	t.Cleanup(func() {
 		stopCtx, stop := context.WithTimeout(context.Background(), 5*time.Second)

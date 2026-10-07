@@ -70,3 +70,28 @@ func TestFCMRequiresAllFields(t *testing.T) {
 		t.Fatalf("VAPIDSubject = %q", c.VAPIDSubject)
 	}
 }
+
+func TestSMTP(t *testing.T) {
+	c, err := load(env(map[string]string{"BRIDGE_DATABASE_URL": "postgres://x"}))
+	if err != nil || c.SMTP != nil {
+		t.Fatalf("SMTP without a host: %+v %v", c.SMTP, err)
+	}
+	c, err = load(env(map[string]string{
+		"BRIDGE_DATABASE_URL": "postgres://x", "BRIDGE_SMTP_HOST": "smtp.example.com",
+		"BRIDGE_SMTP_FROM": "Bridge <sms@example.com>", "BRIDGE_SMTP_USERNAME": "u", "BRIDGE_SMTP_PASSWORD": " p ",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s := c.SMTP; s.Port != 587 || s.TLS != SMTPStartTLS || s.Username != "u" || s.Password != " p " {
+		t.Fatalf("SMTP defaults: %+v", s)
+	}
+	_, err = load(env(map[string]string{
+		"BRIDGE_DATABASE_URL": "postgres://x", "BRIDGE_SMTP_HOST": "smtp.example.com", "BRIDGE_SMTP_PORT": "99999", "BRIDGE_SMTP_TLS": "ssl",
+	}))
+	for _, want := range []string{"BRIDGE_SMTP_PORT", "BRIDGE_SMTP_TLS", "BRIDGE_SMTP_FROM"} {
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("error does not mention %s: %v", want, err)
+		}
+	}
+}

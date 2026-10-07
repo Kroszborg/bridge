@@ -143,6 +143,11 @@ func (e *RateLimitError) Error() string { return "rate limited: " + e.Scope }
 // ErrIdempotencyConflict means the key was used with a different request.
 var ErrIdempotencyConflict = errors.New("idempotency key reused with a different request")
 
+// OptedOutError means the recipient is on the project's opt-out list.
+type OptedOutError struct{ Number string }
+
+func (e *OptedOutError) Error() string { return e.Number + " opted out of messages from this project" }
+
 // SendRequest is a request to send one SMS.
 type SendRequest struct {
 	ProjectID      string
@@ -168,6 +173,14 @@ type SendRequest struct {
 	// FollowUps are jobs queued in the same transaction, such as a Verify
 	// code's delivery check.
 	FollowUps []FollowUp
+	// Bulk marks a message of a broadcast. It skips the per-request project
+	// and destination limits: the broadcast was admitted as a whole and its
+	// messages are paced by the broadcast job instead.
+	Bulk bool
+	// AllowOptedOut sends even to a number on the project's opt-out list. Only
+	// auto-replies use it (a STOP confirmation goes to a number that just opted
+	// out); one-time passwords are always allowed.
+	AllowOptedOut bool
 }
 
 // FollowUp is a job to queue together with a message.
@@ -239,11 +252,23 @@ func (s *Service) Send(ctx context.Context, r SendRequest) (msg dbq.Message, rep
 		}
 	}
 
-	if err := s.limit(ctx, "msg:project:"+r.ProjectID, projectHourlyLimit, "project"); err != nil {
-		return msg, false, err
+	if r.Purpose != PurposeOTP && !r.AllowOptedOut {
+		out, err := s.q.IsOptedOut(ctx, dbq.IsOptedOutParams{ProjectID: r.ProjectID, Number: to})
+		if err != nil {
+			return msg, false, err
+		}
+		if out {
+			return msg, false, &OptedOutError{Number: to}
+		}
 	}
-	if err := s.limit(ctx, "msg:dest:"+r.ProjectID+":"+to, destinationHourlyLimit, "destination"); err != nil {
-		return msg, false, err
+
+	if !r.Bulk {
+		if err := s.limit(ctx, "msg:project:"+r.ProjectID, projectHourlyLimit, "project"); err != nil {
+			return msg, false, err
+		}
+		if err := s.limit(ctx, "msg:dest:"+r.ProjectID+":"+to, destinationHourlyLimit, "destination"); err != nil {
+			return msg, false, err
+		}
 	}
 
 	encoding, segments := message.Segments(r.Body)
@@ -439,7 +464,7 @@ func ptr[T any](v T) *T { return &v }
 
 // maskNumber keeps only the last three digits for logs.
 func maskNumber(n string) string {
-	if len(n) <= 4 {
+	if len(n) <= 6 { // short codes and the like (fewer would make Repeat panic)
 		return "***"
 	}
 	return n[:3] + strings.Repeat("•", len(n)-6) + n[len(n)-3:]

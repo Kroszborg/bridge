@@ -37,6 +37,7 @@ import (
 	"bridge/internal/reqlog"
 	"bridge/internal/secretbox"
 	"bridge/internal/status"
+	"bridge/internal/tools"
 	"bridge/internal/webhook"
 	"bridge/internal/worker"
 )
@@ -147,6 +148,11 @@ func serve(ctx context.Context, args []string) error {
 	})
 	msgs.SetJobInserter(jobs)
 	hub.SetHandler(msgs)
+	kit, err := tools.New(tools.Options{Config: cfg, Pool: pool, Logger: logger, Messaging: msgs})
+	if err != nil {
+		return err
+	}
+	kit.SetJobInserter(jobs)
 
 	requests := reqlog.New(pool, logger, time.Second)
 	broker := events.NewBroker(pool, logger)
@@ -155,7 +161,7 @@ func serve(ctx context.Context, args []string) error {
 		Addr: cfg.HTTPAddr,
 		Handler: httpapi.New(httpapi.Options{
 			Config: cfg, Pool: pool, Logger: logger, Version: version, Hub: hub, Push: pushService, Messaging: msgs, Webhooks: hooks, Providers: providers,
-			RequestLog: requests, Events: broker, Status: health,
+			RequestLog: requests, Events: broker, Status: health, Tools: kit,
 		}).Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
@@ -187,7 +193,7 @@ func serve(ctx context.Context, args []string) error {
 		return srv.Shutdown(shutdownCtx)
 	})
 	if *withWorker {
-		g.Go(func() error { return startWorker(gctx, pool, logger, msgs, hooks, health, cfg) })
+		g.Go(func() error { return startWorker(gctx, pool, logger, msgs, hooks, health, kit, cfg) })
 	}
 	return g.Wait()
 }
@@ -219,11 +225,19 @@ func runWorker(ctx context.Context) error {
 		},
 		Config: messaging.Config{Retention: cfg.MessageRetention},
 	})
-	return startWorker(ctx, pool, logger, msgs, hooks, status.New(pool, logger, version), cfg)
+	kit, err := tools.New(tools.Options{Config: cfg, Pool: pool, Logger: logger, Messaging: msgs})
+	if err != nil {
+		return err
+	}
+	return startWorker(ctx, pool, logger, msgs, hooks, status.New(pool, logger, version), kit, cfg)
 }
 
-func startWorker(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger, msgs *messaging.Service, hooks *webhook.Service, health *status.Service, cfg *config.Config) error {
-	client, err := worker.NewClient(pool, logger, msgs, hooks, health, worker.Retention{RequestLogs: cfg.RequestLogRetention})
+func startWorker(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger, msgs *messaging.Service, hooks *webhook.Service,
+	health *status.Service, kit *tools.Services, cfg *config.Config,
+) error {
+	client, err := worker.NewClient(pool, logger, msgs, hooks, health, worker.Options{
+		Retention: worker.Retention{RequestLogs: cfg.RequestLogRetention}, Tools: kit,
+	})
 	if err != nil {
 		return err
 	}

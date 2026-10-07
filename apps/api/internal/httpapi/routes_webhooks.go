@@ -18,14 +18,14 @@ import (
 
 const maxWebhooksPerProject = 10
 
-const eventTypesEnum = "message.sent,message.delivered,message.failed,message.received,device.online,device.offline,otp.verified,otp.failed,otp.expired,otp.blocked"
+const eventTypesEnum = "message.sent,message.delivered,message.failed,message.received,message.auto_replied,device.online,device.offline,otp.verified,otp.failed,otp.expired,otp.blocked,broadcast.completed"
 
 // WebhookEndpoint is a URL that receives signed event notifications.
 type WebhookEndpoint struct {
 	ID             string     `json:"id" example:"whk_01ja8z3k5wq2v7c9e4r2n0w6yb"`
 	URL            string     `json:"url" example:"https://example.com/webhooks/bridge"`
 	Description    string     `json:"description"`
-	Events         []string   `json:"events" enum:"message.sent,message.delivered,message.failed,message.received,device.online,device.offline,otp.verified,otp.failed,otp.expired,otp.blocked" doc:"Subscribed event types. Empty means every event."`
+	Events         []string   `json:"events" enum:"message.sent,message.delivered,message.failed,message.received,message.auto_replied,device.online,device.offline,otp.verified,otp.failed,otp.expired,otp.blocked,broadcast.completed" doc:"Subscribed event types. Empty means every event."`
 	Enabled        bool       `json:"enabled"`
 	DisabledReason *string    `json:"disabled_reason" nullable:"true" doc:"Why Bridge disabled the endpoint, if it did."`
 	FailingSince   *time.Time `json:"failing_since" nullable:"true" doc:"Start of the current run of failed deliveries. Bridge disables the endpoint after 5 days."`
@@ -106,7 +106,7 @@ func (s *Server) registerWebhooks(api huma.API) {
 		Body struct {
 			URL         string   `json:"url" minLength:"8" maxLength:"2048" example:"https://example.com/webhooks/bridge"`
 			Description string   `json:"description,omitempty" maxLength:"200"`
-			Events      []string `json:"events,omitempty" enum:"message.sent,message.delivered,message.failed,message.received,device.online,device.offline,otp.verified,otp.failed,otp.expired,otp.blocked" doc:"Leave out to receive every event."`
+			Events      []string `json:"events,omitempty" enum:"message.sent,message.delivered,message.failed,message.received,message.auto_replied,device.online,device.offline,otp.verified,otp.failed,otp.expired,otp.blocked,broadcast.completed" doc:"Leave out to receive every event."`
 		}
 	}) (*struct{ Body CreatedWebhookEndpoint }, error) {
 		p, err := s.projectForUser(ctx, in.ProjectID)
@@ -174,7 +174,7 @@ func (s *Server) registerWebhooks(api huma.API) {
 		Body struct {
 			URL         *string  `json:"url,omitempty" minLength:"8" maxLength:"2048"`
 			Description *string  `json:"description,omitempty" maxLength:"200"`
-			Events      []string `json:"events,omitempty" enum:"message.sent,message.delivered,message.failed,message.received,device.online,device.offline,otp.verified,otp.failed,otp.expired,otp.blocked" doc:"Replaces the subscription. An empty list subscribes to every event."`
+			Events      []string `json:"events,omitempty" enum:"message.sent,message.delivered,message.failed,message.received,message.auto_replied,device.online,device.offline,otp.verified,otp.failed,otp.expired,otp.blocked,broadcast.completed" doc:"Replaces the subscription. An empty list subscribes to every event."`
 			Enabled     *bool    `json:"enabled,omitempty"`
 		}
 	}) (*struct{ Body WebhookEndpoint }, error) {

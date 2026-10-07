@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/mail"
 	"net/netip"
 	"net/url"
 	"os"
@@ -49,6 +50,28 @@ type Config struct {
 	// TurnstileVerifyURL replaces Cloudflare Turnstile's siteverify endpoint.
 	// Tests point it at a fake; empty uses Cloudflare.
 	TurnstileVerifyURL string
+	// SMTP sends forwarded SMS by email. Nil: email forwarding is unavailable.
+	SMTP *SMTPConfig
+	// TelegramAPIURL replaces https://api.telegram.org for forwarding. Tests
+	// point it at a fake; empty uses Telegram.
+	TelegramAPIURL string
+}
+
+// SMTP connection security.
+const (
+	SMTPStartTLS = "starttls" // plain connection upgraded with STARTTLS (port 587)
+	SMTPTLS      = "tls"      // TLS from the first byte (port 465)
+	SMTPNone     = "none"     // no encryption; only for a relay on a trusted network
+)
+
+// SMTPConfig is the mail server that forwarded SMS are sent through.
+type SMTPConfig struct {
+	Host     string
+	Port     int
+	Username string
+	Password string
+	From     string // the From address, e.g. "Bridge <sms@example.com>"
+	TLS      string // SMTPStartTLS, SMTPTLS or SMTPNone
 }
 
 // FCMConfig enables Firebase Cloud Messaging wake-ups for the gateway app's
@@ -211,6 +234,25 @@ func load(get func(string) string) (*Config, error) {
 			}
 		}
 		c.FCM = &fcm
+	}
+
+	if host := str("BRIDGE_SMTP_HOST", ""); host != "" {
+		smtp := &SMTPConfig{
+			Host: host, Username: str("BRIDGE_SMTP_USERNAME", ""), Password: get("BRIDGE_SMTP_PASSWORD"),
+			From: str("BRIDGE_SMTP_FROM", ""), TLS: strings.ToLower(str("BRIDGE_SMTP_TLS", SMTPStartTLS)),
+		}
+		port, err := strconv.Atoi(str("BRIDGE_SMTP_PORT", "587"))
+		if err != nil || port < 1 || port > 65535 {
+			errs = append(errs, errors.New("BRIDGE_SMTP_PORT must be a port number, e.g. 587"))
+		}
+		smtp.Port = port
+		if smtp.TLS != SMTPStartTLS && smtp.TLS != SMTPTLS && smtp.TLS != SMTPNone {
+			errs = append(errs, fmt.Errorf("BRIDGE_SMTP_TLS must be starttls, tls or none, got %q", smtp.TLS))
+		}
+		if _, err := mail.ParseAddress(smtp.From); err != nil {
+			errs = append(errs, errors.New("BRIDGE_SMTP_FROM must be an email address, e.g. Bridge <sms@example.com>, when BRIDGE_SMTP_HOST is set"))
+		}
+		c.SMTP = smtp
 	}
 
 	// Secure cookies are required whenever the dashboard is served over HTTPS.

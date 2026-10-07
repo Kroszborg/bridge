@@ -255,6 +255,209 @@
         ],
         "type": "object"
       },
+      "AutoReplyRule": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "description": "opt_out adds the sender to the opt-out list; opt_in removes them.",
+            "enum": [
+              "none",
+              "opt_out",
+              "opt_in"
+            ],
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "id": {
+            "examples": [
+              "arr_01ja8z3k5wq2v7c9e4r2n0w6yb"
+            ],
+            "type": "string"
+          },
+          "keywords": {
+            "examples": [
+              [
+                "STOP",
+                "UNSUBSCRIBE"
+              ]
+            ],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "match": {
+            "description": "How keywords are compared with the trimmed message, ignoring case. exact compares the whole message.",
+            "enum": [
+              "exact",
+              "contains",
+              "starts_with"
+            ],
+            "type": "string"
+          },
+          "name": {
+            "examples": [
+              "Unsubscribe"
+            ],
+            "type": "string"
+          },
+          "priority": {
+            "description": "Lower is tried first; only the first matching enabled rule runs.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "reply": {
+            "description": "Sent back through the phone that received the SMS.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "match",
+          "keywords",
+          "reply",
+          "action",
+          "enabled",
+          "priority",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "AutoReplyRuleCreateInput": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "description": "Default none.",
+            "enum": [
+              "none",
+              "opt_out",
+              "opt_in"
+            ],
+            "type": "string"
+          },
+          "enabled": {
+            "description": "Default true.",
+            "type": "boolean"
+          },
+          "keywords": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "type": "array"
+          },
+          "match": {
+            "description": "Default exact.",
+            "enum": [
+              "exact",
+              "contains",
+              "starts_with"
+            ],
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 60,
+            "minLength": 1,
+            "type": "string"
+          },
+          "priority": {
+            "description": "Default 100.",
+            "format": "int64",
+            "maximum": 10000,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "reply": {
+            "maxLength": 480,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "keywords"
+        ],
+        "type": "object"
+      },
+      "AutoReplyRuleList": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "description": "In the order they are tried.",
+            "items": {
+              "$ref": "#/components/schemas/AutoReplyRule"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "AutoReplyRuleUpdateInput": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "none",
+              "opt_out",
+              "opt_in"
+            ],
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "keywords": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "type": "array"
+          },
+          "match": {
+            "enum": [
+              "exact",
+              "contains",
+              "starts_with"
+            ],
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 60,
+            "minLength": 1,
+            "type": "string"
+          },
+          "priority": {
+            "format": "int64",
+            "maximum": 10000,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "reply": {
+            "description": "An empty string removes the reply.",
+            "maxLength": 480,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "Block": {
         "additionalProperties": false,
         "properties": {
@@ -382,6 +585,329 @@
           "range_burst",
           "country_limit",
           "captcha_failed"
+        ],
+        "type": "object"
+      },
+      "Broadcast": {
+        "additionalProperties": false,
+        "properties": {
+          "canceled_at": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "completed_at": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "counts": {
+            "$ref": "#/components/schemas/BroadcastCounts"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "device_id": {
+            "description": "The phone every message goes through; null lets Bridge pick per message.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "environment": {
+            "enum": [
+              "live",
+              "test"
+            ],
+            "type": "string"
+          },
+          "id": {
+            "examples": [
+              "brd_01ja8z3k5wq2v7c9e4r2n0w6yb"
+            ],
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "scheduled_at": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "started_at": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "description": "completed: every message was sent or failed (delivery reports may still arrive).",
+            "enum": [
+              "scheduled",
+              "sending",
+              "completed",
+              "canceled"
+            ],
+            "type": "string"
+          },
+          "template": {
+            "examples": [
+              "Hi {name}, your order {order} has shipped."
+            ],
+            "type": "string"
+          },
+          "total_segments": {
+            "description": "SMS segments for every recipient together.",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "environment",
+          "status",
+          "template",
+          "device_id",
+          "scheduled_at",
+          "counts",
+          "total_segments",
+          "created_at",
+          "started_at",
+          "completed_at",
+          "canceled_at"
+        ],
+        "type": "object"
+      },
+      "BroadcastCounts": {
+        "additionalProperties": false,
+        "properties": {
+          "canceled": {
+            "description": "Not sent because the broadcast was canceled.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "delivered": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "duplicates": {
+            "description": "Repeated numbers removed at creation.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "failed": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "queued": {
+            "description": "Not sent yet: waiting for their turn, for a phone, or being sent.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "recipients": {
+            "description": "Unique numbers the broadcast sends to (duplicates and opted-out numbers removed).",
+            "format": "int64",
+            "type": "integer"
+          },
+          "sent": {
+            "description": "Sent, no delivery report yet.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "skipped": {
+            "description": "Opted-out numbers left out, at creation or when their turn came, and rows the pipeline refused.",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "recipients",
+          "queued",
+          "sent",
+          "delivered",
+          "failed",
+          "canceled",
+          "skipped",
+          "duplicates"
+        ],
+        "type": "object"
+      },
+      "BroadcastCreateInput": {
+        "additionalProperties": false,
+        "properties": {
+          "device_id": {
+            "description": "Send every message through this phone. Leave out to let Bridge pick per message.",
+            "pattern": "^dev_[0-9a-z]{26}$",
+            "type": "string"
+          },
+          "dry_run": {
+            "description": "Validate and preview without creating anything: returns 200 with a preview instead of 201 with the broadcast.",
+            "type": "boolean"
+          },
+          "name": {
+            "examples": [
+              "October newsletter"
+            ],
+            "maxLength": 100,
+            "type": "string"
+          },
+          "recipients": {
+            "description": "Up to 10,000 rows. Numbers are normalised to E.164; repeated numbers are sent once; opted-out numbers are skipped.",
+            "items": {
+              "$ref": "#/components/schemas/BroadcastRecipientInput"
+            },
+            "maxItems": 10000,
+            "minItems": 1,
+            "type": "array"
+          },
+          "scheduled_at": {
+            "description": "Send later, at this time (RFC 3339), at most a year ahead. Leave out to start now.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "template": {
+            "examples": [
+              "Hi {name}, your order {order} has shipped."
+            ],
+            "maxLength": 1600,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "template",
+          "recipients"
+        ],
+        "type": "object"
+      },
+      "BroadcastList": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/Broadcast"
+            },
+            "type": "array"
+          },
+          "has_more": {
+            "description": "Pass the last broadcast's ID as starting_after to fetch the next page.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "data",
+          "has_more"
+        ],
+        "type": "object"
+      },
+      "BroadcastPreview": {
+        "additionalProperties": false,
+        "properties": {
+          "dry_run": {
+            "description": "Always true: nothing was created.",
+            "type": "boolean"
+          },
+          "duplicates": {
+            "description": "Repeated numbers removed (the first row of each number is kept).",
+            "format": "int64",
+            "type": "integer"
+          },
+          "recipients": {
+            "description": "Unique numbers that would receive the message.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "samples": {
+            "description": "The first rendered messages.",
+            "items": {
+              "$ref": "#/components/schemas/BroadcastSample"
+            },
+            "type": "array"
+          },
+          "skipped_opted_out": {
+            "description": "Numbers left out because they opted out.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "total_segments": {
+            "description": "SMS segments for every recipient together; carriers bill per segment.",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "dry_run",
+          "recipients",
+          "skipped_opted_out",
+          "duplicates",
+          "total_segments",
+          "samples"
+        ],
+        "type": "object"
+      },
+      "BroadcastRecipientInput": {
+        "additionalProperties": false,
+        "properties": {
+          "to": {
+            "examples": [
+              "+919876543210"
+            ],
+            "maxLength": 32,
+            "minLength": 3,
+            "type": "string"
+          },
+          "vars": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Values for the template's {placeholders}. Every placeholder needs a value for every recipient.",
+            "type": "object"
+          }
+        },
+        "required": [
+          "to"
+        ],
+        "type": "object"
+      },
+      "BroadcastSample": {
+        "additionalProperties": false,
+        "properties": {
+          "encoding": {
+            "enum": [
+              "gsm7",
+              "ucs2"
+            ],
+            "type": "string"
+          },
+          "segments": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "text": {
+            "type": "string"
+          },
+          "to": {
+            "examples": [
+              "+919876543210"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "to",
+          "text",
+          "segments",
+          "encoding"
         ],
         "type": "object"
       },
@@ -536,12 +1062,14 @@
                 "message.delivered",
                 "message.failed",
                 "message.received",
+                "message.auto_replied",
                 "device.online",
                 "device.offline",
                 "otp.verified",
                 "otp.failed",
                 "otp.expired",
-                "otp.blocked"
+                "otp.blocked",
+                "broadcast.completed"
               ],
               "type": "string"
             },
@@ -647,6 +1175,58 @@
           "last_used_at",
           "expires_at",
           "revoked_at"
+        ],
+        "type": "object"
+      },
+      "CreatedForwardingRule": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "destinations": {
+            "items": {
+              "$ref": "#/components/schemas/ForwardingDestination"
+            },
+            "type": "array"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "id": {
+            "examples": [
+              "fwr_01ja8z3k5wq2v7c9e4r2n0w6yb"
+            ],
+            "type": "string"
+          },
+          "match": {
+            "$ref": "#/components/schemas/ForwardingMatch"
+          },
+          "name": {
+            "type": "string"
+          },
+          "signing_secret": {
+            "description": "Signs requests to webhook destinations (Standard Webhooks). Reveal it again later.",
+            "examples": [
+              "whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw"
+            ],
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "signing_secret",
+          "id",
+          "name",
+          "enabled",
+          "match",
+          "destinations",
+          "created_at",
+          "updated_at"
         ],
         "type": "object"
       },
@@ -923,12 +1503,14 @@
                 "message.delivered",
                 "message.failed",
                 "message.received",
+                "message.auto_replied",
                 "device.online",
                 "device.offline",
                 "otp.verified",
                 "otp.failed",
                 "otp.expired",
-                "otp.blocked"
+                "otp.blocked",
+                "broadcast.completed"
               ],
               "type": "string"
             },
@@ -1428,6 +2010,404 @@
           "app_id",
           "api_key",
           "sender_id"
+        ],
+        "type": "object"
+      },
+      "ForwardingDelivery": {
+        "additionalProperties": false,
+        "properties": {
+          "attempts": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "destination_id": {
+            "type": "string"
+          },
+          "destination_type": {
+            "enum": [
+              "phone",
+              "telegram",
+              "webhook",
+              "email"
+            ],
+            "type": "string"
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "forwarded_message_id": {
+            "description": "phone: the SMS Bridge sent.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "examples": [
+              "fdl_01ja8z3k5wq2v7c9e4r2n0w6yb"
+            ],
+            "type": "string"
+          },
+          "message_id": {
+            "description": "The incoming SMS.",
+            "type": "string"
+          },
+          "response_status": {
+            "description": "HTTP status from Telegram or the webhook.",
+            "format": "int32",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "retrying",
+              "succeeded",
+              "failed",
+              "skipped"
+            ],
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "destination_id",
+          "destination_type",
+          "message_id",
+          "status",
+          "attempts",
+          "response_status",
+          "error",
+          "forwarded_message_id",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "ForwardingDeliveryList": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/ForwardingDelivery"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "ForwardingDestination": {
+        "additionalProperties": false,
+        "properties": {
+          "bot_token_set": {
+            "description": "telegram: whether a bot token is stored. Tokens are never returned.",
+            "type": "boolean"
+          },
+          "chat_id": {
+            "description": "telegram: the chat.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "format": {
+            "description": "webhook: json posts the message; slack posts {\"text\"}; discord posts {\"content\"}.",
+            "enum": [
+              "json",
+              "slack",
+              "discord"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "examples": [
+              "fwd_01ja8z3k5wq2v7c9e4r2n0w6yb"
+            ],
+            "type": "string"
+          },
+          "to": {
+            "description": "phone: the E.164 number; email: the address.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "type": {
+            "enum": [
+              "phone",
+              "telegram",
+              "webhook",
+              "email"
+            ],
+            "type": "string"
+          },
+          "url": {
+            "description": "webhook: the endpoint.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "to",
+          "chat_id",
+          "bot_token_set",
+          "url",
+          "format"
+        ],
+        "type": "object"
+      },
+      "ForwardingDestinationInput": {
+        "additionalProperties": false,
+        "properties": {
+          "bot_token": {
+            "description": "telegram: the token from @BotFather. Write-only; stored encrypted.",
+            "maxLength": 100,
+            "type": "string",
+            "writeOnly": true
+          },
+          "chat_id": {
+            "description": "telegram: the numeric chat ID or a channel's @username.",
+            "maxLength": 64,
+            "type": "string"
+          },
+          "format": {
+            "description": "webhook: default json.",
+            "enum": [
+              "json",
+              "slack",
+              "discord"
+            ],
+            "type": "string"
+          },
+          "id": {
+            "description": "Keep this existing destination (and its stored bot token when bot_token is left out).",
+            "pattern": "^fwd_[0-9a-z]{26}$",
+            "type": "string"
+          },
+          "to": {
+            "description": "phone: an E.164 number; email: an address.",
+            "maxLength": 254,
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "phone",
+              "telegram",
+              "webhook",
+              "email"
+            ],
+            "type": "string"
+          },
+          "url": {
+            "description": "webhook: the endpoint URL.",
+            "maxLength": 2048,
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "type": "object"
+      },
+      "ForwardingMatch": {
+        "additionalProperties": false,
+        "properties": {
+          "contains": {
+            "description": "Only messages containing this text (ignoring case).",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "senders": {
+            "description": "Exact senders, or prefixes ending in * (e.g. +9198*, AX-*). Empty matches every sender.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "senders",
+          "contains"
+        ],
+        "type": "object"
+      },
+      "ForwardingMatchInput": {
+        "additionalProperties": false,
+        "properties": {
+          "contains": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "senders": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "ForwardingRule": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "destinations": {
+            "items": {
+              "$ref": "#/components/schemas/ForwardingDestination"
+            },
+            "type": "array"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "id": {
+            "examples": [
+              "fwr_01ja8z3k5wq2v7c9e4r2n0w6yb"
+            ],
+            "type": "string"
+          },
+          "match": {
+            "$ref": "#/components/schemas/ForwardingMatch"
+          },
+          "name": {
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "enabled",
+          "match",
+          "destinations",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "ForwardingRuleCreateInput": {
+        "additionalProperties": false,
+        "properties": {
+          "destinations": {
+            "items": {
+              "$ref": "#/components/schemas/ForwardingDestinationInput"
+            },
+            "maxItems": 5,
+            "minItems": 1,
+            "type": "array"
+          },
+          "enabled": {
+            "description": "Default true.",
+            "type": "boolean"
+          },
+          "match": {
+            "$ref": "#/components/schemas/ForwardingMatchInput",
+            "description": "Leave out to forward every incoming SMS."
+          },
+          "name": {
+            "maxLength": 60,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "destinations"
+        ],
+        "type": "object"
+      },
+      "ForwardingRuleList": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/ForwardingRule"
+            },
+            "type": "array"
+          },
+          "email_available": {
+            "description": "Whether the server has SMTP configured for email destinations.",
+            "type": "boolean"
+          },
+          "telegram_available": {
+            "description": "Whether the server can store Telegram bot tokens (BRIDGE_SECRET_KEY).",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "data",
+          "email_available",
+          "telegram_available"
+        ],
+        "type": "object"
+      },
+      "ForwardingRuleUpdateInput": {
+        "additionalProperties": false,
+        "properties": {
+          "destinations": {
+            "description": "Replaces the list. Include a destination's id to keep it.",
+            "items": {
+              "$ref": "#/components/schemas/ForwardingDestinationInput"
+            },
+            "maxItems": 5,
+            "type": "array"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "match": {
+            "$ref": "#/components/schemas/ForwardingMatchInput",
+            "description": "Replaces the whole match."
+          },
+          "name": {
+            "maxLength": 60,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ForwardingSecret": {
+        "additionalProperties": false,
+        "properties": {
+          "signing_secret": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "signing_secret"
         ],
         "type": "object"
       },
@@ -2383,6 +3363,91 @@
         ],
         "type": "object"
       },
+      "OptOut": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "examples": [
+              "uns_01ja8z3k5wq2v7c9e4r2n0w6yb"
+            ],
+            "type": "string"
+          },
+          "keyword": {
+            "examples": [
+              "STOP"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "number": {
+            "examples": [
+              "+919876543210"
+            ],
+            "type": "string"
+          },
+          "source": {
+            "description": "keyword: the person texted STOP (or another opt-out keyword); manual: added in the dashboard; api: added with an API key.",
+            "enum": [
+              "keyword",
+              "manual",
+              "api"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "source",
+          "keyword",
+          "created_at"
+        ],
+        "type": "object"
+      },
+      "OptOutInput": {
+        "additionalProperties": false,
+        "properties": {
+          "number": {
+            "description": "E.164 number.",
+            "examples": [
+              "+919876543210"
+            ],
+            "maxLength": 32,
+            "minLength": 3,
+            "type": "string"
+          }
+        },
+        "required": [
+          "number"
+        ],
+        "type": "object"
+      },
+      "OptOutList": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/OptOut"
+            },
+            "type": "array"
+          },
+          "has_more": {
+            "description": "Pass the last entry's ID as starting_after to fetch the next page.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "data",
+          "has_more"
+        ],
+        "type": "object"
+      },
       "Organization": {
         "additionalProperties": false,
         "properties": {
@@ -3086,6 +4151,375 @@
         "required": [
           "slot"
         ],
+        "type": "object"
+      },
+      "Schedule": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "description": {
+            "examples": [
+              "Every Mon, Fri at 09:30 (Asia/Kolkata)"
+            ],
+            "type": "string"
+          },
+          "device_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ends_at": {
+            "description": "No runs after this time.",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "environment": {
+            "enum": [
+              "live",
+              "test"
+            ],
+            "type": "string"
+          },
+          "id": {
+            "examples": [
+              "sch_01ja8z3k5wq2v7c9e4r2n0w6yb"
+            ],
+            "type": "string"
+          },
+          "last_error": {
+            "description": "Why the last run sent nothing, for example an opted-out number.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "last_message_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "last_run_at": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "next_run_at": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "paused": {
+            "type": "boolean"
+          },
+          "run_count": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "schedule": {
+            "$ref": "#/components/schemas/ScheduleTiming"
+          },
+          "status": {
+            "description": "completed: nothing left to send (a past one-off, or after ends_at).",
+            "enum": [
+              "active",
+              "paused",
+              "completed"
+            ],
+            "type": "string"
+          },
+          "to": {
+            "examples": [
+              "+919876543210"
+            ],
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "environment",
+          "to",
+          "message",
+          "device_id",
+          "schedule",
+          "description",
+          "status",
+          "paused",
+          "ends_at",
+          "next_run_at",
+          "last_run_at",
+          "last_message_id",
+          "last_error",
+          "run_count",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "ScheduleCreateInput": {
+        "additionalProperties": false,
+        "properties": {
+          "device_id": {
+            "description": "Send through this phone. Leave out to let Bridge pick.",
+            "pattern": "^dev_[0-9a-z]{26}$",
+            "type": "string"
+          },
+          "ends_at": {
+            "description": "Stop repeating after this time.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "message": {
+            "maxLength": 1600,
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "examples": [
+              "Weekly reminder"
+            ],
+            "maxLength": 100,
+            "type": "string"
+          },
+          "paused": {
+            "description": "Create it paused.",
+            "type": "boolean"
+          },
+          "schedule": {
+            "$ref": "#/components/schemas/ScheduleTimingInput"
+          },
+          "to": {
+            "examples": [
+              "+919876543210"
+            ],
+            "maxLength": 32,
+            "minLength": 3,
+            "type": "string"
+          }
+        },
+        "required": [
+          "to",
+          "message",
+          "schedule"
+        ],
+        "type": "object"
+      },
+      "ScheduleList": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/Schedule"
+            },
+            "type": "array"
+          },
+          "has_more": {
+            "description": "Pass the last schedule's ID as starting_after to fetch the next page.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "data",
+          "has_more"
+        ],
+        "type": "object"
+      },
+      "ScheduleTiming": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "description": "24-hour wall-clock time in time_zone.",
+            "examples": [
+              "09:30"
+            ],
+            "type": "string"
+          },
+          "date": {
+            "description": "once: the date, YYYY-MM-DD.",
+            "examples": [
+              "2026-12-24"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "day_of_month": {
+            "description": "monthly: the day, 1 to 31; months without that day use their last day.",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "days": {
+            "description": "weekly: the weekdays it is sent on.",
+            "items": {
+              "enum": [
+                "mon",
+                "tue",
+                "wed",
+                "thu",
+                "fri",
+                "sat",
+                "sun"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "kind": {
+            "enum": [
+              "once",
+              "daily",
+              "weekly",
+              "monthly"
+            ],
+            "type": "string"
+          },
+          "time_zone": {
+            "description": "IANA time zone. Times follow its daylight-saving rules.",
+            "examples": [
+              "Asia/Kolkata"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "at",
+          "days",
+          "day_of_month",
+          "date",
+          "time_zone"
+        ],
+        "type": "object"
+      },
+      "ScheduleTimingInput": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "description": "24-hour wall-clock time in time_zone.",
+            "examples": [
+              "09:30"
+            ],
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+            "type": "string"
+          },
+          "date": {
+            "description": "once (required): YYYY-MM-DD.",
+            "examples": [
+              "2026-12-24"
+            ],
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+            "type": "string"
+          },
+          "day_of_month": {
+            "description": "monthly (required): 1 to 31; months without that day use their last day.",
+            "format": "int64",
+            "maximum": 31,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "days": {
+            "description": "weekly (required): the weekdays to send on.",
+            "items": {
+              "enum": [
+                "mon",
+                "tue",
+                "wed",
+                "thu",
+                "fri",
+                "sat",
+                "sun"
+              ],
+              "type": "string"
+            },
+            "maxItems": 7,
+            "type": "array"
+          },
+          "kind": {
+            "enum": [
+              "once",
+              "daily",
+              "weekly",
+              "monthly"
+            ],
+            "type": "string"
+          },
+          "time_zone": {
+            "description": "IANA time zone name.",
+            "examples": [
+              "Asia/Kolkata"
+            ],
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "at",
+          "time_zone"
+        ],
+        "type": "object"
+      },
+      "ScheduleUpdateInput": {
+        "additionalProperties": false,
+        "properties": {
+          "device_id": {
+            "description": "An empty string lets Bridge pick the phone.",
+            "pattern": "^(dev_[0-9a-z]{26})?$",
+            "type": "string"
+          },
+          "ends_at": {
+            "description": "RFC 3339 time; an empty string removes the end.",
+            "type": "string"
+          },
+          "message": {
+            "maxLength": 1600,
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "paused": {
+            "type": "boolean"
+          },
+          "schedule": {
+            "$ref": "#/components/schemas/ScheduleTimingInput",
+            "description": "Replaces the whole timing; the next run is computed again."
+          },
+          "to": {
+            "maxLength": 32,
+            "minLength": 3,
+            "type": "string"
+          }
+        },
         "type": "object"
       },
       "SelfDevice": {
@@ -4063,12 +5497,14 @@
                 "message.delivered",
                 "message.failed",
                 "message.received",
+                "message.auto_replied",
                 "device.online",
                 "device.offline",
                 "otp.verified",
                 "otp.failed",
                 "otp.expired",
-                "otp.blocked"
+                "otp.blocked",
+                "broadcast.completed"
               ],
               "type": "string"
             },
@@ -5150,12 +6586,14 @@
                 "message.delivered",
                 "message.failed",
                 "message.received",
+                "message.auto_replied",
                 "device.online",
                 "device.offline",
                 "otp.verified",
                 "otp.failed",
                 "otp.expired",
-                "otp.blocked"
+                "otp.blocked",
+                "broadcast.completed"
               ],
               "type": "string"
             },
@@ -5632,6 +7070,368 @@
         "summary": "Create an account",
         "tags": [
           "Auth"
+        ]
+      }
+    },
+    "/v1/broadcasts": {
+      "get": {
+        "description": "Newest first, in the key's environment.",
+        "operationId": "listBroadcasts",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 25,
+              "format": "int64",
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "A broadcast ID; returns broadcasts created before it.",
+            "explode": false,
+            "in": "query",
+            "name": "starting_after",
+            "schema": {
+              "description": "A broadcast ID; returns broadcasts created before it.",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "enum": [
+                "scheduled",
+                "sending",
+                "completed",
+                "canceled"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BroadcastList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List broadcasts",
+        "tags": [
+          "Broadcasts"
+        ]
+      },
+      "post": {
+        "description": "Sends one template to up to 10,000 recipients, filling `{placeholders}` from each recipient's `vars`. Messages go through the normal pipeline (routing, phones' send limits, providers) with `metadata.broadcast_id`, created gradually so phones are not overloaded. Broadcast messages do not count against the per-request hourly message limits; a project may create 20 broadcasts an hour. Use `dry_run` to preview.",
+        "operationId": "createBroadcast",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BroadcastCreateInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BroadcastPreview"
+                }
+              }
+            },
+            "description": "dry_run: what the broadcast would send. Nothing was created."
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Broadcast"
+                }
+              }
+            },
+            "description": "The broadcast was created."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Send a broadcast",
+        "tags": [
+          "Broadcasts"
+        ]
+      }
+    },
+    "/v1/broadcasts/{broadcastId}": {
+      "get": {
+        "description": "Includes live counts. The broadcast's messages carry `metadata.broadcast_id`.",
+        "operationId": "getBroadcast",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "broadcastId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "brd_01ja8z3k5wq2v7c9e4r2n0w6yb"
+              ],
+              "pattern": "^brd_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Broadcast"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get a broadcast",
+        "tags": [
+          "Broadcasts"
+        ]
+      }
+    },
+    "/v1/broadcasts/{broadcastId}/cancel": {
+      "post": {
+        "description": "Recipients not yet sent to are skipped and messages still waiting for a phone are canceled. Messages a phone or provider already took finish normally.",
+        "operationId": "cancelBroadcast",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "broadcastId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "brd_01ja8z3k5wq2v7c9e4r2n0w6yb"
+              ],
+              "pattern": "^brd_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Broadcast"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Cancel a broadcast",
+        "tags": [
+          "Broadcasts"
         ]
       }
     },
@@ -6993,6 +8793,322 @@
         "summary": "Get a message",
         "tags": [
           "Developer API"
+        ]
+      }
+    },
+    "/v1/opt-outs": {
+      "get": {
+        "description": "Newest first. The list is shared by live and test.",
+        "operationId": "listOptOuts",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "format": "int64",
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "An opt-out ID; returns entries created before it.",
+            "explode": false,
+            "in": "query",
+            "name": "starting_after",
+            "schema": {
+              "description": "An opt-out ID; returns entries created before it.",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "source",
+            "schema": {
+              "enum": [
+                "keyword",
+                "manual",
+                "api"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OptOutList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List opted-out numbers",
+        "tags": [
+          "Automation"
+        ]
+      },
+      "post": {
+        "description": "Ordinary messages, broadcasts and schedules to the number are refused with `opted_out`; one-time passwords still go. Returns 200 with the existing entry if the number was already opted out.",
+        "operationId": "addOptOut",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OptOutInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OptOut"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Opt a number out",
+        "tags": [
+          "Automation"
+        ]
+      }
+    },
+    "/v1/opt-outs/{number}": {
+      "delete": {
+        "description": "Only do this when the person asked to receive messages again.",
+        "operationId": "removeOptOut",
+        "parameters": [
+          {
+            "description": "The number, URL-encoded (%2B for +) or as is.",
+            "in": "path",
+            "name": "number",
+            "required": true,
+            "schema": {
+              "description": "The number, URL-encoded (%2B for +) or as is.",
+              "examples": [
+                "+919876543210"
+              ],
+              "maxLength": 64,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Opt a number back in",
+        "tags": [
+          "Automation"
+        ]
+      },
+      "get": {
+        "description": "404 when the number may be messaged.",
+        "operationId": "getOptOut",
+        "parameters": [
+          {
+            "description": "The number, URL-encoded (%2B for +) or as is.",
+            "in": "path",
+            "name": "number",
+            "required": true,
+            "schema": {
+              "description": "The number, URL-encoded (%2B for +) or as is.",
+              "examples": [
+                "+919876543210"
+              ],
+              "maxLength": 64,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OptOut"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Check whether a number opted out",
+        "tags": [
+          "Automation"
         ]
       }
     },
@@ -8847,6 +10963,838 @@
         ]
       }
     },
+    "/v1/projects/{projectId}/auto-replies": {
+      "get": {
+        "description": "In the order they are tried. Every project starts with STOP/UNSUBSCRIBE/CANCEL/END/QUIT (opt out), START/UNSTOP (opt back in) and HELP rules. Replies are never sent to sender IDs or short codes, and each rule answers a number at most once every 10 minutes.",
+        "operationId": "listAutoReplyRules",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutoReplyRuleList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "List auto-reply rules",
+        "tags": [
+          "Automation"
+        ]
+      },
+      "post": {
+        "operationId": "createAutoReplyRule",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AutoReplyRuleCreateInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutoReplyRule"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Add an auto-reply rule",
+        "tags": [
+          "Automation"
+        ]
+      }
+    },
+    "/v1/projects/{projectId}/auto-replies/{ruleId}": {
+      "delete": {
+        "description": "Default rules can be deleted too; they are not created again.",
+        "operationId": "deleteAutoReplyRule",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "ruleId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "arr_01ja8z3k5wq2v7c9e4r2n0w6yb"
+              ],
+              "pattern": "^arr_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Delete an auto-reply rule",
+        "tags": [
+          "Automation"
+        ]
+      },
+      "get": {
+        "operationId": "getAutoReplyRule",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "ruleId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "arr_01ja8z3k5wq2v7c9e4r2n0w6yb"
+              ],
+              "pattern": "^arr_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutoReplyRule"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Get an auto-reply rule",
+        "tags": [
+          "Automation"
+        ]
+      },
+      "patch": {
+        "description": "Omitted fields stay unchanged.",
+        "operationId": "updateAutoReplyRule",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "ruleId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "arr_01ja8z3k5wq2v7c9e4r2n0w6yb"
+              ],
+              "pattern": "^arr_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AutoReplyRuleUpdateInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutoReplyRule"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Update an auto-reply rule",
+        "tags": [
+          "Automation"
+        ]
+      }
+    },
+    "/v1/projects/{projectId}/broadcasts": {
+      "get": {
+        "operationId": "listProjectBroadcasts",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 25,
+              "format": "int64",
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "A broadcast ID; returns broadcasts created before it.",
+            "explode": false,
+            "in": "query",
+            "name": "starting_after",
+            "schema": {
+              "description": "A broadcast ID; returns broadcasts created before it.",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "enum": [
+                "scheduled",
+                "sending",
+                "completed",
+                "canceled"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "environment",
+            "schema": {
+              "default": "live",
+              "enum": [
+                "live",
+                "test"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BroadcastList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "List broadcasts",
+        "tags": [
+          "Broadcasts"
+        ]
+      },
+      "post": {
+        "description": "Same as `POST /v1/broadcasts`. Live broadcasts need an admin.",
+        "operationId": "createProjectBroadcast",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "environment",
+            "schema": {
+              "default": "test",
+              "enum": [
+                "live",
+                "test"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BroadcastCreateInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BroadcastPreview"
+                }
+              }
+            },
+            "description": "dry_run: what the broadcast would send. Nothing was created."
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Broadcast"
+                }
+              }
+            },
+            "description": "The broadcast was created."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Send a broadcast from the dashboard",
+        "tags": [
+          "Broadcasts"
+        ]
+      }
+    },
+    "/v1/projects/{projectId}/broadcasts/{broadcastId}": {
+      "get": {
+        "operationId": "getProjectBroadcast",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "broadcastId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "brd_01ja8z3k5wq2v7c9e4r2n0w6yb"
+              ],
+              "pattern": "^brd_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Broadcast"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Get a broadcast",
+        "tags": [
+          "Broadcasts"
+        ]
+      }
+    },
+    "/v1/projects/{projectId}/broadcasts/{broadcastId}/cancel": {
+      "post": {
+        "description": "Live broadcasts need an admin.",
+        "operationId": "cancelProjectBroadcast",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "broadcastId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "brd_01ja8z3k5wq2v7c9e4r2n0w6yb"
+              ],
+              "pattern": "^brd_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Broadcast"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Cancel a broadcast",
+        "tags": [
+          "Broadcasts"
+        ]
+      }
+    },
     "/v1/projects/{projectId}/devices": {
       "get": {
         "operationId": "listProjectDevices",
@@ -9354,6 +12302,601 @@
         "summary": "Wake a device",
         "tags": [
           "Devices"
+        ]
+      }
+    },
+    "/v1/projects/{projectId}/forwarding-rules": {
+      "get": {
+        "description": "Rules copy incoming SMS to a phone number, a Telegram chat, a webhook (JSON, Slack or Discord) or an email address. Every matching rule runs; SMS from opted-out numbers are forwarded too.",
+        "operationId": "listForwardingRules",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForwardingRuleList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "List forwarding rules",
+        "tags": [
+          "Automation"
+        ]
+      },
+      "post": {
+        "description": "Returns the signing secret for webhook destinations; reveal it again later.",
+        "operationId": "createForwardingRule",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForwardingRuleCreateInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedForwardingRule"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Add a forwarding rule",
+        "tags": [
+          "Automation"
+        ]
+      }
+    },
+    "/v1/projects/{projectId}/forwarding-rules/{ruleId}": {
+      "delete": {
+        "description": "Pending deliveries are dropped.",
+        "operationId": "deleteForwardingRule",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "ruleId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "fwr_01ja8z3k5wq2v7c9e4r2n0w6yb"
+              ],
+              "pattern": "^fwr_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Delete a forwarding rule",
+        "tags": [
+          "Automation"
+        ]
+      },
+      "get": {
+        "operationId": "getForwardingRule",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "ruleId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "fwr_01ja8z3k5wq2v7c9e4r2n0w6yb"
+              ],
+              "pattern": "^fwr_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForwardingRule"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Get a forwarding rule",
+        "tags": [
+          "Automation"
+        ]
+      },
+      "patch": {
+        "description": "Omitted fields stay unchanged.",
+        "operationId": "updateForwardingRule",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "ruleId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "fwr_01ja8z3k5wq2v7c9e4r2n0w6yb"
+              ],
+              "pattern": "^fwr_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForwardingRuleUpdateInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForwardingRule"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Update a forwarding rule",
+        "tags": [
+          "Automation"
+        ]
+      }
+    },
+    "/v1/projects/{projectId}/forwarding-rules/{ruleId}/deliveries": {
+      "get": {
+        "description": "Newest first; one entry per incoming SMS and destination, updated on every attempt. Failed deliveries are retried for about four hours.",
+        "operationId": "listForwardingDeliveries",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "ruleId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "fwr_01ja8z3k5wq2v7c9e4r2n0w6yb"
+              ],
+              "pattern": "^fwr_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "format": "int64",
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForwardingDeliveryList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "List a rule's deliveries",
+        "tags": [
+          "Automation"
+        ]
+      }
+    },
+    "/v1/projects/{projectId}/forwarding-rules/{ruleId}/secret": {
+      "get": {
+        "description": "Every reveal is recorded in the audit log.",
+        "operationId": "getForwardingRuleSecret",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "ruleId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "fwr_01ja8z3k5wq2v7c9e4r2n0w6yb"
+              ],
+              "pattern": "^fwr_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForwardingSecret"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Reveal the signing secret",
+        "tags": [
+          "Automation"
         ]
       }
     },
@@ -10056,6 +13599,350 @@
         "summary": "Get a message",
         "tags": [
           "Messages"
+        ]
+      }
+    },
+    "/v1/projects/{projectId}/opt-outs": {
+      "get": {
+        "operationId": "listProjectOptOuts",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "format": "int64",
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "An opt-out ID; returns entries created before it.",
+            "explode": false,
+            "in": "query",
+            "name": "starting_after",
+            "schema": {
+              "description": "An opt-out ID; returns entries created before it.",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "source",
+            "schema": {
+              "enum": [
+                "keyword",
+                "manual",
+                "api"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OptOutList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "List opted-out numbers",
+        "tags": [
+          "Automation"
+        ]
+      },
+      "post": {
+        "operationId": "addProjectOptOut",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OptOutInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OptOut"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Opt a number out",
+        "tags": [
+          "Automation"
+        ]
+      }
+    },
+    "/v1/projects/{projectId}/opt-outs/export": {
+      "get": {
+        "description": "Columns: number, source, keyword, created_at.",
+        "operationId": "exportProjectOptOuts",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "CSV file",
+            "headers": {
+              "Content-Disposition": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Content-Type": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Export opted-out numbers as CSV",
+        "tags": [
+          "Automation"
+        ]
+      }
+    },
+    "/v1/projects/{projectId}/opt-outs/{number}": {
+      "delete": {
+        "description": "Only do this when the person asked to receive messages again.",
+        "operationId": "removeProjectOptOut",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The number, URL-encoded (%2B for +) or as is.",
+            "in": "path",
+            "name": "number",
+            "required": true,
+            "schema": {
+              "description": "The number, URL-encoded (%2B for +) or as is.",
+              "examples": [
+                "+919876543210"
+              ],
+              "maxLength": 64,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Opt a number back in",
+        "tags": [
+          "Automation"
         ]
       }
     },
@@ -11451,6 +15338,759 @@
         "summary": "Update routing",
         "tags": [
           "Providers"
+        ]
+      }
+    },
+    "/v1/projects/{projectId}/schedules": {
+      "get": {
+        "operationId": "listProjectSchedules",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 25,
+              "format": "int64",
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "A schedule ID; returns schedules created before it.",
+            "explode": false,
+            "in": "query",
+            "name": "starting_after",
+            "schema": {
+              "description": "A schedule ID; returns schedules created before it.",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "environment",
+            "schema": {
+              "default": "live",
+              "enum": [
+                "live",
+                "test"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduleList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "List scheduled messages",
+        "tags": [
+          "Schedules"
+        ]
+      },
+      "post": {
+        "description": "Same as `POST /v1/schedules`. Live schedules need an admin.",
+        "operationId": "createProjectSchedule",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "environment",
+            "schema": {
+              "default": "test",
+              "enum": [
+                "live",
+                "test"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScheduleCreateInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schedule"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Schedule a message",
+        "tags": [
+          "Schedules"
+        ]
+      }
+    },
+    "/v1/projects/{projectId}/schedules/{scheduleId}": {
+      "delete": {
+        "description": "Live schedules need an admin.",
+        "operationId": "deleteProjectSchedule",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "scheduleId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "sch_01ja8z3k5wq2v7c9e4r2n0w6yb"
+              ],
+              "pattern": "^sch_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Delete a scheduled message",
+        "tags": [
+          "Schedules"
+        ]
+      },
+      "get": {
+        "operationId": "getProjectSchedule",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "scheduleId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "sch_01ja8z3k5wq2v7c9e4r2n0w6yb"
+              ],
+              "pattern": "^sch_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schedule"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Get a scheduled message",
+        "tags": [
+          "Schedules"
+        ]
+      },
+      "patch": {
+        "description": "Omitted fields stay unchanged. Live schedules need an admin.",
+        "operationId": "updateProjectSchedule",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "scheduleId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "sch_01ja8z3k5wq2v7c9e4r2n0w6yb"
+              ],
+              "pattern": "^sch_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScheduleUpdateInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schedule"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Update a scheduled message",
+        "tags": [
+          "Schedules"
+        ]
+      }
+    },
+    "/v1/projects/{projectId}/schedules/{scheduleId}/pause": {
+      "post": {
+        "description": "Nothing is sent until it is resumed. Live schedules need an admin.",
+        "operationId": "pauseProjectSchedule",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "scheduleId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "sch_01ja8z3k5wq2v7c9e4r2n0w6yb"
+              ],
+              "pattern": "^sch_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schedule"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Pause a scheduled message",
+        "tags": [
+          "Schedules"
+        ]
+      }
+    },
+    "/v1/projects/{projectId}/schedules/{scheduleId}/resume": {
+      "post": {
+        "description": "Runs missed while paused are skipped; the next run is computed from now. Live schedules need an admin.",
+        "operationId": "resumeProjectSchedule",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "scheduleId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "sch_01ja8z3k5wq2v7c9e4r2n0w6yb"
+              ],
+              "pattern": "^sch_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schedule"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Resume a scheduled message",
+        "tags": [
+          "Schedules"
+        ]
+      }
+    },
+    "/v1/projects/{projectId}/schedules/{scheduleId}/run": {
+      "post": {
+        "description": "Sends the message once, now, without changing the next regular run. Works while paused. Live schedules need an admin.",
+        "operationId": "runProjectSchedule",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^prj_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "scheduleId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "sch_01ja8z3k5wq2v7c9e4r2n0w6yb"
+              ],
+              "pattern": "^sch_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schedule"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Send a scheduled message now",
+        "tags": [
+          "Schedules"
         ]
       }
     },
@@ -13434,6 +18074,636 @@
         ]
       }
     },
+    "/v1/schedules": {
+      "get": {
+        "description": "Newest first, in the key's environment.",
+        "operationId": "listSchedules",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 25,
+              "format": "int64",
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "A schedule ID; returns schedules created before it.",
+            "explode": false,
+            "in": "query",
+            "name": "starting_after",
+            "schema": {
+              "description": "A schedule ID; returns schedules created before it.",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduleList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List scheduled messages",
+        "tags": [
+          "Schedules"
+        ]
+      },
+      "post": {
+        "description": "Sends a message once at a date and time, or repeating daily, weekly (on chosen weekdays) or monthly, at a wall-clock time in an IANA time zone. Each run creates an ordinary message with `metadata.schedule_id`.",
+        "operationId": "createSchedule",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScheduleCreateInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schedule"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Schedule a message",
+        "tags": [
+          "Schedules"
+        ]
+      }
+    },
+    "/v1/schedules/{scheduleId}": {
+      "delete": {
+        "description": "Messages it already sent are kept.",
+        "operationId": "deleteSchedule",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "scheduleId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "sch_01ja8z3k5wq2v7c9e4r2n0w6yb"
+              ],
+              "pattern": "^sch_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Delete a scheduled message",
+        "tags": [
+          "Schedules"
+        ]
+      },
+      "get": {
+        "operationId": "getSchedule",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "scheduleId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "sch_01ja8z3k5wq2v7c9e4r2n0w6yb"
+              ],
+              "pattern": "^sch_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schedule"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get a scheduled message",
+        "tags": [
+          "Schedules"
+        ]
+      },
+      "patch": {
+        "description": "Omitted fields stay unchanged. Changing the timing computes the next run again from now.",
+        "operationId": "updateSchedule",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "scheduleId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "sch_01ja8z3k5wq2v7c9e4r2n0w6yb"
+              ],
+              "pattern": "^sch_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScheduleUpdateInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schedule"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Update a scheduled message",
+        "tags": [
+          "Schedules"
+        ]
+      }
+    },
+    "/v1/schedules/{scheduleId}/pause": {
+      "post": {
+        "description": "Nothing is sent until it is resumed.",
+        "operationId": "pauseSchedule",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "scheduleId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "sch_01ja8z3k5wq2v7c9e4r2n0w6yb"
+              ],
+              "pattern": "^sch_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schedule"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Pause a scheduled message",
+        "tags": [
+          "Schedules"
+        ]
+      }
+    },
+    "/v1/schedules/{scheduleId}/resume": {
+      "post": {
+        "description": "Runs missed while paused are skipped; the next run is computed from now.",
+        "operationId": "resumeSchedule",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "scheduleId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "sch_01ja8z3k5wq2v7c9e4r2n0w6yb"
+              ],
+              "pattern": "^sch_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schedule"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Resume a scheduled message",
+        "tags": [
+          "Schedules"
+        ]
+      }
+    },
+    "/v1/schedules/{scheduleId}/run": {
+      "post": {
+        "description": "Sends the message once, now, without changing the next regular run. Works while paused.",
+        "operationId": "runSchedule",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "scheduleId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "sch_01ja8z3k5wq2v7c9e4r2n0w6yb"
+              ],
+              "pattern": "^sch_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schedule"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Send a scheduled message now",
+        "tags": [
+          "Schedules"
+        ]
+      }
+    },
     "/v1/status": {
       "get": {
         "description": "Public, no authentication. Current state of each component and 90 days of daily uptime. Contains no customer data.",
@@ -14177,6 +19447,18 @@
     {
       "description": "Endpoints that receive signed event notifications (Standard Webhooks).",
       "name": "Webhooks"
+    },
+    {
+      "description": "One templated message sent to many recipients, now or at a set time.",
+      "name": "Broadcasts"
+    },
+    {
+      "description": "Messages sent at a set time, once or repeating daily, weekly or monthly.",
+      "name": "Schedules"
+    },
+    {
+      "description": "The opt-out list, keyword auto-replies (STOP, START, HELP) and forwarding of incoming SMS.",
+      "name": "Automation"
     }
   ]
 }

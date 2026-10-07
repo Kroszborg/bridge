@@ -26,6 +26,7 @@ import (
 	"bridge/internal/reqlog"
 	"bridge/internal/secretbox"
 	"bridge/internal/status"
+	"bridge/internal/tools"
 	"bridge/internal/webhook"
 )
 
@@ -46,7 +47,9 @@ type Server struct {
 	reqlog    *reqlog.Recorder
 	events    *events.Broker
 	status    *status.Service
-	version   string
+	// tools serves broadcasts, schedules, opt-outs, auto-replies and forwarding.
+	tools   *tools.Services
+	version string
 }
 
 type Options struct {
@@ -67,6 +70,8 @@ type Options struct {
 	// Status serves /v1/status and /v1/system; nil disables them.
 	Status  *status.Service
 	Limiter ratelimit.Limiter // defaults to the Postgres limiter
+	// Tools are the messaging tools' services; built from Config when nil.
+	Tools *tools.Services
 }
 
 func New(o Options) *Server {
@@ -77,6 +82,10 @@ func New(o Options) *Server {
 	}
 	s := &Server{cfg: o.Config, pool: o.Pool, q: q, log: o.Logger, limiter: limiter, hub: o.Hub, push: o.Push, msgs: o.Messaging, hooks: o.Webhooks, reqlog: o.RequestLog, events: o.Events, status: o.Status, version: o.Version}
 	s.providers = o.Providers
+	s.tools = o.Tools
+	if s.tools == nil && o.Messaging != nil {
+		s.tools, _ = tools.New(tools.Options{Config: o.Config, Pool: o.Pool, Logger: o.Logger, Messaging: o.Messaging})
+	}
 	if s.providers == nil {
 		box, _ := secretbox.New(o.Config.SecretKey)
 		s.providers = provider.NewRouter(q, box, provider.RouterOptions{PublicURL: o.Config.PublicURL.String()})
@@ -152,6 +161,9 @@ func (s *Server) register(api huma.API) {
 	s.registerWidget(api)
 	s.registerProviders(api)
 	s.registerIntegrations(api)
+	s.registerBroadcasts(api)
+	s.registerSchedules(api)
+	s.registerAutomation(api)
 }
 
 func (s *Server) ready(w http.ResponseWriter, r *http.Request) {
@@ -212,6 +224,9 @@ func newAPI(r chi.Router, version, serverURL string, logger *slog.Logger) huma.A
 		{Name: "Status", Description: "Service health for the public status page and operators."},
 		{Name: "Logs", Description: "Developer API request logs for the dashboard."},
 		{Name: "Webhooks", Description: "Endpoints that receive signed event notifications (Standard Webhooks)."},
+		{Name: "Broadcasts", Description: "One templated message sent to many recipients, now or at a set time."},
+		{Name: "Schedules", Description: "Messages sent at a set time, once or repeating daily, weekly or monthly."},
+		{Name: "Automation", Description: "The opt-out list, keyword auto-replies (STOP, START, HELP) and forwarding of incoming SMS."},
 	}
 	cfg.Transformers = append(cfg.Transformers, requestIDTransformer)
 	return humachi.New(r, cfg)

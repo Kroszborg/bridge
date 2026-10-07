@@ -730,6 +730,56 @@ func (q *Queries) ListMessages(ctx context.Context, arg ListMessagesParams) ([]M
 	return items, nil
 }
 
+const lockUnassignedMessage = `-- name: LockUnassignedMessage :one
+SELECT id, project_id, environment, direction, status, provider, device_id, api_key_id, recipient, sender, body, segments, attempts, provider_message_id, error_code, error_message, metadata, idempotency_key, created_at, queued_at, sending_at, sent_at, delivered_at, failed_at, updated_at, requested_device_id, sim_slot, assigned_at, idempotency_hash, body_sha256, body_length, body_redacted_at, encoding, purpose, display_body, provider_account_id, body_vars FROM messages WHERE id = $1 AND status = 'queued' AND device_id IS NULL FOR UPDATE
+`
+
+// Locks a queued message no phone has taken, so dispatch waits while it is canceled.
+func (q *Queries) LockUnassignedMessage(ctx context.Context, id string) (Message, error) {
+	row := q.db.QueryRow(ctx, lockUnassignedMessage, id)
+	var i Message
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Environment,
+		&i.Direction,
+		&i.Status,
+		&i.Provider,
+		&i.DeviceID,
+		&i.APIKeyID,
+		&i.Recipient,
+		&i.Sender,
+		&i.Body,
+		&i.Segments,
+		&i.Attempts,
+		&i.ProviderMessageID,
+		&i.ErrorCode,
+		&i.ErrorMessage,
+		&i.Metadata,
+		&i.IdempotencyKey,
+		&i.CreatedAt,
+		&i.QueuedAt,
+		&i.SendingAt,
+		&i.SentAt,
+		&i.DeliveredAt,
+		&i.FailedAt,
+		&i.UpdatedAt,
+		&i.RequestedDeviceID,
+		&i.SimSlot,
+		&i.AssignedAt,
+		&i.IdempotencyHash,
+		&i.BodySha256,
+		&i.BodyLength,
+		&i.BodyRedactedAt,
+		&i.Encoding,
+		&i.Purpose,
+		&i.DisplayBody,
+		&i.ProviderAccountID,
+		&i.BodyVars,
+	)
+	return i, err
+}
+
 const messageStats = `-- name: MessageStats :one
 SELECT
     count(*)::int                                                      AS total,

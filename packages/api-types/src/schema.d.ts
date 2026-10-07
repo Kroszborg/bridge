@@ -58,6 +58,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/broadcasts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List broadcasts
+         * @description Newest first, in the key's environment.
+         */
+        get: operations["listBroadcasts"];
+        put?: never;
+        /**
+         * Send a broadcast
+         * @description Sends one template to up to 10,000 recipients, filling `{placeholders}` from each recipient's `vars`. Messages go through the normal pipeline (routing, phones' send limits, providers) with `metadata.broadcast_id`, created gradually so phones are not overloaded. Broadcast messages do not count against the per-request hourly message limits; a project may create 20 broadcasts an hour. Use `dry_run` to preview.
+         */
+        post: operations["createBroadcast"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/broadcasts/{broadcastId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a broadcast
+         * @description Includes live counts. The broadcast's messages carry `metadata.broadcast_id`.
+         */
+        get: operations["getBroadcast"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/broadcasts/{broadcastId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel a broadcast
+         * @description Recipients not yet sent to are skipped and messages still waiting for a phone are canceled. Messages a phone or provider already took finish normally.
+         */
+        post: operations["cancelBroadcast"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/device": {
         parameters: {
             query?: never;
@@ -370,6 +434,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/opt-outs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List opted-out numbers
+         * @description Newest first. The list is shared by live and test.
+         */
+        get: operations["listOptOuts"];
+        put?: never;
+        /**
+         * Opt a number out
+         * @description Ordinary messages, broadcasts and schedules to the number are refused with `opted_out`; one-time passwords still go. Returns 200 with the existing entry if the number was already opted out.
+         */
+        post: operations["addOptOut"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/opt-outs/{number}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check whether a number opted out
+         * @description 404 when the number may be messaged.
+         */
+        get: operations["getOptOut"];
+        put?: never;
+        post?: never;
+        /**
+         * Opt a number back in
+         * @description Only do this when the person asked to receive messages again.
+         */
+        delete: operations["removeOptOut"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/organizations": {
         parameters: {
             query?: never;
@@ -666,6 +778,110 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/projects/{projectId}/auto-replies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List auto-reply rules
+         * @description In the order they are tried. Every project starts with STOP/UNSUBSCRIBE/CANCEL/END/QUIT (opt out), START/UNSTOP (opt back in) and HELP rules. Replies are never sent to sender IDs or short codes, and each rule answers a number at most once every 10 minutes.
+         */
+        get: operations["listAutoReplyRules"];
+        put?: never;
+        /** Add an auto-reply rule */
+        post: operations["createAutoReplyRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/projects/{projectId}/auto-replies/{ruleId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get an auto-reply rule */
+        get: operations["getAutoReplyRule"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete an auto-reply rule
+         * @description Default rules can be deleted too; they are not created again.
+         */
+        delete: operations["deleteAutoReplyRule"];
+        options?: never;
+        head?: never;
+        /**
+         * Update an auto-reply rule
+         * @description Omitted fields stay unchanged.
+         */
+        patch: operations["updateAutoReplyRule"];
+        trace?: never;
+    };
+    "/v1/projects/{projectId}/broadcasts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List broadcasts */
+        get: operations["listProjectBroadcasts"];
+        put?: never;
+        /**
+         * Send a broadcast from the dashboard
+         * @description Same as `POST /v1/broadcasts`. Live broadcasts need an admin.
+         */
+        post: operations["createProjectBroadcast"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/projects/{projectId}/broadcasts/{broadcastId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a broadcast */
+        get: operations["getProjectBroadcast"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/projects/{projectId}/broadcasts/{broadcastId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel a broadcast
+         * @description Live broadcasts need an admin.
+         */
+        post: operations["cancelProjectBroadcast"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/projects/{projectId}/devices": {
         parameters: {
             query?: never;
@@ -748,6 +964,95 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/projects/{projectId}/forwarding-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List forwarding rules
+         * @description Rules copy incoming SMS to a phone number, a Telegram chat, a webhook (JSON, Slack or Discord) or an email address. Every matching rule runs; SMS from opted-out numbers are forwarded too.
+         */
+        get: operations["listForwardingRules"];
+        put?: never;
+        /**
+         * Add a forwarding rule
+         * @description Returns the signing secret for webhook destinations; reveal it again later.
+         */
+        post: operations["createForwardingRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/projects/{projectId}/forwarding-rules/{ruleId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a forwarding rule */
+        get: operations["getForwardingRule"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a forwarding rule
+         * @description Pending deliveries are dropped.
+         */
+        delete: operations["deleteForwardingRule"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a forwarding rule
+         * @description Omitted fields stay unchanged.
+         */
+        patch: operations["updateForwardingRule"];
+        trace?: never;
+    };
+    "/v1/projects/{projectId}/forwarding-rules/{ruleId}/deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List a rule's deliveries
+         * @description Newest first; one entry per incoming SMS and destination, updated on every attempt. Failed deliveries are retried for about four hours.
+         */
+        get: operations["listForwardingDeliveries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/projects/{projectId}/forwarding-rules/{ruleId}/secret": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Reveal the signing secret
+         * @description Every reveal is recorded in the audit log.
+         */
+        get: operations["getForwardingRuleSecret"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/projects/{projectId}/integrations": {
         parameters: {
             query?: never;
@@ -820,6 +1125,64 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/projects/{projectId}/opt-outs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List opted-out numbers */
+        get: operations["listProjectOptOuts"];
+        put?: never;
+        /** Opt a number out */
+        post: operations["addProjectOptOut"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/projects/{projectId}/opt-outs/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export opted-out numbers as CSV
+         * @description Columns: number, source, keyword, created_at.
+         */
+        get: operations["exportProjectOptOuts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/projects/{projectId}/opt-outs/{number}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Opt a number back in
+         * @description Only do this when the person asked to receive messages again.
+         */
+        delete: operations["removeProjectOptOut"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1015,6 +1378,112 @@ export interface paths {
         /** Update routing */
         put: operations["updateRouting"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/projects/{projectId}/schedules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List scheduled messages */
+        get: operations["listProjectSchedules"];
+        put?: never;
+        /**
+         * Schedule a message
+         * @description Same as `POST /v1/schedules`. Live schedules need an admin.
+         */
+        post: operations["createProjectSchedule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/projects/{projectId}/schedules/{scheduleId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a scheduled message */
+        get: operations["getProjectSchedule"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a scheduled message
+         * @description Live schedules need an admin.
+         */
+        delete: operations["deleteProjectSchedule"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a scheduled message
+         * @description Omitted fields stay unchanged. Live schedules need an admin.
+         */
+        patch: operations["updateProjectSchedule"];
+        trace?: never;
+    };
+    "/v1/projects/{projectId}/schedules/{scheduleId}/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pause a scheduled message
+         * @description Nothing is sent until it is resumed. Live schedules need an admin.
+         */
+        post: operations["pauseProjectSchedule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/projects/{projectId}/schedules/{scheduleId}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resume a scheduled message
+         * @description Runs missed while paused are skipped; the next run is computed from now. Live schedules need an admin.
+         */
+        post: operations["resumeProjectSchedule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/projects/{projectId}/schedules/{scheduleId}/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a scheduled message now
+         * @description Sends the message once, now, without changing the next regular run. Works while paused. Live schedules need an admin.
+         */
+        post: operations["runProjectSchedule"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1331,6 +1800,115 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/schedules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List scheduled messages
+         * @description Newest first, in the key's environment.
+         */
+        get: operations["listSchedules"];
+        put?: never;
+        /**
+         * Schedule a message
+         * @description Sends a message once at a date and time, or repeating daily, weekly (on chosen weekdays) or monthly, at a wall-clock time in an IANA time zone. Each run creates an ordinary message with `metadata.schedule_id`.
+         */
+        post: operations["createSchedule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/schedules/{scheduleId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a scheduled message */
+        get: operations["getSchedule"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a scheduled message
+         * @description Messages it already sent are kept.
+         */
+        delete: operations["deleteSchedule"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a scheduled message
+         * @description Omitted fields stay unchanged. Changing the timing computes the next run again from now.
+         */
+        patch: operations["updateSchedule"];
+        trace?: never;
+    };
+    "/v1/schedules/{scheduleId}/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pause a scheduled message
+         * @description Nothing is sent until it is resumed.
+         */
+        post: operations["pauseSchedule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/schedules/{scheduleId}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resume a scheduled message
+         * @description Runs missed while paused are skipped; the next run is computed from now.
+         */
+        post: operations["resumeSchedule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/schedules/{scheduleId}/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a scheduled message now
+         * @description Sends the message once, now, without changing the next regular run. Works while paused.
+         */
+        post: operations["runSchedule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/status": {
         parameters: {
             query?: never;
@@ -1585,6 +2163,80 @@ export interface components {
             data: components["schemas"]["AuditEntry"][];
             has_more: boolean;
         };
+        AutoReplyRule: {
+            /**
+             * @description opt_out adds the sender to the opt-out list; opt_in removes them.
+             * @enum {string}
+             */
+            action: "none" | "opt_out" | "opt_in";
+            /** Format: date-time */
+            created_at: string;
+            enabled: boolean;
+            /** @example arr_01ja8z3k5wq2v7c9e4r2n0w6yb */
+            id: string;
+            /**
+             * @example [
+             *       "STOP",
+             *       "UNSUBSCRIBE"
+             *     ]
+             */
+            keywords: string[];
+            /**
+             * @description How keywords are compared with the trimmed message, ignoring case. exact compares the whole message.
+             * @enum {string}
+             */
+            match: "exact" | "contains" | "starts_with";
+            /** @example Unsubscribe */
+            name: string;
+            /**
+             * Format: int64
+             * @description Lower is tried first; only the first matching enabled rule runs.
+             */
+            priority: number;
+            /** @description Sent back through the phone that received the SMS. */
+            reply: string | null;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        AutoReplyRuleCreateInput: {
+            /**
+             * @description Default none.
+             * @enum {string}
+             */
+            action?: "none" | "opt_out" | "opt_in";
+            /** @description Default true. */
+            enabled?: boolean;
+            keywords: string[];
+            /**
+             * @description Default exact.
+             * @enum {string}
+             */
+            match?: "exact" | "contains" | "starts_with";
+            name: string;
+            /**
+             * Format: int64
+             * @description Default 100.
+             */
+            priority?: number;
+            reply?: string;
+        };
+        AutoReplyRuleList: {
+            /** @description In the order they are tried. */
+            data: components["schemas"]["AutoReplyRule"][];
+        };
+        AutoReplyRuleUpdateInput: {
+            /** @enum {string} */
+            action?: "none" | "opt_out" | "opt_in";
+            enabled?: boolean;
+            keywords?: string[];
+            /** @enum {string} */
+            match?: "exact" | "contains" | "starts_with";
+            name?: string;
+            /** Format: int64 */
+            priority?: number;
+            /** @description An empty string removes the reply. */
+            reply?: string;
+        };
         Block: {
             /** @example vap_01ja8z3k5wq2v7c9e4r2n0w6yb */
             app_id: string;
@@ -1624,6 +2276,139 @@ export interface components {
             range_burst: number;
             /** Format: int64 */
             total: number;
+        };
+        Broadcast: {
+            /** Format: date-time */
+            canceled_at: string | null;
+            /** Format: date-time */
+            completed_at: string | null;
+            counts: components["schemas"]["BroadcastCounts"];
+            /** Format: date-time */
+            created_at: string;
+            /** @description The phone every message goes through; null lets Bridge pick per message. */
+            device_id: string | null;
+            /** @enum {string} */
+            environment: "live" | "test";
+            /** @example brd_01ja8z3k5wq2v7c9e4r2n0w6yb */
+            id: string;
+            name: string;
+            /** Format: date-time */
+            scheduled_at: string | null;
+            /** Format: date-time */
+            started_at: string | null;
+            /**
+             * @description completed: every message was sent or failed (delivery reports may still arrive).
+             * @enum {string}
+             */
+            status: "scheduled" | "sending" | "completed" | "canceled";
+            /** @example Hi {name}, your order {order} has shipped. */
+            template: string;
+            /**
+             * Format: int64
+             * @description SMS segments for every recipient together.
+             */
+            total_segments: number;
+        };
+        BroadcastCounts: {
+            /**
+             * Format: int64
+             * @description Not sent because the broadcast was canceled.
+             */
+            canceled: number;
+            /** Format: int64 */
+            delivered: number;
+            /**
+             * Format: int64
+             * @description Repeated numbers removed at creation.
+             */
+            duplicates: number;
+            /** Format: int64 */
+            failed: number;
+            /**
+             * Format: int64
+             * @description Not sent yet: waiting for their turn, for a phone, or being sent.
+             */
+            queued: number;
+            /**
+             * Format: int64
+             * @description Unique numbers the broadcast sends to (duplicates and opted-out numbers removed).
+             */
+            recipients: number;
+            /**
+             * Format: int64
+             * @description Sent, no delivery report yet.
+             */
+            sent: number;
+            /**
+             * Format: int64
+             * @description Opted-out numbers left out, at creation or when their turn came, and rows the pipeline refused.
+             */
+            skipped: number;
+        };
+        BroadcastCreateInput: {
+            /** @description Send every message through this phone. Leave out to let Bridge pick per message. */
+            device_id?: string;
+            /** @description Validate and preview without creating anything: returns 200 with a preview instead of 201 with the broadcast. */
+            dry_run?: boolean;
+            /** @example October newsletter */
+            name?: string;
+            /** @description Up to 10,000 rows. Numbers are normalised to E.164; repeated numbers are sent once; opted-out numbers are skipped. */
+            recipients: components["schemas"]["BroadcastRecipientInput"][];
+            /**
+             * Format: date-time
+             * @description Send later, at this time (RFC 3339), at most a year ahead. Leave out to start now.
+             */
+            scheduled_at?: string;
+            /** @example Hi {name}, your order {order} has shipped. */
+            template: string;
+        };
+        BroadcastList: {
+            data: components["schemas"]["Broadcast"][];
+            /** @description Pass the last broadcast's ID as starting_after to fetch the next page. */
+            has_more: boolean;
+        };
+        BroadcastPreview: {
+            /** @description Always true: nothing was created. */
+            dry_run: boolean;
+            /**
+             * Format: int64
+             * @description Repeated numbers removed (the first row of each number is kept).
+             */
+            duplicates: number;
+            /**
+             * Format: int64
+             * @description Unique numbers that would receive the message.
+             */
+            recipients: number;
+            /** @description The first rendered messages. */
+            samples: components["schemas"]["BroadcastSample"][];
+            /**
+             * Format: int64
+             * @description Numbers left out because they opted out.
+             */
+            skipped_opted_out: number;
+            /**
+             * Format: int64
+             * @description SMS segments for every recipient together; carriers bill per segment.
+             */
+            total_segments: number;
+        };
+        BroadcastRecipientInput: {
+            /** @example +919876543210 */
+            to: string;
+            /** @description Values for the template's {placeholders}. Every placeholder needs a value for every recipient. */
+            vars?: {
+                [key: string]: string;
+            };
+        };
+        BroadcastSample: {
+            /** @enum {string} */
+            encoding: "gsm7" | "ucs2";
+            /** Format: int64 */
+            segments: number;
+            text: string;
+            /** @example +919876543210 */
+            to: string;
         };
         ChangePasswordRequest: {
             current_password: string;
@@ -1673,7 +2458,7 @@ export interface components {
         CreateWebhookRequest: {
             description?: string;
             /** @description Leave out to receive every event. */
-            events?: ("message.sent" | "message.delivered" | "message.failed" | "message.received" | "device.online" | "device.offline" | "otp.verified" | "otp.failed" | "otp.expired" | "otp.blocked")[];
+            events?: ("message.sent" | "message.delivered" | "message.failed" | "message.received" | "message.auto_replied" | "device.online" | "device.offline" | "otp.verified" | "otp.failed" | "otp.expired" | "otp.blocked" | "broadcast.completed")[];
             /** @example https://example.com/webhooks/bridge */
             url: string;
         };
@@ -1708,6 +2493,23 @@ export interface components {
             secret: string;
             /** @enum {string} */
             status: "active" | "revoked" | "expired";
+        };
+        CreatedForwardingRule: {
+            /** Format: date-time */
+            created_at: string;
+            destinations: components["schemas"]["ForwardingDestination"][];
+            enabled: boolean;
+            /** @example fwr_01ja8z3k5wq2v7c9e4r2n0w6yb */
+            id: string;
+            match: components["schemas"]["ForwardingMatch"];
+            name: string;
+            /**
+             * @description Signs requests to webhook destinations (Standard Webhooks). Reveal it again later.
+             * @example whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw
+             */
+            signing_secret: string;
+            /** Format: date-time */
+            updated_at: string;
         };
         CreatedInvite: {
             /** Format: date-time */
@@ -1812,7 +2614,7 @@ export interface components {
             disabled_reason: string | null;
             enabled: boolean;
             /** @description Subscribed event types. Empty means every event. */
-            events: ("message.sent" | "message.delivered" | "message.failed" | "message.received" | "device.online" | "device.offline" | "otp.verified" | "otp.failed" | "otp.expired" | "otp.blocked")[];
+            events: ("message.sent" | "message.delivered" | "message.failed" | "message.received" | "message.auto_replied" | "device.online" | "device.offline" | "otp.verified" | "otp.failed" | "otp.expired" | "otp.blocked" | "broadcast.completed")[];
             /**
              * Format: date-time
              * @description Start of the current run of failed deliveries. Bridge disables the endpoint after 5 days.
@@ -1987,6 +2789,120 @@ export interface components {
             app_id: string;
             project_id: string;
             sender_id: string;
+        };
+        ForwardingDelivery: {
+            /** Format: int64 */
+            attempts: number;
+            /** Format: date-time */
+            created_at: string;
+            destination_id: string;
+            /** @enum {string} */
+            destination_type: "phone" | "telegram" | "webhook" | "email";
+            error: string | null;
+            /** @description phone: the SMS Bridge sent. */
+            forwarded_message_id: string | null;
+            /** @example fdl_01ja8z3k5wq2v7c9e4r2n0w6yb */
+            id: string;
+            /** @description The incoming SMS. */
+            message_id: string;
+            /**
+             * Format: int32
+             * @description HTTP status from Telegram or the webhook.
+             */
+            response_status: number | null;
+            /** @enum {string} */
+            status: "pending" | "retrying" | "succeeded" | "failed" | "skipped";
+            /** Format: date-time */
+            updated_at: string;
+        };
+        ForwardingDeliveryList: {
+            data: components["schemas"]["ForwardingDelivery"][];
+        };
+        ForwardingDestination: {
+            /** @description telegram: whether a bot token is stored. Tokens are never returned. */
+            bot_token_set: boolean;
+            /** @description telegram: the chat. */
+            chat_id: string | null;
+            /**
+             * @description webhook: json posts the message; slack posts {"text"}; discord posts {"content"}.
+             * @enum {string|null}
+             */
+            format: "json" | "slack" | "discord" | null;
+            /** @example fwd_01ja8z3k5wq2v7c9e4r2n0w6yb */
+            id: string;
+            /** @description phone: the E.164 number; email: the address. */
+            to: string | null;
+            /** @enum {string} */
+            type: "phone" | "telegram" | "webhook" | "email";
+            /** @description webhook: the endpoint. */
+            url: string | null;
+        };
+        ForwardingDestinationInput: {
+            /** @description telegram: the token from @BotFather. Write-only; stored encrypted. */
+            bot_token?: string;
+            /** @description telegram: the numeric chat ID or a channel's @username. */
+            chat_id?: string;
+            /**
+             * @description webhook: default json.
+             * @enum {string}
+             */
+            format?: "json" | "slack" | "discord";
+            /** @description Keep this existing destination (and its stored bot token when bot_token is left out). */
+            id?: string;
+            /** @description phone: an E.164 number; email: an address. */
+            to?: string;
+            /** @enum {string} */
+            type: "phone" | "telegram" | "webhook" | "email";
+            /** @description webhook: the endpoint URL. */
+            url?: string;
+        };
+        ForwardingMatch: {
+            /** @description Only messages containing this text (ignoring case). */
+            contains: string | null;
+            /** @description Exact senders, or prefixes ending in * (e.g. +9198*, AX-*). Empty matches every sender. */
+            senders: string[];
+        };
+        ForwardingMatchInput: {
+            contains?: string;
+            senders?: string[];
+        };
+        ForwardingRule: {
+            /** Format: date-time */
+            created_at: string;
+            destinations: components["schemas"]["ForwardingDestination"][];
+            enabled: boolean;
+            /** @example fwr_01ja8z3k5wq2v7c9e4r2n0w6yb */
+            id: string;
+            match: components["schemas"]["ForwardingMatch"];
+            name: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        ForwardingRuleCreateInput: {
+            destinations: components["schemas"]["ForwardingDestinationInput"][];
+            /** @description Default true. */
+            enabled?: boolean;
+            /** @description Leave out to forward every incoming SMS. */
+            match?: components["schemas"]["ForwardingMatchInput"];
+            name: string;
+        };
+        ForwardingRuleList: {
+            data: components["schemas"]["ForwardingRule"][];
+            /** @description Whether the server has SMTP configured for email destinations. */
+            email_available: boolean;
+            /** @description Whether the server can store Telegram bot tokens (BRIDGE_SECRET_KEY). */
+            telegram_available: boolean;
+        };
+        ForwardingRuleUpdateInput: {
+            /** @description Replaces the list. Include a destination's id to keep it. */
+            destinations?: components["schemas"]["ForwardingDestinationInput"][];
+            enabled?: boolean;
+            /** @description Replaces the whole match. */
+            match?: components["schemas"]["ForwardingMatchInput"];
+            name?: string;
+        };
+        ForwardingSecret: {
+            signing_secret: string;
         };
         HeartbeatPolicy: {
             /**
@@ -2290,6 +3206,33 @@ export interface components {
             /** @description Adds "@domain #code" as the last line so browsers can autofill the code (WebOTP). */
             web_otp_domain?: string | null;
         };
+        OptOut: {
+            /** Format: date-time */
+            created_at: string;
+            /** @example uns_01ja8z3k5wq2v7c9e4r2n0w6yb */
+            id: string;
+            /** @example STOP */
+            keyword: string | null;
+            /** @example +919876543210 */
+            number: string;
+            /**
+             * @description keyword: the person texted STOP (or another opt-out keyword); manual: added in the dashboard; api: added with an API key.
+             * @enum {string}
+             */
+            source: "keyword" | "manual" | "api";
+        };
+        OptOutInput: {
+            /**
+             * @description E.164 number.
+             * @example +919876543210
+             */
+            number: string;
+        };
+        OptOutList: {
+            data: components["schemas"]["OptOut"][];
+            /** @description Pass the last entry's ID as starting_after to fetch the next page. */
+            has_more: boolean;
+        };
         Organization: {
             /** Format: date-time */
             created_at: string;
@@ -2520,6 +3463,130 @@ export interface components {
             display_name?: string;
             /** Format: int32 */
             slot: number;
+        };
+        Schedule: {
+            /** Format: date-time */
+            created_at: string;
+            /** @example Every Mon, Fri at 09:30 (Asia/Kolkata) */
+            description: string;
+            device_id: string | null;
+            /**
+             * Format: date-time
+             * @description No runs after this time.
+             */
+            ends_at: string | null;
+            /** @enum {string} */
+            environment: "live" | "test";
+            /** @example sch_01ja8z3k5wq2v7c9e4r2n0w6yb */
+            id: string;
+            /** @description Why the last run sent nothing, for example an opted-out number. */
+            last_error: string | null;
+            last_message_id: string | null;
+            /** Format: date-time */
+            last_run_at: string | null;
+            message: string;
+            name: string;
+            /** Format: date-time */
+            next_run_at: string | null;
+            paused: boolean;
+            /** Format: int64 */
+            run_count: number;
+            schedule: components["schemas"]["ScheduleTiming"];
+            /**
+             * @description completed: nothing left to send (a past one-off, or after ends_at).
+             * @enum {string}
+             */
+            status: "active" | "paused" | "completed";
+            /** @example +919876543210 */
+            to: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        ScheduleCreateInput: {
+            /** @description Send through this phone. Leave out to let Bridge pick. */
+            device_id?: string;
+            /**
+             * Format: date-time
+             * @description Stop repeating after this time.
+             */
+            ends_at?: string;
+            message: string;
+            /** @example Weekly reminder */
+            name?: string;
+            /** @description Create it paused. */
+            paused?: boolean;
+            schedule: components["schemas"]["ScheduleTimingInput"];
+            /** @example +919876543210 */
+            to: string;
+        };
+        ScheduleList: {
+            data: components["schemas"]["Schedule"][];
+            /** @description Pass the last schedule's ID as starting_after to fetch the next page. */
+            has_more: boolean;
+        };
+        ScheduleTiming: {
+            /**
+             * @description 24-hour wall-clock time in time_zone.
+             * @example 09:30
+             */
+            at: string;
+            /**
+             * @description once: the date, YYYY-MM-DD.
+             * @example 2026-12-24
+             */
+            date: string | null;
+            /**
+             * Format: int64
+             * @description monthly: the day, 1 to 31; months without that day use their last day.
+             */
+            day_of_month: number | null;
+            /** @description weekly: the weekdays it is sent on. */
+            days: ("mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun")[];
+            /** @enum {string} */
+            kind: "once" | "daily" | "weekly" | "monthly";
+            /**
+             * @description IANA time zone. Times follow its daylight-saving rules.
+             * @example Asia/Kolkata
+             */
+            time_zone: string;
+        };
+        ScheduleTimingInput: {
+            /**
+             * @description 24-hour wall-clock time in time_zone.
+             * @example 09:30
+             */
+            at: string;
+            /**
+             * @description once (required): YYYY-MM-DD.
+             * @example 2026-12-24
+             */
+            date?: string;
+            /**
+             * Format: int64
+             * @description monthly (required): 1 to 31; months without that day use their last day.
+             */
+            day_of_month?: number;
+            /** @description weekly (required): the weekdays to send on. */
+            days?: ("mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun")[];
+            /** @enum {string} */
+            kind: "once" | "daily" | "weekly" | "monthly";
+            /**
+             * @description IANA time zone name.
+             * @example Asia/Kolkata
+             */
+            time_zone: string;
+        };
+        ScheduleUpdateInput: {
+            /** @description An empty string lets Bridge pick the phone. */
+            device_id?: string;
+            /** @description RFC 3339 time; an empty string removes the end. */
+            ends_at?: string;
+            message?: string;
+            name?: string;
+            paused?: boolean;
+            /** @description Replaces the whole timing; the next run is computed again. */
+            schedule?: components["schemas"]["ScheduleTimingInput"];
+            to?: string;
         };
         SelfDevice: {
             /** @example 15 */
@@ -2830,7 +3897,7 @@ export interface components {
             description?: string;
             enabled?: boolean;
             /** @description Replaces the subscription. An empty list subscribes to every event. */
-            events?: ("message.sent" | "message.delivered" | "message.failed" | "message.received" | "device.online" | "device.offline" | "otp.verified" | "otp.failed" | "otp.expired" | "otp.blocked")[];
+            events?: ("message.sent" | "message.delivered" | "message.failed" | "message.received" | "message.auto_replied" | "device.online" | "device.offline" | "otp.verified" | "otp.failed" | "otp.expired" | "otp.blocked" | "broadcast.completed")[];
             url?: string;
         };
         Usage: {
@@ -3247,7 +4314,7 @@ export interface components {
             disabled_reason: string | null;
             enabled: boolean;
             /** @description Subscribed event types. Empty means every event. */
-            events: ("message.sent" | "message.delivered" | "message.failed" | "message.received" | "device.online" | "device.offline" | "otp.verified" | "otp.failed" | "otp.expired" | "otp.blocked")[];
+            events: ("message.sent" | "message.delivered" | "message.failed" | "message.received" | "message.auto_replied" | "device.online" | "device.offline" | "otp.verified" | "otp.failed" | "otp.expired" | "otp.blocked" | "broadcast.completed")[];
             /**
              * Format: date-time
              * @description Start of the current run of failed deliveries. Bridge disables the endpoint after 5 days.
@@ -3339,9 +4406,20 @@ export type AddProviderRequest = components['schemas']['AddProviderRequest'];
 export type AuditActor = components['schemas']['AuditActor'];
 export type AuditEntry = components['schemas']['AuditEntry'];
 export type AuditList = components['schemas']['AuditList'];
+export type AutoReplyRule = components['schemas']['AutoReplyRule'];
+export type AutoReplyRuleCreateInput = components['schemas']['AutoReplyRuleCreateInput'];
+export type AutoReplyRuleList = components['schemas']['AutoReplyRuleList'];
+export type AutoReplyRuleUpdateInput = components['schemas']['AutoReplyRuleUpdateInput'];
 export type Block = components['schemas']['Block'];
 export type BlockList = components['schemas']['BlockList'];
 export type BlockStats = components['schemas']['BlockStats'];
+export type Broadcast = components['schemas']['Broadcast'];
+export type BroadcastCounts = components['schemas']['BroadcastCounts'];
+export type BroadcastCreateInput = components['schemas']['BroadcastCreateInput'];
+export type BroadcastList = components['schemas']['BroadcastList'];
+export type BroadcastPreview = components['schemas']['BroadcastPreview'];
+export type BroadcastRecipientInput = components['schemas']['BroadcastRecipientInput'];
+export type BroadcastSample = components['schemas']['BroadcastSample'];
 export type ChangePasswordRequest = components['schemas']['ChangePasswordRequest'];
 export type CheckProviderResponse = components['schemas']['CheckProviderResponse'];
 export type CheckWidgetCodeRequest = components['schemas']['CheckWidgetCodeRequest'];
@@ -3350,6 +4428,7 @@ export type CreateIntegrationRequest = components['schemas']['CreateIntegrationR
 export type CreateInviteRequest = components['schemas']['CreateInviteRequest'];
 export type CreateWebhookRequest = components['schemas']['CreateWebhookRequest'];
 export type CreatedApiKey = components['schemas']['CreatedAPIKey'];
+export type CreatedForwardingRule = components['schemas']['CreatedForwardingRule'];
 export type CreatedInvite = components['schemas']['CreatedInvite'];
 export type CreatedVerifyApp = components['schemas']['CreatedVerifyApp'];
 export type CreatedWebhookEndpoint = components['schemas']['CreatedWebhookEndpoint'];
@@ -3363,6 +4442,17 @@ export type DeviceUsage = components['schemas']['DeviceUsage'];
 export type ErrorBody = components['schemas']['ErrorBody'];
 export type ErrorDetail = components['schemas']['ErrorDetail'];
 export type FcmClientConfig = components['schemas']['FCMClientConfig'];
+export type ForwardingDelivery = components['schemas']['ForwardingDelivery'];
+export type ForwardingDeliveryList = components['schemas']['ForwardingDeliveryList'];
+export type ForwardingDestination = components['schemas']['ForwardingDestination'];
+export type ForwardingDestinationInput = components['schemas']['ForwardingDestinationInput'];
+export type ForwardingMatch = components['schemas']['ForwardingMatch'];
+export type ForwardingMatchInput = components['schemas']['ForwardingMatchInput'];
+export type ForwardingRule = components['schemas']['ForwardingRule'];
+export type ForwardingRuleCreateInput = components['schemas']['ForwardingRuleCreateInput'];
+export type ForwardingRuleList = components['schemas']['ForwardingRuleList'];
+export type ForwardingRuleUpdateInput = components['schemas']['ForwardingRuleUpdateInput'];
+export type ForwardingSecret = components['schemas']['ForwardingSecret'];
 export type HeartbeatPolicy = components['schemas']['HeartbeatPolicy'];
 export type Integration = components['schemas']['Integration'];
 export type Invite = components['schemas']['Invite'];
@@ -3381,6 +4471,9 @@ export type MessageList = components['schemas']['MessageList'];
 export type NameBody = components['schemas']['NameBody'];
 export type OtpSettings = components['schemas']['OTPSettings'];
 export type OtpSettingsInput = components['schemas']['OTPSettingsInput'];
+export type OptOut = components['schemas']['OptOut'];
+export type OptOutInput = components['schemas']['OptOutInput'];
+export type OptOutList = components['schemas']['OptOutList'];
 export type Organization = components['schemas']['Organization'];
 export type OtpSendBody = components['schemas']['OtpSendBody'];
 export type OtpVerifyBody = components['schemas']['OtpVerifyBody'];
@@ -3399,6 +4492,12 @@ export type RequestLogList = components['schemas']['RequestLogList'];
 export type RevokedSessions = components['schemas']['RevokedSessions'];
 export type Routing = components['schemas']['Routing'];
 export type Sim = components['schemas']['SIM'];
+export type Schedule = components['schemas']['Schedule'];
+export type ScheduleCreateInput = components['schemas']['ScheduleCreateInput'];
+export type ScheduleList = components['schemas']['ScheduleList'];
+export type ScheduleTiming = components['schemas']['ScheduleTiming'];
+export type ScheduleTimingInput = components['schemas']['ScheduleTimingInput'];
+export type ScheduleUpdateInput = components['schemas']['ScheduleUpdateInput'];
 export type SelfDevice = components['schemas']['SelfDevice'];
 export type SendBody = components['schemas']['SendBody'];
 export type SendWidgetCodeRequest = components['schemas']['SendWidgetCodeRequest'];
@@ -3565,6 +4664,261 @@ export interface operations {
             };
             /** @description Forbidden */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    listBroadcasts: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description A broadcast ID; returns broadcasts created before it. */
+                starting_after?: string;
+                status?: "scheduled" | "sending" | "completed" | "canceled";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BroadcastList"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    createBroadcast: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BroadcastCreateInput"];
+            };
+        };
+        responses: {
+            /** @description dry_run: what the broadcast would send. Nothing was created. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BroadcastPreview"];
+                };
+            };
+            /** @description The broadcast was created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Broadcast"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    getBroadcast: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                broadcastId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Broadcast"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    cancelBroadcast: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                broadcastId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Broadcast"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Not Found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4571,6 +5925,225 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["MessageDetail"];
                 };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    listOptOuts: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description An opt-out ID; returns entries created before it. */
+                starting_after?: string;
+                source?: "keyword" | "manual" | "api";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OptOutList"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    addOptOut: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OptOutInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OptOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    getOptOut: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The number, URL-encoded (%2B for +) or as is. */
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OptOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    removeOptOut: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The number, URL-encoded (%2B for +) or as is. */
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Unauthorized */
             401: {
@@ -5900,6 +7473,524 @@ export interface operations {
             };
         };
     };
+    listAutoReplyRules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AutoReplyRuleList"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    createAutoReplyRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AutoReplyRuleCreateInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AutoReplyRule"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    getAutoReplyRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                ruleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AutoReplyRule"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    deleteAutoReplyRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                ruleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    updateAutoReplyRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                ruleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AutoReplyRuleUpdateInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AutoReplyRule"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    listProjectBroadcasts: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description A broadcast ID; returns broadcasts created before it. */
+                starting_after?: string;
+                status?: "scheduled" | "sending" | "completed" | "canceled";
+                environment?: "live" | "test";
+            };
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BroadcastList"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    createProjectBroadcast: {
+        parameters: {
+            query?: {
+                environment?: "live" | "test";
+            };
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BroadcastCreateInput"];
+            };
+        };
+        responses: {
+            /** @description dry_run: what the broadcast would send. Nothing was created. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BroadcastPreview"];
+                };
+            };
+            /** @description The broadcast was created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Broadcast"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    getProjectBroadcast: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                broadcastId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Broadcast"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    cancelProjectBroadcast: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                broadcastId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Broadcast"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
     listProjectDevices: {
         parameters: {
             query?: never;
@@ -6184,6 +8275,380 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WakeResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    listForwardingRules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ForwardingRuleList"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    createForwardingRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ForwardingRuleCreateInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedForwardingRule"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    getForwardingRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                ruleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ForwardingRule"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    deleteForwardingRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                ruleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    updateForwardingRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                ruleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ForwardingRuleUpdateInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ForwardingRule"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    listForwardingDeliveries: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                projectId: string;
+                ruleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ForwardingDeliveryList"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    getForwardingRuleSecret: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                ruleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ForwardingSecret"];
                 };
             };
             /** @description Not Found */
@@ -6594,6 +9059,213 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["MessageDetail"];
                 };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    listProjectOptOuts: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description An opt-out ID; returns entries created before it. */
+                starting_after?: string;
+                source?: "keyword" | "manual" | "api";
+            };
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OptOutList"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    addProjectOptOut: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OptOutInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OptOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    exportProjectOptOuts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description CSV file */
+            200: {
+                headers: {
+                    "Content-Disposition"?: string;
+                    "Content-Type"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    removeProjectOptOut: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                /** @description The number, URL-encoded (%2B for +) or as is. */
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Not Found */
             404: {
@@ -7436,6 +10108,471 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Routing"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    listProjectSchedules: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description A schedule ID; returns schedules created before it. */
+                starting_after?: string;
+                environment?: "live" | "test";
+            };
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScheduleList"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    createProjectSchedule: {
+        parameters: {
+            query?: {
+                environment?: "live" | "test";
+            };
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScheduleCreateInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Schedule"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    getProjectSchedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                scheduleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Schedule"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    deleteProjectSchedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                scheduleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    updateProjectSchedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                scheduleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScheduleUpdateInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Schedule"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    pauseProjectSchedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                scheduleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Schedule"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    resumeProjectSchedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                scheduleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Schedule"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    runProjectSchedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                scheduleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Schedule"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
                 };
             };
             /** @description Not Found */
@@ -8621,6 +11758,458 @@ export interface operations {
             };
             /** @description Unauthorized */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    listSchedules: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description A schedule ID; returns schedules created before it. */
+                starting_after?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScheduleList"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    createSchedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScheduleCreateInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Schedule"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    getSchedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scheduleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Schedule"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    deleteSchedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scheduleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    updateSchedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scheduleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScheduleUpdateInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Schedule"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    pauseSchedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scheduleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Schedule"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    resumeSchedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scheduleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Schedule"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    runSchedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scheduleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Schedule"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Not Found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
