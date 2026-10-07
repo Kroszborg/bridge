@@ -1,8 +1,17 @@
 {
-  "name": "@bridge/sdk",
-  "version": "0.1.0",
-  "description": "TypeScript SDK for the Bridge SMS API: send messages, follow delivery, verify webhooks.",
+  "name": "@kroszborg/bridge",
+  "version": "0.4.0-rc.1",
+  "description": "TypeScript SDK for Bridge, open-source SMS through your own Android phones: send messages, follow delivery, verify phone numbers, stream events and verify webhooks.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kroszborg/bridge.git",
+    "directory": "packages/sdk"
+  },
+  "homepage": "https://github.com/kroszborg/bridge/tree/main/packages/sdk#readme",
+  "bugs": {
+    "url": "https://github.com/kroszborg/bridge/issues"
+  },
   "type": "module",
   "sideEffects": false,
   "exports": {
@@ -39,5 +48,8 @@
     "tsdown": "0.23.0",
     "typescript": "7.0.2",
     "vitest": "5.0.3"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

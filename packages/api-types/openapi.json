@@ -8786,7 +8786,7 @@
     "/v1/projects/{projectId}/request-logs": {
       "get": {
         "description": "Requests made with the project's API keys, newest first. Kept for BRIDGE_REQUEST_LOG_RETENTION (default 14 days).",
-        "operationId": "listRequestLogs",
+        "operationId": "listProjectRequestLogs",
         "parameters": [
           {
             "in": "path",
@@ -8797,19 +8797,6 @@
                 "prj_01j9tq4m2xk3v8c7e5r2n0w6yb"
               ],
               "pattern": "^prj_[0-9a-z]{26}$",
-              "type": "string"
-            }
-          },
-          {
-            "explode": false,
-            "in": "query",
-            "name": "environment",
-            "schema": {
-              "default": "live",
-              "enum": [
-                "live",
-                "test"
-              ],
               "type": "string"
             }
           },
@@ -8884,6 +8871,19 @@
             "name": "starting_after",
             "schema": {
               "description": "A log entry ID; returns entries before it.",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "environment",
+            "schema": {
+              "default": "live",
+              "enum": [
+                "live",
+                "test"
+              ],
               "type": "string"
             }
           }
@@ -9907,6 +9907,139 @@
         "summary": "Send a test event",
         "tags": [
           "Webhooks"
+        ]
+      }
+    },
+    "/v1/request-logs": {
+      "get": {
+        "description": "Requests made with the project's keys of this key's environment, newest first: method, path, status, error code, duration and the resource they touched. Never bodies or headers.",
+        "operationId": "listRequestLogs",
+        "parameters": [
+          {
+            "description": "success is 2xx; error is 4xx and 5xx.",
+            "explode": false,
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "description": "success is 2xx; error is 4xx and 5xx.",
+              "enum": [
+                "success",
+                "error",
+                "2xx",
+                "4xx",
+                "5xx"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "method",
+            "schema": {
+              "enum": [
+                "GET",
+                "POST",
+                "PUT",
+                "PATCH",
+                "DELETE"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "api_key_id",
+            "schema": {
+              "pattern": "^key_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Only paths starting with this, e.g. /v1/messages.",
+            "explode": false,
+            "in": "query",
+            "name": "path",
+            "schema": {
+              "description": "Only paths starting with this, e.g. /v1/messages.",
+              "maxLength": 200,
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "format": "int64",
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "A log entry ID; returns entries before it.",
+            "explode": false,
+            "in": "query",
+            "name": "starting_after",
+            "schema": {
+              "description": "A log entry ID; returns entries before it.",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestLogList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List API requests",
+        "tags": [
+          "Developer API"
         ]
       }
     },

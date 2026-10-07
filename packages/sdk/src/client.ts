@@ -4,15 +4,23 @@ import type {
   MessageDetail,
   MessageList,
   operations,
+  RequestLog,
+  RequestLogList,
   Usage,
+  UsageHistory,
   Verification,
   VerifyResult,
   WhoAmI,
 } from '@bridge/api-types';
 import { BridgeApiError, BridgeConnectionError, type BridgeErrorDetail } from './errors';
-import { type VerifyWebhookOptions, verifyWebhook, type WebhookEvent } from './webhooks';
+import {
+  type VerifyWebhookOptions,
+  verifyWebhook,
+  type WebhookEvent,
+  type WebhookEventType,
+} from './webhooks';
 
-export const VERSION = '0.1.0';
+export const VERSION = '0.4.0-rc.1';
 
 const DEFAULT_BASE_URL = 'http://localhost:8080';
 
@@ -71,6 +79,28 @@ export type SendOtpParams =
 export type VerifyOtpParams =
   operations['checkVerification']['requestBody']['content']['application/json'];
 
+/** Options of `bridge.usageHistory`. */
+export type UsageHistoryParams = NonNullable<operations['getUsageHistory']['parameters']['query']>;
+
+/** Filters of `bridge.requestLogs.list`. */
+export type ListRequestLogsParams = NonNullable<
+  operations['listRequestLogs']['parameters']['query']
+>;
+
+/** An event from `bridge.events.stream`: the same envelope a webhook receives, plus its ID. */
+export type StreamEvent = WebhookEvent & { id: string };
+
+export interface StreamOptions {
+  /** Only these event types. Default: every event. */
+  types?: WebhookEventType[];
+  /** Stops the stream; the iterator then ends without an error. */
+  signal?: AbortSignal;
+  /** Reconnect after the connection drops. Default true. */
+  reconnect?: boolean;
+  /** Called each time the stream (re)connects. */
+  onConnect?: () => void;
+}
+
 /** A sent message, with whether it was a replay of an earlier request with the same idempotency key. */
 export type SendResult = Message & {
   /** True when an earlier request with this idempotency key already created the message. */
@@ -123,6 +153,8 @@ export class Bridge {
   readonly messages: Messages;
   readonly devices: Devices;
   readonly otp: Otp;
+  readonly requestLogs: RequestLogs;
+  readonly events: Events;
   readonly webhooks: Webhooks;
   private readonly apiKey: string;
   private readonly timeoutMs: number;
@@ -160,6 +192,8 @@ export class Bridge {
     this.messages = new Messages(this);
     this.devices = new Devices(this);
     this.otp = new Otp(this);
+    this.requestLogs = new RequestLogs(this);
+    this.events = new Events(this);
     this.webhooks = new Webhooks(options.webhookSecret ?? env('BRIDGE_WEBHOOK_SECRET'));
   }
 
@@ -186,6 +220,51 @@ export class Bridge {
       idempotent: true,
       options,
     }).then((r) => r.body);
+  }
+
+  /**
+   * Daily counts for the key's environment: outgoing by status, incoming, API
+   * requests and errors, p95 latency, and a per-phone breakdown.
+   */
+  usageHistory(params: UsageHistoryParams = {}, options?: RequestOptions): Promise<UsageHistory> {
+    return this.request<UsageHistory>({
+      method: 'GET',
+      path: '/v1/usage/history',
+      query: params,
+      idempotent: true,
+      options,
+    }).then((r) => r.body);
+  }
+
+  /** @internal Opens a Server-Sent Events response. */
+  async openStream(
+    path: string,
+    query: Record<string, string>,
+    signal: AbortSignal,
+  ): Promise<Response> {
+    const url = new URL(this.baseUrl + path);
+    for (const [k, v] of Object.entries(query)) if (v) url.searchParams.set(k, v);
+    let res: Response;
+    try {
+      res = await this.fetchImpl(url, {
+        headers: {
+          accept: 'text/event-stream',
+          authorization: `Bearer ${this.apiKey}`,
+          'user-agent': `bridge-sdk-ts/${VERSION}`,
+        },
+        signal,
+      });
+    } catch (err) {
+      if (signal.aborted) throw signal.reason;
+      throw new BridgeConnectionError(
+        `Could not reach Bridge at ${this.baseUrl}: ${err instanceof Error ? err.message : String(err)}`,
+        { cause: err, timedOut: false },
+      );
+    }
+    if (!res.ok) throw await toApiError(res);
+    if (!res.body)
+      throw new BridgeConnectionError('The event stream returned no body.', { timedOut: false });
+    return res;
   }
 
   /** @internal */
@@ -409,6 +488,158 @@ export class Devices {
       options,
     });
     return body;
+  }
+}
+
+/** `bridge.requestLogs`: the API requests made with the project's keys of this key's environment. */
+export class RequestLogs {
+  constructor(private readonly client: Bridge) {}
+
+  /** One page, newest first. Pass the last ID as `starting_after` for the next page. */
+  async list(
+    params: ListRequestLogsParams = {},
+    options?: RequestOptions,
+  ): Promise<RequestLogList> {
+    const { body } = await this.client.request<RequestLogList>({
+      method: 'GET',
+      path: '/v1/request-logs',
+      query: params,
+      idempotent: true,
+      options,
+    });
+    return body;
+  }
+
+  /** Every entry matching the filters, newest first, fetching pages as you iterate. */
+  async *listAll(
+    params: Omit<ListRequestLogsParams, 'starting_after'> = {},
+    options?: RequestOptions,
+  ): AsyncGenerator<RequestLog, void, undefined> {
+    let cursor: string | undefined;
+    for (;;) {
+      const page = await this.list({ limit: 100, ...params, starting_after: cursor }, options);
+      yield* page.data;
+      const last = page.data.at(-1);
+      if (!page.has_more || !last) return;
+      cursor = last.id;
+    }
+  }
+}
+
+/** `bridge.events`: the project's events as they happen. */
+export class Events {
+  constructor(private readonly client: Bridge) {}
+
+  /**
+   * Streams events (the same ones webhooks receive) for this key's
+   * environment, reconnecting after drops. The stream is live only: events
+   * that happen while disconnected are not replayed, so use webhooks where
+   * every event matters.
+   *
+   * ```ts
+   * const stop = new AbortController();
+   * for await (const event of bridge.events.stream({ types: ['message.delivered'], signal: stop.signal })) {
+   *   console.log(event.type, event.data.id);
+   * }
+   * ```
+   */
+  async *stream(options: StreamOptions = {}): AsyncGenerator<StreamEvent, void, undefined> {
+    const signal = options.signal ?? new AbortController().signal;
+    const query = { types: (options.types ?? []).join(',') };
+    let retryMs = 3_000;
+    for (let attempt = 0; ; attempt++) {
+      if (signal.aborted) return;
+      let res: Response;
+      try {
+        res = await this.client.openStream('/v1/events/stream', query, signal);
+      } catch (err) {
+        if (signal.aborted) return;
+        // Bad keys and bad filters will not fix themselves.
+        const permanent = err instanceof BridgeApiError && err.status < 500 && err.status !== 429;
+        if (permanent || options.reconnect === false) throw err;
+        await sleepUnlessAborted(Math.min(retryMs * 2 ** Math.min(attempt, 4), 60_000), signal);
+        continue;
+      }
+      attempt = 0;
+      options.onConnect?.();
+      try {
+        for await (const frame of sseFrames(res.body as ReadableStream<Uint8Array>, signal)) {
+          if (frame.retry !== undefined) retryMs = frame.retry;
+          if (!frame.data) continue;
+          const envelope = JSON.parse(frame.data) as WebhookEvent;
+          yield { ...envelope, id: frame.id ?? '' } as StreamEvent;
+          if (signal.aborted) return;
+        }
+      } catch (err) {
+        if (signal.aborted) return;
+        if (options.reconnect === false) throw err;
+      }
+      if (options.reconnect === false) return;
+      await sleepUnlessAborted(retryMs, signal);
+    }
+  }
+}
+
+async function sleepUnlessAborted(ms: number, signal: AbortSignal): Promise<void> {
+  try {
+    await sleep(ms, signal);
+  } catch {
+    // Aborted: the caller checks the signal.
+  }
+}
+
+interface SseFrame {
+  id?: string;
+  event?: string;
+  data: string;
+  retry?: number;
+}
+
+/** Parses a Server-Sent Events body into frames. Comments (": ping") are skipped. */
+export async function* sseFrames(
+  body: ReadableStream<Uint8Array>,
+  signal?: AbortSignal,
+): AsyncGenerator<SseFrame> {
+  const reader = body.getReader();
+  // An idle stream would otherwise wait for the next ping after an abort.
+  const cancel = () => void reader.cancel().catch(() => undefined);
+  signal?.addEventListener('abort', cancel, { once: true });
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let frame: SseFrame = { data: '' };
+  let hasData = false;
+  try {
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) return;
+      buffer += decoder.decode(value, { stream: true });
+      // Split on \n only: a \r\n broken across two chunks must not end a frame early.
+      const lines = buffer.split('\n');
+      buffer = lines.pop() ?? '';
+      for (const raw of lines) {
+        const line = raw.endsWith('\r') ? raw.slice(0, -1) : raw;
+        if (line === '') {
+          if (hasData || frame.retry !== undefined) yield frame;
+          frame = { data: '' };
+          hasData = false;
+          continue;
+        }
+        if (line.startsWith(':')) continue;
+        const colon = line.indexOf(':');
+        const field = colon === -1 ? line : line.slice(0, colon);
+        let val = colon === -1 ? '' : line.slice(colon + 1);
+        if (val.startsWith(' ')) val = val.slice(1);
+        if (field === 'data') {
+          frame.data = hasData ? `${frame.data}\n${val}` : val;
+          hasData = true;
+        } else if (field === 'id') frame.id = val;
+        else if (field === 'event') frame.event = val;
+        else if (field === 'retry' && /^\d+$/.test(val)) frame.retry = Number(val);
+      }
+    }
+  } finally {
+    signal?.removeEventListener('abort', cancel);
+    reader.releaseLock();
   }
 }
 

@@ -7,7 +7,7 @@
 // Bridge, or expose this one with a tunnel.
 
 import http from 'node:http';
-import { verifyWebhook, WebhookVerificationError } from '@bridge/sdk';
+import { verifyWebhook, WebhookVerificationError } from '@kroszborg/bridge';
 
 const secret = process.env.BRIDGE_WEBHOOK_SECRET;
 if (!secret) {

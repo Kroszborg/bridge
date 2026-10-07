@@ -63,6 +63,9 @@ bridgectl otp send +919876543210                   # one-time password (test key
 bridgectl otp verify +919876543210 482913          # exit status 1 when the code is not valid
 bridgectl otp get otp_06gh…                        # a verification and its SMS
 
+bridgectl logs --status error                      # API requests made with this environment's keys
+bridgectl logs --path /v1/otp --limit 50
+
 bridgectl devices                                  # presence, battery, send window, forwarding
 bridgectl usage --days 30 --tz Asia/Kolkata        # daily volume and delivery rate
 ```

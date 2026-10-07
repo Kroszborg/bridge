@@ -250,6 +250,8 @@ wake:     FCM high-priority data message when a job is queued for an offline dev
 - [x] Templates with `{code}`, `{app}`, `{minutes}`; Android SMS Retriever hash; WebOTP domain line
 - [x] Test keys return the code; test and live verifications are separate
 - [x] SDK `bridge.otp`, `bridgectl otp`, dashboard Verify page, docs
+- [x] SDK parity: event stream (reconnecting SSE iterator), request logs (`GET /v1/request-logs` for keys), usage history; `bridgectl logs`
+- [x] npm publishing of `@kroszborg/bridge` from the release workflow (trusted publishing, `next` for pre-releases)
 - [ ] Verified on a physical phone, including Android autofill
 
 **Milestone 6 (v0.3):** teams, account security and operations.

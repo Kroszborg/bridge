@@ -261,6 +261,51 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release upload "$GITHUB_REF_NAME" ./* --clobber --repo "$GITHUB_REPOSITORY"
 
+  # Set the repository variable NPM_PUBLISH=true once the package can be published:
+  # trusted publishing configured on npmjs.com, or an NPM_TOKEN secret for the first release.
+  npm:
+    name: SDK on npm
+    needs: [prepare, ci]
+    if: vars.NPM_PUBLISH == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+    defaults:
+      run:
+        working-directory: packages/sdk
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      - name: Trusted publishing needs npm 11.5 or newer
+        run: npm install -g npm@11
+      - run: pnpm install --frozen-lockfile --filter "@kroszborg/bridge..."
+      - name: Stamp the version
+        run: |
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
+          sed -i "s/^export const VERSION = '.*';/export const VERSION = '$VERSION';/" src/client.ts
+      - run: pnpm build
+      - name: Publish
+        run: |
+          if npm view "@kroszborg/bridge@$VERSION" version > /dev/null 2>&1; then
+            echo "@kroszborg/bridge@$VERSION is already on npm."; exit 0
+          fi
+          # Workspace-only dev dependencies mean nothing outside this repository.
+          npm pkg delete devDependencies
+          tag=latest
+          if [[ "$VERSION" == *-* ]]; then tag=next; fi
+          flags=(--access public --tag "$tag")
+          if [ "$ATTEST" = true ]; then flags+=(--provenance); fi
+          npm publish "${flags[@]}"
+
   publish:
     name: Publish release
     needs: [binaries, images-merge, android]

@@ -7,6 +7,19 @@ they are always called out here with migration steps.
 
 ## [Unreleased]
 
+### Added
+
+- `GET /v1/request-logs` for API keys: the project's requests in the key's environment.
+- SDK: `bridge.events.stream()` (live events with reconnects), `bridge.requestLogs.list()` and
+  `listAll()`, and `bridge.usageHistory()`. The SDK is published to npm as `@kroszborg/bridge`.
+- `bridgectl logs` with status, method and path filters.
+
+### Changed
+
+- The SDK package is renamed from the `@bridge/sdk` placeholder to `@kroszborg/bridge`.
+- The dashboard's request log endpoint's operation ID is now `listProjectRequestLogs`;
+  `listRequestLogs` is the API-key endpoint.
+
 ## [0.4.0-rc.1] - 2026-10-07
 
 The first pre-release: everything from the Android gateway (v0.1) through inbound SMS and

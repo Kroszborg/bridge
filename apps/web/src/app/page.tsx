@@ -65,8 +65,8 @@ const snippets = [
   {
     id: 'ts',
     label: 'TypeScript',
-    language: '@bridge/sdk',
-    code: `import { Bridge } from '@bridge/sdk';
+    language: '@kroszborg/bridge',
+    code: `import { Bridge } from '@kroszborg/bridge';
 
 const bridge = new Bridge({ apiKey: process.env.BRIDGE_API_KEY });
 
@@ -81,7 +81,7 @@ const final = await bridge.messages.waitFor(msg.id); // delivered, or failed wit
     id: 'webhook',
     label: 'Webhooks',
     language: 'Node.js',
-    code: `import { verifyWebhook } from '@bridge/sdk';
+    code: `import { verifyWebhook } from '@kroszborg/bridge';
 
 app.post('/webhooks/bridge', express.raw({ type: 'application/json' }), async (req, res) => {
   const event = await verifyWebhook({

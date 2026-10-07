@@ -10,6 +10,6 @@
     "webhooks": "node webhook-server.mjs"
   },
   "dependencies": {
-    "@bridge/sdk": "workspace:*"
+    "@kroszborg/bridge": "workspace:*"
   }
 }

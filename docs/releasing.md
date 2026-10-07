@@ -13,6 +13,7 @@ re-running the release overwrites them.)
 | `bridge-api` and `bridge-dashboard` images (amd64, arm64) | `ghcr.io/kroszborg/…` and Docker Hub `kroszborg/…` | Docker Buildx, native runner per architecture |
 | `bridge-gateway-<version>-foss.apk` and `-gms.apk`, signed | GitHub release | Gradle |
 | `checksums.txt`, `apk-checksums.txt` | GitHub release | GoReleaser, the workflow |
+| `@kroszborg/bridge` (TypeScript SDK) | npm (`latest`, or `next` for pre-releases) | npm, when `NPM_PUBLISH` is `true` |
 
 Every binary, archive, image and APK gets a signed build provenance attestation, so anyone can check
 it was built from this repository by this workflow:
@@ -74,6 +75,21 @@ commit it (`*.jks` and `*.keystore` are git-ignored). Then add these secrets:
 | `BRIDGE_KEY_PASSWORD` | The key password (the same as the keystore password for PKCS12) |
 
 Without `BRIDGE_KEYSTORE_BASE64`, a release has no APKs and the run shows a warning.
+
+### npm
+
+The SDK is published by the `SDK on npm` job, which runs only when the repository **variable**
+`NPM_PUBLISH` is `true`. npm lets you set up trusted publishing only for a package that already
+exists, so the first release needs a token:
+
+1. Create a granular access token on npmjs.com that can publish to `@kroszborg`, and add it as the
+   secret `NPM_TOKEN`. Set the variable `NPM_PUBLISH=true`, then cut a release.
+2. On npmjs.com, open `@kroszborg/bridge` → **Settings** → **Trusted publishing**, and add GitHub
+   Actions with repository `kroszborg/bridge` and workflow `release.yml`.
+3. Delete the `NPM_TOKEN` secret. Later releases publish through OIDC, with no stored token.
+
+Provenance (`--provenance`) is added while the repository is public. The job skips a version that
+is already on npm, so re-running a release is safe.
 
 ## Cutting a release
 

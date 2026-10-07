@@ -1,11 +1,11 @@
 # Bridge with Node.js
 
-Two small scripts using [`@bridge/sdk`](../../packages/sdk/README.md): one sends an SMS and follows
+Two small scripts using [`@kroszborg/bridge`](../../packages/sdk/README.md): one sends an SMS and follows
 it to delivery, the other receives and verifies webhooks.
 
 ```bash
 pnpm install
-pnpm --filter @bridge/sdk build
+pnpm --filter @kroszborg/bridge build
 cd examples/node
 ```
 

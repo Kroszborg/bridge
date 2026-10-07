@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"net/http"
@@ -49,64 +50,80 @@ func toRequestLog(l dbq.APIRequestLog) RequestLog {
 	return out
 }
 
+// RequestLogQuery filters request logs.
+type RequestLogQuery struct {
+	Status        string `query:"status" enum:"success,error,2xx,4xx,5xx" doc:"success is 2xx; error is 4xx and 5xx."`
+	Method        string `query:"method" enum:"GET,POST,PUT,PATCH,DELETE"`
+	APIKeyID      string `query:"api_key_id" pattern:"^key_[0-9a-z]{26}$"`
+	Path          string `query:"path" maxLength:"200" doc:"Only paths starting with this, e.g. /v1/messages."`
+	Limit         int    `query:"limit" minimum:"1" maximum:"100" default:"50"`
+	StartingAfter string `query:"starting_after" doc:"A log entry ID; returns entries before it."`
+}
+
 func (s *Server) registerLogs(api huma.API) {
 	huma.Register(api, huma.Operation{
-		OperationID: "listRequestLogs", Method: http.MethodGet, Path: "/v1/projects/{projectId}/request-logs", Tags: []string{"Logs"},
+		OperationID: "listProjectRequestLogs", Method: http.MethodGet, Path: "/v1/projects/{projectId}/request-logs", Tags: []string{"Logs"},
 		Summary:     "List API requests",
 		Description: "Requests made with the project's API keys, newest first. Kept for BRIDGE_REQUEST_LOG_RETENTION (default 14 days).",
 		Security:    sessionAuth, Errors: []int{http.StatusNotFound},
 	}, func(ctx context.Context, in *struct {
 		ProjectPath
-		Environment   string `query:"environment" enum:"live,test" default:"live"`
-		Status        string `query:"status" enum:"success,error,2xx,4xx,5xx" doc:"success is 2xx; error is 4xx and 5xx."`
-		Method        string `query:"method" enum:"GET,POST,PUT,PATCH,DELETE"`
-		APIKeyID      string `query:"api_key_id" pattern:"^key_[0-9a-z]{26}$"`
-		Path          string `query:"path" maxLength:"200" doc:"Only paths starting with this, e.g. /v1/messages."`
-		Limit         int    `query:"limit" minimum:"1" maximum:"100" default:"50"`
-		StartingAfter string `query:"starting_after" doc:"A log entry ID; returns entries before it."`
+		RequestLogQuery
+		Environment string `query:"environment" enum:"live,test" default:"live"`
 	}) (*struct{ Body RequestLogList }, error) {
 		if _, err := s.projectForUser(ctx, in.ProjectID); err != nil {
 			return nil, err
 		}
-		limit := in.Limit
-		if limit == 0 {
-			limit = 50
+		return s.requestLogs(ctx, in.ProjectID, cmp.Or(in.Environment, "live"), &in.RequestLogQuery)
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "listRequestLogs", Method: http.MethodGet, Path: "/v1/request-logs", Tags: []string{"Developer API"},
+		Summary: "List API requests",
+		Description: "Requests made with the project's keys of this key's environment, newest first: method, path, status, " +
+			"error code, duration and the resource they touched. Never bodies or headers.",
+		Security: apiKeyAuth, Errors: []int{http.StatusUnauthorized},
+	}, func(ctx context.Context, in *RequestLogQuery) (*struct{ Body RequestLogList }, error) {
+		k := principalFrom(ctx).APIKey
+		return s.requestLogs(ctx, k.ProjectID, string(k.Environment), in)
+	})
+}
+
+func (s *Server) requestLogs(ctx context.Context, projectID, env string, in *RequestLogQuery) (*struct{ Body RequestLogList }, error) {
+	limit := in.Limit
+	if limit == 0 {
+		limit = 50
+	}
+	params := dbq.ListRequestLogsParams{
+		ProjectID: projectID, Environment: env, RowLimit: int32(limit + 1),
+		Method: optString(in.Method), APIKeyID: optString(in.APIKeyID), PathPrefix: optString(strings.TrimSpace(in.Path)),
+	}
+	lo, hi := statusRange(in.Status)
+	params.StatusMin, params.StatusMax = lo, hi
+	if in.StartingAfter != "" {
+		cursor, err := s.q.GetRequestLog(ctx, dbq.GetRequestLogParams{ID: in.StartingAfter, ProjectID: projectID})
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, huma.Error422UnprocessableEntity("validation failed", &huma.ErrorDetail{
+				Location: "query.starting_after", Message: "No log entry with this ID in the project.",
+			})
 		}
-		env := in.Environment
-		if env == "" {
-			env = "live"
-		}
-		params := dbq.ListRequestLogsParams{
-			ProjectID: in.ProjectID, Environment: env, RowLimit: int32(limit + 1),
-			Method: optString(in.Method), APIKeyID: optString(in.APIKeyID), PathPrefix: optString(strings.TrimSpace(in.Path)),
-		}
-		lo, hi := statusRange(in.Status)
-		params.StatusMin, params.StatusMax = lo, hi
-		if in.StartingAfter != "" {
-			cursor, err := s.q.GetRequestLog(ctx, dbq.GetRequestLogParams{ID: in.StartingAfter, ProjectID: in.ProjectID})
-			if errors.Is(err, pgx.ErrNoRows) {
-				return nil, huma.Error422UnprocessableEntity("validation failed", &huma.ErrorDetail{
-					Location: "query.starting_after", Message: "No log entry with this ID in the project.",
-				})
-			}
-			if err != nil {
-				return nil, err
-			}
-			params.BeforeCreated, params.BeforeID = &cursor.CreatedAt, &cursor.ID
-		}
-		rows, err := s.q.ListRequestLogs(ctx, params)
 		if err != nil {
 			return nil, err
 		}
-		out := &struct{ Body RequestLogList }{Body: RequestLogList{Data: make([]RequestLog, 0, len(rows))}}
-		if len(rows) > limit {
-			rows, out.Body.HasMore = rows[:limit], true
-		}
-		for _, l := range rows {
-			out.Body.Data = append(out.Body.Data, toRequestLog(l))
-		}
-		return out, nil
-	})
+		params.BeforeCreated, params.BeforeID = &cursor.CreatedAt, &cursor.ID
+	}
+	rows, err := s.q.ListRequestLogs(ctx, params)
+	if err != nil {
+		return nil, err
+	}
+	out := &struct{ Body RequestLogList }{Body: RequestLogList{Data: make([]RequestLog, 0, len(rows))}}
+	if len(rows) > limit {
+		rows, out.Body.HasMore = rows[:limit], true
+	}
+	for _, l := range rows {
+		out.Body.Data = append(out.Body.Data, toRequestLog(l))
+	}
+	return out, nil
 }
 
 func statusRange(class string) (lo, hi *int32) {

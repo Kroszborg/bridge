@@ -36,6 +36,8 @@ Usage:
 
   bridgectl devices                                Paired phones and their health
   bridgectl usage [--days N] [--tz Area/City]      Daily volume and delivery rate
+  bridgectl logs [--status S] [--method M] [--path P]
+                                                   API requests made with this environment's keys
 
   bridgectl listen --forward-to URL [--types T,…] [--secret whsec_…]
                                                    Forward live events to a local webhook endpoint
@@ -103,6 +105,8 @@ func main() {
 		err = cmdOTP(ctx, args)
 	case "devices", "device":
 		err = cmdDevices(ctx, args)
+	case "logs", "log":
+		err = cmdLogs(ctx, args)
 	case "usage":
 		err = cmdUsage(ctx, args)
 	case "listen":

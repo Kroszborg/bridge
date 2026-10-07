@@ -4,7 +4,7 @@
 //
 // With a bk_test_ key nothing is sent: Bridge simulates the whole lifecycle.
 
-import { Bridge, BridgeApiError } from '@bridge/sdk';
+import { Bridge, BridgeApiError } from '@kroszborg/bridge';
 
 const [to = '+15550000001', text = 'Hello from Bridge'] = process.argv.slice(2);
 const bridge = new Bridge();

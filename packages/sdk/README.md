@@ -1,20 +1,25 @@
-# @bridge/sdk
+# @kroszborg/bridge
 
-The TypeScript SDK for [Bridge](../../README.md), open-source SMS infrastructure. Send SMS through
-your own Android phones, follow every message to delivery, and verify webhooks.
+The TypeScript SDK for [Bridge](https://github.com/kroszborg/bridge), open-source SMS
+infrastructure. Send SMS through your own Android phones, follow every message to delivery, verify
+phone numbers with one-time passwords, stream events, and verify webhooks.
+
+```bash
+npm install @kroszborg/bridge
+```
 
 * No dependencies. It uses the platform's `fetch` and WebCrypto, so it runs on Node.js 20+, Bun,
   Deno, Cloudflare Workers and Vercel Edge.
 * Typed from Bridge's OpenAPI document. Field names match the REST API exactly.
 * Safe retries. Sends always carry an idempotency key, so a retried request never sends twice.
 
-> The package is not on npm yet; the name `@bridge/sdk` is a placeholder until the first release.
-> Inside this repository, depend on it with `"@bridge/sdk": "workspace:*"`.
+> Pre-releases are published under the `next` tag: `npm install @kroszborg/bridge@next`.
+> Inside this repository, depend on it with `"@kroszborg/bridge": "workspace:*"`.
 
 ## Send a message
 
 ```ts
-import { Bridge } from '@bridge/sdk';
+import { Bridge } from '@kroszborg/bridge';
 
 const bridge = new Bridge({
   apiKey: process.env.BRIDGE_API_KEY, // bk_test_… simulates everything, bk_live_… sends real SMS
@@ -87,7 +92,7 @@ Bridge signs every webhook with [Standard Webhooks](https://www.standardwebhooks
 
 ```ts
 import express from 'express';
-import { Bridge, WebhookVerificationError } from '@bridge/sdk';
+import { Bridge, WebhookVerificationError } from '@kroszborg/bridge';
 
 const bridge = new Bridge({ webhookSecret: process.env.BRIDGE_WEBHOOK_SECRET });
 const app = express();
@@ -118,7 +123,7 @@ app.post('/webhooks/bridge', express.raw({ type: 'application/json' }), async (r
 On runtimes with Fetch-style requests (Workers, Next.js route handlers, Bun, Deno):
 
 ```ts
-import { verifyWebhook } from '@bridge/sdk';
+import { verifyWebhook } from '@kroszborg/bridge';
 
 export async function POST(request: Request) {
   const event = await verifyWebhook({
@@ -138,7 +143,7 @@ the retry schedule.
 ## Errors
 
 ```ts
-import { BridgeApiError, BridgeConnectionError } from '@bridge/sdk';
+import { BridgeApiError, BridgeConnectionError } from '@kroszborg/bridge';
 
 try {
   await bridge.messages.send({ to: '12345', message: 'hi' });
@@ -175,6 +180,35 @@ webhooks. These numbers produce specific outcomes:
 
 `bridge.testMode` tells you which kind of key a client uses.
 
+## Events as they happen
+
+`bridge.events.stream()` delivers the same events as webhooks over one long-lived connection, so a
+script or worker can react without a public URL. It reconnects after drops.
+
+```ts
+const stop = new AbortController();
+for await (const event of bridge.events.stream({ types: ['message.failed'], signal: stop.signal })) {
+  console.log(event.id, event.type, event.data); // typed by event.type
+}
+```
+
+The stream is live only: events that happen while disconnected are not replayed. Where every event
+matters, use [webhooks](#webhooks); they are retried for days.
+
+## Request logs and usage history
+
+```ts
+for await (const entry of bridge.requestLogs.listAll({ status: 'error' })) {
+  console.log(entry.request_id, entry.method, entry.path, entry.status, entry.error_code);
+}
+
+const history = await bridge.usageHistory({ days: 30, tz: 'Asia/Kolkata' });
+for (const day of history.days) console.log(day.date, day.delivered, day.failed);
+```
+
+Request logs cover every request made with the project's keys of this key's environment, kept for
+14 days by default. They never contain bodies or headers.
+
 ## Keep keys on the server
 
 API keys can send SMS from your phones, so they must never reach a browser or mobile app. The SDK
@@ -184,9 +218,9 @@ you use.
 ## Development
 
 ```bash
-pnpm --filter @bridge/sdk build      # dist/index.js and dist/index.d.ts
-pnpm --filter @bridge/sdk test       # unit tests
-BRIDGE_SDK_TEST_URL=http://localhost:8080 BRIDGE_SDK_TEST_KEY=bk_test_… pnpm --filter @bridge/sdk test
+pnpm --filter @kroszborg/bridge build      # dist/index.js and dist/index.d.ts
+pnpm --filter @kroszborg/bridge test       # unit tests
+BRIDGE_SDK_TEST_URL=http://localhost:8080 BRIDGE_SDK_TEST_KEY=bk_test_… pnpm --filter @kroszborg/bridge test
 ```
 
 The last command also runs the integration tests against a running server, using a test key.

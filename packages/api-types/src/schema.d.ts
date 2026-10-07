@@ -870,7 +870,7 @@ export interface paths {
          * List API requests
          * @description Requests made with the project's API keys, newest first. Kept for BRIDGE_REQUEST_LOG_RETENTION (default 14 days).
          */
-        get: operations["listRequestLogs"];
+        get: operations["listProjectRequestLogs"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1033,6 +1033,26 @@ export interface paths {
          * @description Queues a `webhook.test` event to this endpoint only. Watch its delivery log for the result.
          */
         post: operations["testWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/request-logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List API requests
+         * @description Requests made with the project's keys of this key's environment, newest first: method, path, status, error code, duration and the resource they touched. Never bodies or headers.
+         */
+        get: operations["listRequestLogs"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -5780,10 +5800,9 @@ export interface operations {
             };
         };
     };
-    listRequestLogs: {
+    listProjectRequestLogs: {
         parameters: {
             query?: {
-                environment?: "live" | "test";
                 /** @description success is 2xx; error is 4xx and 5xx. */
                 status?: "success" | "error" | "2xx" | "4xx" | "5xx";
                 method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -5793,6 +5812,7 @@ export interface operations {
                 limit?: number;
                 /** @description A log entry ID; returns entries before it. */
                 starting_after?: string;
+                environment?: "live" | "test";
             };
             header?: never;
             path: {
@@ -6410,6 +6430,63 @@ export interface operations {
             };
             /** @description Too Many Requests */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    listRequestLogs: {
+        parameters: {
+            query?: {
+                /** @description success is 2xx; error is 4xx and 5xx. */
+                status?: "success" | "error" | "2xx" | "4xx" | "5xx";
+                method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+                api_key_id?: string;
+                /** @description Only paths starting with this, e.g. /v1/messages. */
+                path?: string;
+                limit?: number;
+                /** @description A log entry ID; returns entries before it. */
+                starting_after?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestLogList"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

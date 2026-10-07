@@ -600,7 +600,7 @@ function Integrate() {
       `  -d '{"to": "+919876543210", "code": "482913"}'`,
     ].join('\n'),
     ts: [
-      `import { Bridge } from '@bridge/sdk';`,
+      `import { Bridge } from '@kroszborg/bridge';`,
       ``,
       `const bridge = new Bridge({ apiKey: process.env.BRIDGE_API_KEY, baseUrl: '${apiUrl}' });`,
       ``,

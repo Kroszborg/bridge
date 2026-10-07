@@ -120,7 +120,7 @@ With the Bridge [TypeScript SDK](../../packages/sdk/README.md#webhooks), which n
 package and returns typed events:
 
 ```ts
-import { verifyWebhook } from '@bridge/sdk';
+import { verifyWebhook } from '@kroszborg/bridge';
 
 const event = await verifyWebhook({ payload: rawBody, headers: req.headers, secret: process.env.BRIDGE_WEBHOOK_SECRET });
 ```

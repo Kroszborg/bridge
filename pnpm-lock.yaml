@@ -303,7 +303,7 @@ importers:
 
   examples/node:
     dependencies:
-      '@bridge/sdk':
+      '@kroszborg/bridge':
         specifier: workspace:*
         version: link:../../packages/sdk
 

@@ -4,7 +4,7 @@ Bridge generates a code, sends it by SMS through your phones, and checks it. You
 calls and never stores, compares or expires a code itself.
 
 ```ts
-import { Bridge } from '@bridge/sdk';
+import { Bridge } from '@kroszborg/bridge';
 
 const bridge = new Bridge({ apiKey: process.env.BRIDGE_API_KEY, baseUrl: 'https://api.sms.example.com' });
 

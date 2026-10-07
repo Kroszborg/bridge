@@ -173,3 +173,25 @@ func TestPlaygroundSend(t *testing.T) {
 		t.Fatalf("playground sends logged as API requests: %v", got)
 	}
 }
+
+func TestRequestLogsWithAPIKey(t *testing.T) {
+	srv := newServer(t)
+	c, _, projectID := signup(t, srv)
+	testKey := apiKeyClient(t, srv, c, projectID, "test")
+	liveKey := apiKeyClient(t, srv, c, projectID, "live")
+
+	sent := testKey.mustStatus(testKey.do("POST", "/v1/messages", map[string]any{"to": "+919876543210", "message": "hi"}), 202)
+	var rows []any
+	waitFor(t, "the send in the key's log", func() bool {
+		rows = testKey.mustStatus(testKey.do("GET", "/v1/request-logs?path=/v1/messages", nil), 200).Body["data"].([]any)
+		return len(rows) == 1
+	})
+	if e := rows[0].(map[string]any); e["resource_id"] != sent.Body["id"] || e["environment"] != "test" {
+		t.Fatalf("entry = %v", e)
+	}
+	// A key sees only its own environment.
+	live := liveKey.mustStatus(liveKey.do("GET", "/v1/request-logs?path=/v1/messages", nil), 200).Body["data"].([]any)
+	if len(live) != 0 {
+		t.Fatalf("live key sees test requests: %v", live)
+	}
+}

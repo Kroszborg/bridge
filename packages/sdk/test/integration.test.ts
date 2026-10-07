@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Bridge, BridgeApiError } from '../src/index';
 
 // Runs against a real server with a test key (nothing is sent), for example:
-//   BRIDGE_SDK_TEST_URL=http://localhost:8080 BRIDGE_SDK_TEST_KEY=bk_test_… pnpm --filter @bridge/sdk test
+//   BRIDGE_SDK_TEST_URL=http://localhost:8080 BRIDGE_SDK_TEST_KEY=bk_test_… pnpm --filter @kroszborg/bridge test
 const url = process.env.BRIDGE_SDK_TEST_URL;
 const key = process.env.BRIDGE_SDK_TEST_KEY;
 
@@ -70,6 +70,39 @@ describe.skipIf(!url || !key)('against a Bridge server', () => {
     const res = await bridge.otp.verify({ id: sent.id, code: sent.code ?? '' });
     expect(res.valid).toBe(true);
     expect(res.verification.status).toBe('verified');
+  });
+
+  it('streams events as they happen', async () => {
+    const stop = new AbortController();
+    let resolveConnected: () => void = () => {};
+    const connected = new Promise<void>((r) => {
+      resolveConnected = r;
+    });
+    let messageId = '';
+    // Earlier tests' messages may still be delivering; wait for this test's own.
+    const seen = (async () => {
+      for await (const e of bridge.events.stream({
+        types: ['message.delivered'],
+        signal: stop.signal,
+        onConnect: () => resolveConnected(),
+      })) {
+        if (e.type === 'message.delivered' && e.data.id === messageId) return e;
+      }
+    })();
+    await connected;
+    messageId = (await bridge.messages.send({ to: '+15550000001', message: 'Stream test' })).id;
+    const event = await seen;
+    stop.abort();
+    expect(event?.id).toMatch(/^evt_/);
+    expect(event?.type).toBe('message.delivered');
+  });
+
+  it('reads request logs and usage history', async () => {
+    const logs = await bridge.requestLogs.list({ path: '/v1/messages', limit: 5 });
+    expect(logs.data.length).toBeGreaterThan(0);
+    expect(logs.data[0]?.environment).toBe('test');
+    const history = await bridge.usageHistory({ days: 7, tz: 'UTC' });
+    expect(history.days.length).toBe(7);
   });
 
   it('reads usage and devices', async () => {
