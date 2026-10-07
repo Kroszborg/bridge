@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Builds
+.next/
+out/
+dist/
+build/
+*.tsbuildinfo
+next-env.d.ts
+.turbo/
+/apps/api/bin/
+
+# Env and secrets — never commit real credentials
+.env
+.env.*
+!.env.example
+
+# Android
+android/**/.gradle/
+android/**/local.properties
+android/**/build/
+android/**/*.keystore
+android/**/*.jks
+android/**/google-services.json
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.log
+coverage/

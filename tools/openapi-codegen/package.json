@@ -1,0 +1,14 @@
+{
+  "name": "@bridge/openapi-codegen",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Dev-only: generates packages/api-types/src/schema.d.ts. Pinned to TypeScript 5.9 (the peer range openapi-typescript declares) because openapi-typescript uses the TypeScript JS API, which TypeScript 7 no longer ships. Remove the pin once openapi-typescript supports TS 7.",
+  "license": "MIT",
+  "scripts": {
+    "generate": "openapi-typescript ../../packages/api-types/openapi.json --output ../../packages/api-types/src/schema.d.ts --root-types --root-types-no-schema-prefix"
+  },
+  "devDependencies": {
+    "openapi-typescript": "7.13.0",
+    "typescript": "5.9.3"
+  }
+}

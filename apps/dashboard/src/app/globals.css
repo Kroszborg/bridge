@@ -1,0 +1,301 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/* Dark mode is class-driven via next-themes (attribute="class"). Dark is the default. */
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Bridge visual identity
+ *   Accent   Phosphor: radar-screen mint. Used sparingly: primary actions, active nav, focus, charts.
+ *   Neutrals Carbon:   warm off-black in dark mode, warm paper in light mode.
+ *   Type     Red Hat Display (headings, numbers), Red Hat Text (UI), Red Hat Mono (IDs, keys, code).
+ *   Shape    Round: 12px base radius.
+ */
+
+@theme inline {
+  --font-sans: var(--font-redhat-text), ui-sans-serif, system-ui, sans-serif;
+  --font-display:
+    var(--font-redhat-display), var(--font-redhat-text), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-display);
+  --font-mono: var(--font-redhat-mono), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-viz-1: var(--viz-1);
+  --color-viz-2: var(--viz-2);
+  --color-viz-3: var(--viz-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --radius-sm: calc(var(--radius) * 0.5);
+  --radius-md: calc(var(--radius) * 0.75);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.33);
+  --radius-2xl: calc(var(--radius) * 1.67);
+  --radius-3xl: calc(var(--radius) * 2);
+  --radius-4xl: calc(var(--radius) * 2.33);
+}
+
+/* ── Light: warm paper, ink text, deep phosphor accent (AA on white) ────── */
+:root {
+  --radius: 0.75rem;
+
+  --background: #faf8f4;
+  --foreground: #1a1714;
+  --card: #ffffff;
+  --card-foreground: #1a1714;
+  --popover: #ffffff;
+  --popover-foreground: #1a1714;
+
+  --primary: #0f7a62;
+  --primary-foreground: #ffffff;
+  --secondary: #f2efe9;
+  --secondary-foreground: #2b2722;
+  --muted: #f2efe9;
+  --muted-foreground: #5e564c;
+  --faint: #a39b90;
+  --accent: #efebe4;
+  --accent-foreground: #1a1714;
+
+  --destructive: #dc2626;
+  --success: #15803d;
+  --warning: #b45309;
+
+  --border: #e5e0d8;
+  --input: #dcd6cc;
+  --ring: #0f7a62;
+
+  --chart-1: #0f7a62;
+  --chart-2: #3a9d86;
+  --chart-3: #7a6f63;
+  --chart-4: #b4a999;
+  --chart-5: #dc2626;
+  /* Data-viz categorical slots, validated (lightness, chroma, CVD, contrast) against --card. */
+  --viz-1: #0b8466;
+  --viz-2: #2a78d6;
+  --viz-3: #eb6834;
+  --viz-grid: #ece8e1;
+  --viz-axis: #d6d0c6;
+
+  --sidebar: #f5f2ec;
+  --sidebar-foreground: #5e564c;
+  --sidebar-primary: #0f7a62;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: rgb(15 122 98 / 0.1);
+  --sidebar-accent-foreground: #0b5e4b;
+  --sidebar-border: #e8e3db;
+  --sidebar-ring: #0f7a62;
+}
+
+/* ── Dark (default): warm carbon black, phosphor is the only colour ─────── */
+.dark {
+  --background: #0c0b0a;
+  --foreground: #f7f4ef;
+  --card: #14120f;
+  --card-foreground: #f7f4ef;
+  --popover: #1a1814;
+  --popover-foreground: #f7f4ef;
+
+  --primary: #3eebc0;
+  --primary-foreground: #0a0a0b;
+  --secondary: #1c1915;
+  --secondary-foreground: #f7f4ef;
+  --muted: #1c1915;
+  --muted-foreground: #a8a097;
+  --faint: #776f66;
+  --accent: #221f1a;
+  --accent-foreground: #f7f4ef;
+
+  --destructive: #f87171;
+  --success: #4ade80;
+  --warning: #fbbf24;
+
+  --border: #2b2722;
+  --input: #34302a;
+  --ring: #3eebc0;
+
+  --chart-1: #3eebc0;
+  --chart-2: #2bb594;
+  --chart-3: #a8a097;
+  --chart-4: #5e574e;
+  --chart-5: #f87171;
+  --viz-1: #22a382;
+  --viz-2: #3987e5;
+  --viz-3: #d95926;
+  --viz-grid: #221f1b;
+  --viz-axis: #36312b;
+
+  --sidebar: #100f0d;
+  --sidebar-foreground: #a8a097;
+  --sidebar-primary: #3eebc0;
+  --sidebar-primary-foreground: #0a0a0b;
+  --sidebar-accent: rgb(62 235 192 / 0.11);
+  --sidebar-accent-foreground: #8ff5dc;
+  --sidebar-border: #211e1a;
+  --sidebar-ring: #3eebc0;
+}
+
+.scroll-slim {
+  scrollbar-width: thin;
+  scrollbar-color: #d6d0c5 transparent;
+}
+.dark .scroll-slim {
+  scrollbar-color: #3a352e transparent;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "ss01";
+  }
+  h1,
+  h2 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+  ::selection {
+    background: color-mix(in srgb, var(--primary) 30%, transparent);
+  }
+}
+
+/* ── Motion: fast, precise, quiet. Everything sits behind reduced-motion. ── */
+
+@keyframes enter-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fade-in-soft {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes signal-ping {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 45%, transparent);
+  }
+  70%,
+  100% {
+    box-shadow: 0 0 0 5px transparent;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .route-enter > * > * {
+    animation: enter-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .route-enter > * > *:nth-child(2) {
+    animation-delay: 35ms;
+  }
+  .route-enter > * > *:nth-child(3) {
+    animation-delay: 70ms;
+  }
+  .route-enter > * > *:nth-child(4) {
+    animation-delay: 105ms;
+  }
+  .route-enter > * > *:nth-child(n + 5) {
+    animation-delay: 140ms;
+  }
+
+  tbody[data-stagger] > tr {
+    animation: fade-in-soft 0.25s ease-out both;
+  }
+  tbody[data-stagger] > tr:nth-child(2) {
+    animation-delay: 30ms;
+  }
+  tbody[data-stagger] > tr:nth-child(3) {
+    animation-delay: 60ms;
+  }
+  tbody[data-stagger] > tr:nth-child(4) {
+    animation-delay: 90ms;
+  }
+  tbody[data-stagger] > tr:nth-child(5) {
+    animation-delay: 120ms;
+  }
+  tbody[data-stagger] > tr:nth-child(n + 6) {
+    animation-delay: 150ms;
+  }
+
+  /* A live status dot pulses like a signal. */
+  .signal-live {
+    animation: signal-ping 1.8s ease-out infinite;
+  }
+
+  body,
+  [data-slot="card"],
+  [data-slot="section-card"],
+  [data-slot="stat-card"],
+  [data-slot="table-container"] {
+    transition:
+      background-color 150ms ease,
+      border-color 150ms ease,
+      color 150ms ease;
+  }
+}
+
+@media (hover: hover) {
+  [data-slot="table-row"] .row-action {
+    opacity: 0.55;
+    transition: opacity 150ms ease;
+  }
+  [data-slot="table-row"]:hover .row-action,
+  [data-slot="table-row"]:focus-within .row-action {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

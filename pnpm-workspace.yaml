@@ -1,0 +1,6 @@
+packages:
+  - apps/dashboard
+  - apps/web
+  - packages/*
+  - tools/*
+  - examples/node

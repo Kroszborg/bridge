@@ -1,0 +1,262 @@
+name: Release
+
+# Push a tag like v0.3.0 (or v0.3.0-rc.1 for a pre-release). See docs/releasing.md.
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  GHCR_NAMESPACE: ghcr.io/${{ github.repository_owner }}
+  DOCKERHUB_NAMESPACE: ${{ vars.DOCKERHUB_NAMESPACE || github.repository_owner }}
+
+jobs:
+  prepare:
+    name: Check tag and notes
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: version
+        name: Version from tag
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$ ]]; then
+            echo "::error::Tag $GITHUB_REF_NAME is not vX.Y.Z or vX.Y.Z-rc.N"; exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: CHANGELOG.md has a section for this version
+        run: bash .github/scripts/release-notes.sh "${{ steps.version.outputs.version }}" > /dev/null
+
+  ci:
+    name: CI
+    uses: ./.github/workflows/ci.yml
+
+  binaries:
+    name: Binaries (GoReleaser)
+    needs: [prepare, ci]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: apps/api/go.mod
+          cache-dependency-path: apps/api/go.sum
+      - name: Release notes from CHANGELOG.md
+        run: bash .github/scripts/release-notes.sh "${{ needs.prepare.outputs.version }}" > "$RUNNER_TEMP/notes.md"
+      - uses: goreleaser/goreleaser-action@v7
+        with:
+          distribution: goreleaser
+          version: v2.18.2
+          args: release --clean --release-notes ${{ runner.temp }}/notes.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: |
+            dist/*.tar.gz
+            dist/*.zip
+
+  images:
+    name: Image ${{ matrix.image }} (${{ matrix.arch }})
+    needs: [prepare, ci]
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: true
+      matrix:
+        image: [api, dashboard]
+        arch: [amd64, arm64]
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.GHCR_NAMESPACE }}/bridge-${{ matrix.image }}
+      # Each architecture builds natively and is pushed by digest; the merge job tags them.
+      - id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: docker/${{ matrix.image }}.Dockerfile
+          platforms: linux/${{ matrix.arch }}
+          build-args: VERSION=${{ needs.prepare.outputs.version }}
+          labels: ${{ steps.meta.outputs.labels }}
+          outputs: type=image,name=${{ env.GHCR_NAMESPACE }}/bridge-${{ matrix.image }},push-by-digest=true,name-canonical=true,push=true
+          provenance: mode=max
+          sbom: true
+          cache-from: type=gha,scope=release-${{ matrix.image }}-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=release-${{ matrix.image }}-${{ matrix.arch }}
+      - name: Export digest
+        run: |
+          mkdir -p "$RUNNER_TEMP/digests"
+          digest="${{ steps.build.outputs.digest }}"
+          touch "$RUNNER_TEMP/digests/${digest#sha256:}"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: digests-${{ matrix.image }}-${{ matrix.arch }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  images-merge:
+    name: Publish ${{ matrix.image }} image
+    needs: [prepare, images]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    strategy:
+      matrix:
+        image: [api, dashboard]
+    env:
+      DOCKERHUB: ${{ secrets.DOCKERHUB_TOKEN != '' && 'true' || 'false' }}
+      IMAGE: ${{ format('ghcr.io/{0}', github.repository_owner) }}/bridge-${{ matrix.image }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digests-${{ matrix.image }}-*
+          merge-multiple: true
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - if: env.DOCKERHUB == 'true'
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - if: env.DOCKERHUB != 'true'
+        run: echo "::warning::DOCKERHUB_USERNAME/DOCKERHUB_TOKEN are not set, so the image is published to GHCR only."
+      - id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: |
+            ${{ env.IMAGE }}
+            ${{ env.DOCKERHUB == 'true' && format('docker.io/{0}/bridge-{1}', env.DOCKERHUB_NAMESPACE, matrix.image) || '' }}
+          # 1.2.3 and 1.2 always; latest only for releases that are not pre-releases.
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+          flavor: latest=auto
+      - name: Create the multi-architecture image
+        working-directory: ${{ runner.temp }}/digests
+        run: |
+          mapfile -t tags < <(jq -r '.tags[] | "-t", .' <<< "$DOCKER_METADATA_OUTPUT_JSON")
+          sources=()
+          for digest in *; do sources+=("$IMAGE@sha256:$digest"); done
+          docker buildx imagetools create "${tags[@]}" "${sources[@]}"
+      - id: digest
+        name: Image digest
+        run: |
+          digest="$(docker buildx imagetools inspect "$IMAGE:${{ needs.prepare.outputs.version }}" --format '{{json .Manifest}}' | jq -r .digest)"
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+      - uses: actions/attest-build-provenance@v4
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.digest.outputs.digest }}
+          push-to-registry: true
+
+  android:
+    name: Android APKs
+    needs: [prepare, binaries]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    env:
+      SIGNING: ${{ secrets.BRIDGE_KEYSTORE_BASE64 != '' && 'true' || 'false' }}
+      VERSION: ${{ needs.prepare.outputs.version }}
+    defaults:
+      run:
+        working-directory: android/gateway
+    steps:
+      - if: env.SIGNING != 'true'
+        working-directory: .
+        run: echo "::warning::BRIDGE_KEYSTORE_BASE64 is not set, so this release has no APKs. See docs/releasing.md."
+      - if: env.SIGNING == 'true'
+        uses: actions/checkout@v7
+      - if: env.SIGNING == 'true'
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 25
+      - if: env.SIGNING == 'true'
+        uses: gradle/actions/setup-gradle@v6
+      - if: env.SIGNING == 'true'
+        name: Signed release builds (foss + gms)
+        env:
+          BRIDGE_KEYSTORE_BASE64: ${{ secrets.BRIDGE_KEYSTORE_BASE64 }}
+          BRIDGE_KEYSTORE_PASSWORD: ${{ secrets.BRIDGE_KEYSTORE_PASSWORD }}
+          BRIDGE_KEY_ALIAS: ${{ secrets.BRIDGE_KEY_ALIAS }}
+          BRIDGE_KEY_PASSWORD: ${{ secrets.BRIDGE_KEY_PASSWORD }}
+          BRIDGE_VERSION_NAME: ${{ needs.prepare.outputs.version }}
+        run: |
+          export BRIDGE_KEYSTORE_FILE="$RUNNER_TEMP/release.jks"
+          printf '%s' "$BRIDGE_KEYSTORE_BASE64" | base64 -d > "$BRIDGE_KEYSTORE_FILE"
+          ./gradlew --no-configuration-cache assembleFossRelease assembleGmsRelease
+          rm -f "$BRIDGE_KEYSTORE_FILE"
+      - if: env.SIGNING == 'true'
+        name: Verify signatures and collect APKs
+        run: |
+          apksigner="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)/apksigner"
+          mkdir -p "$GITHUB_WORKSPACE/dist-apk"
+          for flavor in foss gms; do
+            apk="app/build/outputs/apk/$flavor/release/app-$flavor-release.apk"
+            "$apksigner" verify --verbose "$apk"
+            cp "$apk" "$GITHUB_WORKSPACE/dist-apk/bridge-gateway-$VERSION-$flavor.apk"
+          done
+          cd "$GITHUB_WORKSPACE/dist-apk" && sha256sum -- *.apk > apk-checksums.txt
+      - if: env.SIGNING == 'true'
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: dist-apk/*.apk
+      - if: env.SIGNING == 'true'
+        name: Attach to the release
+        working-directory: dist-apk
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "$GITHUB_REF_NAME" ./* --clobber --repo "$GITHUB_REPOSITORY"
+
+  publish:
+    name: Publish release
+    needs: [binaries, images-merge, android]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit "$GITHUB_REF_NAME" --draft=false --repo "$GITHUB_REPOSITORY"

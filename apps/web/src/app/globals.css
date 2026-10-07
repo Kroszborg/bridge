@@ -1,0 +1,131 @@
+@import "tailwindcss";
+
+/* Dark mode is class-driven via next-themes. Dark is the default, light is fully designed. */
+@custom-variant dark (&:is(.dark *));
+
+/* Same identity as the console: Phosphor accent, Carbon neutrals, Red Hat type, 12px radius. */
+@theme inline {
+  --font-sans: var(--font-redhat-text), ui-sans-serif, system-ui, sans-serif;
+  --font-display:
+    var(--font-redhat-display), var(--font-redhat-text), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-redhat-mono), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-raised: var(--raised);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-faint: var(--faint);
+  --color-border: var(--border);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-destructive: var(--destructive);
+
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.25rem;
+}
+
+:root {
+  --background: #faf8f4;
+  --foreground: #1a1714;
+  --card: #ffffff;
+  --raised: #f2efe9;
+  --primary: #0f7a62;
+  --primary-foreground: #ffffff;
+  --muted: #f2efe9;
+  --muted-foreground: #5e564c;
+  --faint: #8a8176;
+  --border: #e5e0d8;
+  --success: #15803d;
+  --warning: #b45309;
+  --destructive: #dc2626;
+  --glow: rgb(15 122 98 / 0.1);
+}
+
+.dark {
+  --background: #0c0b0a;
+  --foreground: #f7f4ef;
+  --card: #14120f;
+  --raised: #1c1915;
+  --primary: #3eebc0;
+  --primary-foreground: #0a0a0b;
+  --muted: #1c1915;
+  --muted-foreground: #a8a097;
+  --faint: #857c72;
+  --border: #2b2722;
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --destructive: #f87171;
+  --glow: rgb(62 235 192 / 0.12);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    @apply font-sans;
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "ss01";
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.025em;
+    text-wrap: balance;
+  }
+  ::selection {
+    background: color-mix(in srgb, var(--primary) 30%, transparent);
+  }
+  :focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+}
+
+/* Reveal on scroll: content is visible by default and only animates when
+   motion is allowed and JavaScript marked the page ready. */
+@media (prefers-reduced-motion: no-preference) {
+  .js [data-reveal] {
+    opacity: 0;
+    transform: translateY(18px);
+    transition:
+      opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+      transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+    transition-delay: calc(var(--i, 0) * 70ms);
+  }
+  .js [data-reveal].is-in {
+    opacity: 1;
+    transform: none;
+  }
+  .hero-in {
+    animation: hero-in 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation-delay: calc(var(--i, 0) * 90ms);
+  }
+  @keyframes hero-in {
+    from {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+  }
+  .signal {
+    animation: signal 2.4s ease-out infinite;
+  }
+  @keyframes signal {
+    0% {
+      box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 55%, transparent);
+    }
+    70%,
+    100% {
+      box-shadow: 0 0 0 8px transparent;
+    }
+  }
+}

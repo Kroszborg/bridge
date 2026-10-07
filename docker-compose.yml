@@ -1,0 +1,103 @@
+# Self-hosted Bridge: PostgreSQL, migrations, API, worker and dashboard.
+#
+#   cp .env.example .env      # optional; every value has a working local default
+#   docker compose up -d
+#
+# Dashboard: http://localhost:3000   API: http://localhost:8080   API reference: http://localhost:8080/docs
+name: bridge
+
+x-api-env: &api-env
+  BRIDGE_ENV: ${BRIDGE_ENV:-production}
+  BRIDGE_DATABASE_URL: postgres://bridge:${POSTGRES_PASSWORD:-bridge}@postgres:5432/bridge?sslmode=disable
+  BRIDGE_PUBLIC_URL: ${BRIDGE_PUBLIC_URL:-http://localhost:8080}
+  BRIDGE_DASHBOARD_URL: ${BRIDGE_DASHBOARD_URL:-http://localhost:3000}
+  BRIDGE_ALLOW_SIGNUP: ${BRIDGE_ALLOW_SIGNUP:-true}
+  BRIDGE_OPERATOR_EMAILS: ${BRIDGE_OPERATOR_EMAILS:-}
+  BRIDGE_LOG_LEVEL: ${BRIDGE_LOG_LEVEL:-info}
+  BRIDGE_LOG_FORMAT: ${BRIDGE_LOG_FORMAT:-json}
+  BRIDGE_MESSAGE_RETENTION: ${BRIDGE_MESSAGE_RETENTION:-720h}
+  BRIDGE_REQUEST_LOG_RETENTION: ${BRIDGE_REQUEST_LOG_RETENTION:-336h}
+  BRIDGE_VAPID_SUBJECT: ${BRIDGE_VAPID_SUBJECT:-}
+  BRIDGE_PUSH_ALLOW_PRIVATE_ENDPOINTS: ${BRIDGE_PUSH_ALLOW_PRIVATE_ENDPOINTS:-false}
+  BRIDGE_WEBHOOK_ALLOW_PRIVATE_ENDPOINTS: ${BRIDGE_WEBHOOK_ALLOW_PRIVATE_ENDPOINTS:-false}
+  BRIDGE_FCM_CREDENTIALS_FILE: ${BRIDGE_FCM_CREDENTIALS_FILE:-}
+  BRIDGE_FCM_PROJECT_ID: ${BRIDGE_FCM_PROJECT_ID:-}
+  BRIDGE_FCM_APP_ID: ${BRIDGE_FCM_APP_ID:-}
+  BRIDGE_FCM_API_KEY: ${BRIDGE_FCM_API_KEY:-}
+  BRIDGE_FCM_SENDER_ID: ${BRIDGE_FCM_SENDER_ID:-}
+
+x-api-image: &api-image
+  image: ${BRIDGE_IMAGE_PREFIX:-}bridge-api:${BRIDGE_VERSION:-local}
+  build:
+    context: .
+    dockerfile: docker/api.Dockerfile
+    args:
+      VERSION: ${BRIDGE_VERSION:-local}
+
+services:
+  postgres:
+    image: postgres:18.6-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: bridge
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bridge}
+      POSTGRES_DB: bridge
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bridge -d bridge"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  migrate:
+    <<: *api-image
+    command: ["migrate"]
+    environment: *api-env
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    <<: *api-image
+    command: ["serve"]
+    restart: unless-stopped
+    environment: *api-env
+    ports:
+      - "${BRIDGE_API_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/bridge", "healthcheck"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  worker:
+    <<: *api-image
+    command: ["worker"]
+    restart: unless-stopped
+    environment: *api-env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  dashboard:
+    image: ${BRIDGE_IMAGE_PREFIX:-}bridge-dashboard:${BRIDGE_VERSION:-local}
+    build:
+      context: .
+      dockerfile: docker/dashboard.Dockerfile
+    restart: unless-stopped
+    environment:
+      BRIDGE_API_URL: http://api:8080
+      BRIDGE_PUBLIC_API_URL: ${BRIDGE_PUBLIC_URL:-http://localhost:8080}
+    ports:
+      - "${BRIDGE_DASHBOARD_PORT:-3000}:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  pgdata:

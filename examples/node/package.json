@@ -1,0 +1,15 @@
+{
+  "name": "@bridge/example-node",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Send an SMS and receive Bridge webhooks with the TypeScript SDK.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "send": "node send.mjs",
+    "webhooks": "node webhook-server.mjs"
+  },
+  "dependencies": {
+    "@bridge/sdk": "workspace:*"
+  }
+}

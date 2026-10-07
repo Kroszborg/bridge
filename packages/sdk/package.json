@@ -1,0 +1,43 @@
+{
+  "name": "@bridge/sdk",
+  "version": "0.1.0",
+  "description": "TypeScript SDK for the Bridge SMS API: send messages, follow delivery, verify webhooks.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "sms",
+    "otp",
+    "android",
+    "sms-gateway",
+    "webhooks",
+    "bridge"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@bridge/api-types": "workspace:*",
+    "@types/node": "24.19.1",
+    "tsdown": "0.23.0",
+    "typescript": "7.0.2",
+    "vitest": "5.0.3"
+  }
+}

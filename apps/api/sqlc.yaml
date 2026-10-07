@@ -1,0 +1,36 @@
+version: "2"
+sql:
+  - engine: postgresql
+    schema: internal/db/migrations
+    queries: internal/db/queries
+    gen:
+      go:
+        package: dbq
+        out: internal/db/dbq
+        sql_package: pgx/v5
+        emit_pointers_for_null_types: true
+        emit_empty_slices: true
+        overrides:
+          - db_type: timestamptz
+            go_type: time.Time
+          - db_type: timestamptz
+            nullable: true
+            go_type:
+              type: time.Time
+              pointer: true
+          - db_type: inet
+            nullable: true
+            go_type:
+              import: net/netip
+              type: Addr
+              pointer: true
+          - db_type: jsonb
+            go_type: encoding/json.RawMessage
+        rename:
+          api_key: APIKey
+          api_keys: APIKeys
+          api_environment: APIEnvironment
+          api_key_id: APIKeyID
+          ip: IP
+          url: URL
+          api_request_log: APIRequestLog

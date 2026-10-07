@@ -1,0 +1,152 @@
+# Self-hosting Bridge
+
+Bridge runs as one Go binary (API, worker and migrations) plus PostgreSQL, with an optional
+Next.js dashboard. Docker Compose wires them together.
+
+## Quick start
+
+```bash
+git clone https://github.com/kroszborg/bridge.git
+cd bridge
+docker compose up -d
+docker compose ps        # migrate exits 0; api, worker, dashboard become healthy
+```
+
+That builds the images on your machine. To run a published release instead, put this in `.env`
+and use `docker compose pull && docker compose up -d`:
+
+```bash
+BRIDGE_IMAGE_PREFIX=ghcr.io/kroszborg/   # or kroszborg/ for Docker Hub
+BRIDGE_VERSION=0.3.0
+```
+
+Release images are multi-architecture (amd64 and arm64) and carry signed build provenance:
+`gh attestation verify oci://ghcr.io/kroszborg/bridge-api:0.3.0 --repo kroszborg/bridge`.
+
+Open http://localhost:3000, create your account, and create an API key.
+
+## What runs
+
+| Service | Image | Purpose |
+| --- | --- | --- |
+| `postgres` | `postgres:18.6-alpine` | Data and the job queue (River). Not exposed on the host. |
+| `migrate` | `bridge-api` | Runs `bridge migrate` once, then exits. |
+| `api` | `bridge-api` | `bridge serve`: REST API on port 8080. |
+| `worker` | `bridge-api` | `bridge worker`: background jobs (retries, maintenance). |
+| `dashboard` | `bridge-dashboard` | Next.js console on port 3000. Proxies `/api/*` to `api`. |
+
+On a very small server you can drop the `worker` service and run the API with
+`command: ["serve", "--worker"]` instead.
+
+## Configuration
+
+Copy [`.env.example`](../../.env.example) to `.env` next to `docker-compose.yml`. Compose reads it
+automatically. The settings that matter for a public deployment:
+
+| Variable | Set it to |
+| --- | --- |
+| `POSTGRES_PASSWORD` | A long random value (URL-safe characters). |
+| `BRIDGE_PUBLIC_URL` | The HTTPS URL of the API, e.g. `https://api.sms.example.com`. Android devices and your apps use it. |
+| `BRIDGE_DASHBOARD_URL` | The HTTPS URL of the dashboard, e.g. `https://sms.example.com`. |
+| `BRIDGE_ALLOW_SIGNUP` | `false` once you have created your own account. Invite teammates from **Team**; invite links work with sign-up off. |
+| `BRIDGE_OPERATOR_EMAILS` | Your email. Operators see **System health**. When unset, the first account is the operator. |
+
+When `BRIDGE_DASHBOARD_URL` uses `https`, session cookies are automatically marked `Secure`.
+
+Request logs are kept for `BRIDGE_REQUEST_LOG_RETENTION` (default `336h`, 14 days) and message
+bodies for `BRIDGE_MESSAGE_RETENTION` (default `720h`).
+
+Webhooks are delivered only to public addresses. If your application runs on the same host or
+Docker network as Bridge, set `BRIDGE_WEBHOOK_ALLOW_PRIVATE_ENDPOINTS=true`; see
+[Webhooks](../webhooks/README.md#self-hosting-endpoints-on-your-network).
+
+Android phones connect to `BRIDGE_PUBLIC_URL` (REST and the `/v1/device/connect` WebSocket). If you
+put Bridge behind a reverse proxy, make sure it forwards WebSocket upgrades and does not buffer
+`/v1/events/stream` (Server-Sent Events); Caddy handles both by default, and Bridge sends
+`X-Accel-Buffering: no` for nginx. Optional push settings for waking phones are described in
+[docs/android/README.md](../android/README.md).
+
+## Production checklist
+
+- [ ] TLS in front of both the API and the dashboard (Caddy, nginx, Traefik or a cloud load balancer).
+- [ ] `POSTGRES_PASSWORD` changed from the default.
+- [ ] `BRIDGE_ALLOW_SIGNUP=false` after creating your account.
+- [ ] Your reverse proxy's address is covered by `BRIDGE_TRUSTED_PROXIES` (private networks are
+      trusted by default), so rate limits see real client IPs.
+- [ ] PostgreSQL backups. The `pgdata` volume holds everything, including queued jobs.
+- [ ] Logs collected from the containers (JSON in production).
+
+### Example: Caddy
+
+```caddyfile
+sms.example.com {
+  reverse_proxy localhost:3000
+}
+
+api.sms.example.com {
+  reverse_proxy localhost:8080
+}
+```
+
+## Upgrading
+
+```bash
+git pull
+docker compose build
+docker compose up -d     # migrate runs first; api and worker wait for it
+```
+
+Migrations are forward-only and safe to run concurrently (they take a Postgres advisory lock).
+Read the [changelog](../../CHANGELOG.md) for breaking changes before upgrading.
+
+## Health checks
+
+* `GET /healthz` returns 200 when the process is up.
+* `GET /readyz` returns 200 when the database is reachable.
+* Inside the distroless image, `bridge healthcheck` probes `/healthz` (used by Compose).
+
+## Status page and System health
+
+Every Bridge installation has a public status page at `<BRIDGE_DASHBOARD_URL>/status`, backed by
+`GET /v1/status` (no sign-in, cached for 15 seconds). It shows the current state and 90 days of
+uptime for the API, the database, message processing, webhook delivery and, for information only,
+phones. A phone going offline is its owner's to fix, so it never marks Bridge as down.
+
+How it is measured:
+
+* API and worker processes check in every 15 seconds. When no worker has checked in for a minute,
+  message processing and webhook delivery are an outage.
+* Jobs waiting more than 60 seconds to start is degraded; more than 5 minutes is an outage.
+* The worker records every component once a minute and keeps 90 days of samples. A day is an
+  outage below 95% healthy samples and degraded below 99%.
+
+Operators (see `BRIDGE_OPERATOR_EMAILS`) also get **System health** in the dashboard: running
+processes, job queues by state, messages waiting for a phone, database size and connections, and
+retention settings. The page refreshes every 10 seconds.
+
+For alerting, point an external monitor at `GET /readyz` and `GET /v1/status`; the latter's
+`status` field is `operational`, `degraded` or `outage`.
+
+## Public website
+
+`apps/web` is the project website: a static export with no server. Build it with
+`pnpm --filter @bridge/web build` and serve `apps/web/out` from any static host. Set these at
+build time:
+
+| Variable | Purpose |
+| --- | --- |
+| `NEXT_PUBLIC_DASHBOARD_URL` | Where "Open the dashboard" and the status link point. Default `http://localhost:3000`. |
+| `NEXT_PUBLIC_REPO_URL` | The source repository. Default `https://github.com/kroszborg/bridge`. |
+
+## Running without Docker
+
+```bash
+cd apps/api
+go build -o bridge ./cmd/bridge
+export BRIDGE_DATABASE_URL="postgres://…"
+./bridge migrate
+./bridge serve --worker
+```
+
+The dashboard is a standard Next.js app: `pnpm --filter @bridge/dashboard build && pnpm --filter
+@bridge/dashboard start`, with `BRIDGE_API_URL` pointing at the API.

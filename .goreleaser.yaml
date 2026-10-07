@@ -1,0 +1,73 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+# Release binaries for bridgectl (the CLI) and bridge (server, worker, migrations).
+# Run by .github/workflows/release.yml on a v*.*.* tag; try it locally with
+#   goreleaser release --snapshot --clean
+version: 2
+project_name: bridge
+
+builds:
+  - id: bridgectl
+    dir: apps/api
+    main: ./cmd/bridgectl
+    binary: bridgectl
+    env: [CGO_ENABLED=0]
+    flags: [-trimpath]
+    ldflags: ["-s -w -X main.version={{ .Version }}"]
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+
+  # The server is for Linux and macOS; on Windows, run the Docker images.
+  - id: bridge
+    dir: apps/api
+    main: ./cmd/bridge
+    binary: bridge
+    env: [CGO_ENABLED=0]
+    flags: [-trimpath]
+    ldflags: ["-s -w -X main.version={{ .Version }}"]
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
+
+archives:
+  - id: bridgectl
+    ids: [bridgectl]
+    name_template: "bridgectl_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files: [LICENSE, docs/cli/README.md]
+
+  - id: bridge
+    ids: [bridge]
+    name_template: "bridge_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    formats: [tar.gz]
+    files: [LICENSE, .env.example, docs/self-hosting/README.md]
+
+checksum:
+  name_template: checksums.txt
+
+# Notes come from CHANGELOG.md (see .github/scripts/release-notes.sh), not from commit messages.
+changelog:
+  disable: true
+
+release:
+  # Published by the workflow's last job, once images and APKs are uploaded too.
+  draft: true
+  replace_existing_draft: true
+  prerelease: auto
+  name_template: "Bridge {{ .Version }}"
+  footer: |
+    ## Install
+
+    **Docker** (recommended): set `BRIDGE_IMAGE_PREFIX=ghcr.io/kroszborg/` and `BRIDGE_VERSION={{ .Version }}`
+    in `.env`, then `docker compose pull && docker compose up -d`. Images are also on Docker Hub as
+    `kroszborg/bridge-api` and `kroszborg/bridge-dashboard`.
+
+    **CLI**: download the `bridgectl` archive for your platform below.
+
+    **Android**: install `bridge-gateway-{{ .Version }}-foss.apk` (UnifiedPush) or `-gms.apk` (Firebase).
+
+    Verify any download with `gh attestation verify <file> --repo kroszborg/bridge`, and check
+    `checksums.txt` / `apk-checksums.txt`.

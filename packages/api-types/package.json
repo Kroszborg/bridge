@@ -1,0 +1,19 @@
+{
+  "name": "@bridge/api-types",
+  "version": "0.1.0",
+  "private": true,
+  "description": "TypeScript types generated from the Bridge API's OpenAPI document.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./openapi.json": "./openapi.json"
+  },
+  "scripts": {
+    "generate": "go -C ../../apps/api run ./cmd/bridge openapi --out ../../packages/api-types/openapi.json && pnpm --dir ../../tools/openapi-codegen run generate",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2"
+  }
+}
