@@ -2742,6 +2742,580 @@
         ],
         "type": "object"
       },
+      "InsightsActivity": {
+        "additionalProperties": false,
+        "properties": {
+          "active_organizations_30d": {
+            "description": "The same over the last 30 days.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "active_organizations_7d": {
+            "description": "Workspaces that sent at least one message (live or test) in the last 7 days.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "active_users_7d": {
+            "description": "Accounts whose dashboard session was used in the last 7 days.",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "active_organizations_7d",
+          "active_organizations_30d",
+          "active_users_7d"
+        ],
+        "type": "object"
+      },
+      "InsightsBilling": {
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "examples": [
+              "USD"
+            ],
+            "type": "string"
+          },
+          "mrr_cents": {
+            "description": "Estimated monthly recurring revenue: the monthly price of every active subscription.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "plan_mix": {
+            "description": "Workspaces per plan in effect; active and past-due subscriptions keep their plan, the rest are on Free.",
+            "items": {
+              "$ref": "#/components/schemas/InsightsPlanShare"
+            },
+            "type": "array"
+          },
+          "recent_changes": {
+            "description": "The 10 most recently changed subscriptions.",
+            "items": {
+              "$ref": "#/components/schemas/InsightsBillingChange"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "plan_mix",
+          "mrr_cents",
+          "currency",
+          "recent_changes"
+        ],
+        "type": [
+          "object",
+          "null"
+        ]
+      },
+      "InsightsBillingChange": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "description": "When the subscription last changed.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "cancel_at_period_end": {
+            "type": "boolean"
+          },
+          "organization_id": {
+            "type": "string"
+          },
+          "organization_name": {
+            "type": "string"
+          },
+          "plan": {
+            "description": "Plan name.",
+            "examples": [
+              "Pro"
+            ],
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "active",
+              "past_due",
+              "cancelled",
+              "expired",
+              "incomplete"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_id",
+          "organization_name",
+          "plan",
+          "status",
+          "cancel_at_period_end",
+          "at"
+        ],
+        "type": "object"
+      },
+      "InsightsErrorCount": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "error_code": {
+            "description": "unknown when the failure had no code.",
+            "examples": [
+              "no_device"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "error_code",
+          "count"
+        ],
+        "type": "object"
+      },
+      "InsightsMessageDay": {
+        "additionalProperties": false,
+        "properties": {
+          "date": {
+            "description": "UTC calendar day.",
+            "examples": [
+              "2026-10-05"
+            ],
+            "type": "string"
+          },
+          "delivered": {
+            "description": "Live only, like sent, failed and pending.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "failed": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "live": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "pending": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "sent": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "test": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "date",
+          "live",
+          "test",
+          "delivered",
+          "sent",
+          "failed",
+          "pending"
+        ],
+        "type": "object"
+      },
+      "InsightsMessageTotals": {
+        "additionalProperties": false,
+        "properties": {
+          "delivered": {
+            "description": "Live messages confirmed by the carrier.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "failed": {
+            "description": "Live messages that failed.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "inbound": {
+            "description": "Messages received by phones with forwarding on.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "live": {
+            "description": "Outgoing live messages.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "pending": {
+            "description": "Live messages still created, queued or sending.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "sent": {
+            "description": "Live messages sent without a delivery report (yet).",
+            "format": "int64",
+            "type": "integer"
+          },
+          "test": {
+            "description": "Outgoing test messages (simulated).",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "live",
+          "test",
+          "delivered",
+          "sent",
+          "failed",
+          "pending",
+          "inbound"
+        ],
+        "type": "object"
+      },
+      "InsightsMessages": {
+        "additionalProperties": false,
+        "properties": {
+          "by_provider": {
+            "description": "Outgoing messages (live and test) by route, busiest first.",
+            "items": {
+              "$ref": "#/components/schemas/InsightsProviderCount"
+            },
+            "type": "array"
+          },
+          "daily": {
+            "description": "One entry per day, oldest first, including days without messages.",
+            "items": {
+              "$ref": "#/components/schemas/InsightsMessageDay"
+            },
+            "type": "array"
+          },
+          "delivery_rate": {
+            "description": "Live delivered / (delivered + failed), 0 to 1. Null before any finished with either.",
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "top_errors": {
+            "description": "The most common failures of live messages, at most 8.",
+            "items": {
+              "$ref": "#/components/schemas/InsightsErrorCount"
+            },
+            "type": "array"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/InsightsMessageTotals"
+          }
+        },
+        "required": [
+          "totals",
+          "delivery_rate",
+          "daily",
+          "by_provider",
+          "top_errors"
+        ],
+        "type": "object"
+      },
+      "InsightsOrganization": {
+        "additionalProperties": false,
+        "properties": {
+          "messages": {
+            "description": "Outgoing live messages in the range.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "organization_id": {
+            "type": "string"
+          },
+          "phones": {
+            "description": "Paired phones now.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "plan": {
+            "description": "Name of the plan in effect. Null without billing.",
+            "examples": [
+              "Pro"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "organization_id",
+          "name",
+          "messages",
+          "phones",
+          "plan"
+        ],
+        "type": "object"
+      },
+      "InsightsPlanShare": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "examples": [
+              "Pro"
+            ],
+            "type": "string"
+          },
+          "organizations": {
+            "description": "Workspaces on this plan now.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "plan": {
+            "description": "Plan ID.",
+            "examples": [
+              "pro"
+            ],
+            "type": "string"
+          },
+          "price_cents": {
+            "description": "Monthly price in the currency's smallest unit.",
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "plan",
+          "name",
+          "price_cents",
+          "organizations"
+        ],
+        "type": "object"
+      },
+      "InsightsProviderCount": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "provider": {
+            "description": "android is a paired phone; simulator is test mode.",
+            "examples": [
+              "android"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "count"
+        ],
+        "type": "object"
+      },
+      "InsightsRange": {
+        "additionalProperties": false,
+        "properties": {
+          "days": {
+            "description": "UTC calendar days in the range, today included.",
+            "examples": [
+              30
+            ],
+            "format": "int64",
+            "type": "integer"
+          },
+          "from": {
+            "description": "Start of the first day, 00:00 UTC.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "to": {
+            "description": "When the numbers were taken.",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "days"
+        ],
+        "type": "object"
+      },
+      "InsightsSignupDay": {
+        "additionalProperties": false,
+        "properties": {
+          "date": {
+            "description": "UTC calendar day.",
+            "examples": [
+              "2026-10-05"
+            ],
+            "type": "string"
+          },
+          "organizations": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "users": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "date",
+          "users",
+          "organizations"
+        ],
+        "type": "object"
+      },
+      "InsightsTotals": {
+        "additionalProperties": false,
+        "properties": {
+          "api_keys": {
+            "description": "API keys that are neither revoked nor expired.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "organizations": {
+            "description": "Workspaces.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "organizations_in_range": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "phones": {
+            "$ref": "#/components/schemas/InsightsTotalsPhonesStruct"
+          },
+          "projects": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "subscriptions_active": {
+            "description": "Paid subscriptions with status active.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "users": {
+            "description": "Every account on this instance.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "users_email_verified": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "users_in_range": {
+            "description": "Accounts created in the range.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "users_with_phone": {
+            "description": "Accounts with a verified mobile number.",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "users",
+          "users_in_range",
+          "users_email_verified",
+          "users_with_phone",
+          "organizations",
+          "organizations_in_range",
+          "projects",
+          "phones",
+          "api_keys",
+          "subscriptions_active"
+        ],
+        "type": "object"
+      },
+      "InsightsTotalsPhonesStruct": {
+        "additionalProperties": false,
+        "properties": {
+          "online": {
+            "description": "Connected to Bridge right now.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "total": {
+            "description": "Paired phones that are not revoked.",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "online"
+        ],
+        "type": "object"
+      },
+      "InsightsUser": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "email_verified": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "organizations": {
+            "description": "Workspaces the account belongs to.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "phone_verified": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "name",
+          "created_at",
+          "email_verified",
+          "phone_verified",
+          "organizations"
+        ],
+        "type": "object"
+      },
+      "InsightsVerify": {
+        "additionalProperties": false,
+        "properties": {
+          "started": {
+            "description": "Verifications started (live and test).",
+            "format": "int64",
+            "type": "integer"
+          },
+          "verified": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "verify_rate": {
+            "description": "verified / started, 0 to 1. Null when none started.",
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "started",
+          "verified",
+          "verify_rate"
+        ],
+        "type": "object"
+      },
       "Integration": {
         "additionalProperties": false,
         "properties": {
@@ -5710,6 +6284,70 @@
         "required": [
           "message_bodies_seconds",
           "request_logs_seconds"
+        ],
+        "type": "object"
+      },
+      "SystemInsights": {
+        "additionalProperties": false,
+        "properties": {
+          "activity": {
+            "$ref": "#/components/schemas/InsightsActivity",
+            "description": "Fixed 7 and 30 day windows, whatever the range."
+          },
+          "billing": {
+            "$ref": "#/components/schemas/InsightsBilling",
+            "description": "Plans and revenue. Null unless billing is on (hosted Bridge, BRIDGE_CLOUD)."
+          },
+          "generated_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "messages": {
+            "$ref": "#/components/schemas/InsightsMessages"
+          },
+          "range": {
+            "$ref": "#/components/schemas/InsightsRange"
+          },
+          "recent_signups": {
+            "description": "The 15 newest accounts.",
+            "items": {
+              "$ref": "#/components/schemas/InsightsUser"
+            },
+            "type": "array"
+          },
+          "signups": {
+            "description": "New accounts and workspaces per day, oldest first, including days without any.",
+            "items": {
+              "$ref": "#/components/schemas/InsightsSignupDay"
+            },
+            "type": "array"
+          },
+          "top_organizations": {
+            "description": "The 10 workspaces that sent the most live messages in the range.",
+            "items": {
+              "$ref": "#/components/schemas/InsightsOrganization"
+            },
+            "type": "array"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/InsightsTotals",
+            "description": "Counts across the whole instance; *_in_range fields cover the range only."
+          },
+          "verify": {
+            "$ref": "#/components/schemas/InsightsVerify"
+          }
+        },
+        "required": [
+          "generated_at",
+          "range",
+          "totals",
+          "signups",
+          "activity",
+          "messages",
+          "verify",
+          "billing",
+          "top_organizations",
+          "recent_signups"
         ],
         "type": "object"
       },
@@ -20650,7 +21288,7 @@
     },
     "/v1/system": {
       "get": {
-        "description": "Instance-wide internals for operators: processes, job queues, phones, backlog and database. Operators are BRIDGE_OPERATOR_EMAILS, or the first account when that is unset.",
+        "description": "Instance-wide internals for operators: processes, job queues, phones, backlog and database. Operators are BRIDGE_OPERATOR_EMAILS, or the first account when that is unset. Anyone else gets the same 404 as an unknown route.",
         "operationId": "getSystemHealth",
         "responses": {
           "200": {
@@ -20663,7 +21301,7 @@
             },
             "description": "OK"
           },
-          "403": {
+          "404": {
             "content": {
               "application/json": {
                 "schema": {
@@ -20671,7 +21309,7 @@
                 }
               }
             },
-            "description": "Forbidden"
+            "description": "Not Found"
           },
           "500": {
             "content": {
@@ -20690,6 +21328,77 @@
           }
         ],
         "summary": "Get system health",
+        "tags": [
+          "Status"
+        ]
+      }
+    },
+    "/v1/system/insights": {
+      "get": {
+        "description": "How this Bridge instance is used, for its operators: accounts, workspaces, phones, message volume and delivery, Verify, top workspaces, newest sign-ups and, with billing on, plans and revenue. Computed from Bridge's own database (no third-party analytics); it never includes message text or phone numbers. Days are UTC. Operators are BRIDGE_OPERATOR_EMAILS, or the first account when that is unset. Anyone else gets the same 404 as an unknown route.",
+        "operationId": "getSystemInsights",
+        "parameters": [
+          {
+            "description": "Days to cover, today included: 7 to 180.",
+            "explode": false,
+            "in": "query",
+            "name": "days",
+            "schema": {
+              "default": 30,
+              "description": "Days to cover, today included: 7 to 180.",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemInsights"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Get operator insights",
         "tags": [
           "Status"
         ]

@@ -154,7 +154,9 @@ func TestStatusEndpoints(t *testing.T) {
 	}
 	otherEmail := other.mustStatus(other.do("GET", "/v1/me", nil), 200).Body["user"].(map[string]any)["email"].(string)
 	notOp := login(t, ops, otherEmail, "correct horse battery")
-	if r := notOp.do("GET", "/v1/system", nil); r.Status != 403 {
-		t.Fatalf("non-operator system health: %d", r.Status)
+	// Others get the answer for a route that does not exist.
+	if r := notOp.do("GET", "/v1/system", nil); r.Status != 404 || r.errCode() != "not_found" ||
+		r.errMessage() != "No route matches GET /v1/system. See /docs for the API reference." {
+		t.Fatalf("non-operator system health: %d %s", r.Status, r.Raw)
 	}
 }

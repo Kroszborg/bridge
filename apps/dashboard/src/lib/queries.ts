@@ -716,6 +716,17 @@ export function useSystemHealth() {
   });
 }
 
+/** Operator Insights over the last `days` days; refreshes every minute. */
+export function useSystemInsights(days: number) {
+  return useQuery({
+    queryKey: ['system', 'insights', days],
+    queryFn: () => unwrap(api.GET('/v1/system/insights', { params: { query: { days } } })),
+    // Keep the previous range on screen while a new one loads.
+    placeholderData: (prev) => prev,
+    refetchInterval: 60_000,
+  });
+}
+
 // ---- verify (one-time passwords) ------------------------------------------
 
 export type VerifyEnvironment = 'live' | 'test';

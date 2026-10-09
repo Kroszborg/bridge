@@ -150,7 +150,7 @@ func (s *Server) Handler() http.Handler {
 	// Dodo Payments subscription events (hosted Bridge), signed with Standard Webhooks.
 	r.Post("/v1/billing/dodo/webhook", s.dodoWebhook)
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
-		writeRawError(w, r, http.StatusNotFound, CodeNotFound, "No route matches "+r.Method+" "+r.URL.Path+". See /docs for the API reference.")
+		writeRawError(w, r, http.StatusNotFound, CodeNotFound, noRouteMessage(r.Method, r.URL.Path))
 	})
 	r.MethodNotAllowed(func(w http.ResponseWriter, r *http.Request) {
 		writeRawError(w, r, http.StatusMethodNotAllowed, CodeInvalidRequest, r.Method+" is not supported on "+r.URL.Path+".")
@@ -179,6 +179,7 @@ func (s *Server) register(api huma.API) {
 	s.registerAccount(api)
 	s.registerVerification(api)
 	s.registerStatus(api)
+	s.registerInsights(api)
 	s.registerOTP(api)
 	s.registerVerifyApps(api)
 	s.registerWidget(api)

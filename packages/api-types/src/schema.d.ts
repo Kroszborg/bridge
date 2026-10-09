@@ -2255,9 +2255,29 @@ export interface paths {
         };
         /**
          * Get system health
-         * @description Instance-wide internals for operators: processes, job queues, phones, backlog and database. Operators are BRIDGE_OPERATOR_EMAILS, or the first account when that is unset.
+         * @description Instance-wide internals for operators: processes, job queues, phones, backlog and database. Operators are BRIDGE_OPERATOR_EMAILS, or the first account when that is unset. Anyone else gets the same 404 as an unknown route.
          */
         get: operations["getSystemHealth"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/system/insights": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get operator insights
+         * @description How this Bridge instance is used, for its operators: accounts, workspaces, phones, message volume and delivery, Verify, top workspaces, newest sign-ups and, with billing on, plans and revenue. Computed from Bridge's own database (no third-party analytics); it never includes message text or phone numbers. Days are UTC. Operators are BRIDGE_OPERATOR_EMAILS, or the first account when that is unset. Anyone else gets the same 404 as an unknown route.
+         */
+        get: operations["getSystemInsights"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3360,6 +3380,290 @@ export interface components {
              */
             on_battery_seconds: number;
         };
+        InsightsActivity: {
+            /**
+             * Format: int64
+             * @description The same over the last 30 days.
+             */
+            active_organizations_30d: number;
+            /**
+             * Format: int64
+             * @description Workspaces that sent at least one message (live or test) in the last 7 days.
+             */
+            active_organizations_7d: number;
+            /**
+             * Format: int64
+             * @description Accounts whose dashboard session was used in the last 7 days.
+             */
+            active_users_7d: number;
+        };
+        InsightsBilling: {
+            /** @example USD */
+            currency: string;
+            /**
+             * Format: int64
+             * @description Estimated monthly recurring revenue: the monthly price of every active subscription.
+             */
+            mrr_cents: number;
+            /** @description Workspaces per plan in effect; active and past-due subscriptions keep their plan, the rest are on Free. */
+            plan_mix: components["schemas"]["InsightsPlanShare"][];
+            /** @description The 10 most recently changed subscriptions. */
+            recent_changes: components["schemas"]["InsightsBillingChange"][];
+        } | null;
+        InsightsBillingChange: {
+            /**
+             * Format: date-time
+             * @description When the subscription last changed.
+             */
+            at: string;
+            cancel_at_period_end: boolean;
+            organization_id: string;
+            organization_name: string;
+            /**
+             * @description Plan name.
+             * @example Pro
+             */
+            plan: string;
+            /** @enum {string} */
+            status: "active" | "past_due" | "cancelled" | "expired" | "incomplete";
+        };
+        InsightsErrorCount: {
+            /** Format: int64 */
+            count: number;
+            /**
+             * @description unknown when the failure had no code.
+             * @example no_device
+             */
+            error_code: string;
+        };
+        InsightsMessageDay: {
+            /**
+             * @description UTC calendar day.
+             * @example 2026-10-05
+             */
+            date: string;
+            /**
+             * Format: int64
+             * @description Live only, like sent, failed and pending.
+             */
+            delivered: number;
+            /** Format: int64 */
+            failed: number;
+            /** Format: int64 */
+            live: number;
+            /** Format: int64 */
+            pending: number;
+            /** Format: int64 */
+            sent: number;
+            /** Format: int64 */
+            test: number;
+        };
+        InsightsMessageTotals: {
+            /**
+             * Format: int64
+             * @description Live messages confirmed by the carrier.
+             */
+            delivered: number;
+            /**
+             * Format: int64
+             * @description Live messages that failed.
+             */
+            failed: number;
+            /**
+             * Format: int64
+             * @description Messages received by phones with forwarding on.
+             */
+            inbound: number;
+            /**
+             * Format: int64
+             * @description Outgoing live messages.
+             */
+            live: number;
+            /**
+             * Format: int64
+             * @description Live messages still created, queued or sending.
+             */
+            pending: number;
+            /**
+             * Format: int64
+             * @description Live messages sent without a delivery report (yet).
+             */
+            sent: number;
+            /**
+             * Format: int64
+             * @description Outgoing test messages (simulated).
+             */
+            test: number;
+        };
+        InsightsMessages: {
+            /** @description Outgoing messages (live and test) by route, busiest first. */
+            by_provider: components["schemas"]["InsightsProviderCount"][];
+            /** @description One entry per day, oldest first, including days without messages. */
+            daily: components["schemas"]["InsightsMessageDay"][];
+            /**
+             * Format: double
+             * @description Live delivered / (delivered + failed), 0 to 1. Null before any finished with either.
+             */
+            delivery_rate: number | null;
+            /** @description The most common failures of live messages, at most 8. */
+            top_errors: components["schemas"]["InsightsErrorCount"][];
+            totals: components["schemas"]["InsightsMessageTotals"];
+        };
+        InsightsOrganization: {
+            /**
+             * Format: int64
+             * @description Outgoing live messages in the range.
+             */
+            messages: number;
+            name: string;
+            organization_id: string;
+            /**
+             * Format: int64
+             * @description Paired phones now.
+             */
+            phones: number;
+            /**
+             * @description Name of the plan in effect. Null without billing.
+             * @example Pro
+             */
+            plan: string | null;
+        };
+        InsightsPlanShare: {
+            /** @example Pro */
+            name: string;
+            /**
+             * Format: int64
+             * @description Workspaces on this plan now.
+             */
+            organizations: number;
+            /**
+             * @description Plan ID.
+             * @example pro
+             */
+            plan: string;
+            /**
+             * Format: int32
+             * @description Monthly price in the currency's smallest unit.
+             */
+            price_cents: number;
+        };
+        InsightsProviderCount: {
+            /** Format: int64 */
+            count: number;
+            /**
+             * @description android is a paired phone; simulator is test mode.
+             * @example android
+             */
+            provider: string;
+        };
+        InsightsRange: {
+            /**
+             * Format: int64
+             * @description UTC calendar days in the range, today included.
+             * @example 30
+             */
+            days: number;
+            /**
+             * Format: date-time
+             * @description Start of the first day, 00:00 UTC.
+             */
+            from: string;
+            /**
+             * Format: date-time
+             * @description When the numbers were taken.
+             */
+            to: string;
+        };
+        InsightsSignupDay: {
+            /**
+             * @description UTC calendar day.
+             * @example 2026-10-05
+             */
+            date: string;
+            /** Format: int64 */
+            organizations: number;
+            /** Format: int64 */
+            users: number;
+        };
+        InsightsTotals: {
+            /**
+             * Format: int64
+             * @description API keys that are neither revoked nor expired.
+             */
+            api_keys: number;
+            /**
+             * Format: int64
+             * @description Workspaces.
+             */
+            organizations: number;
+            /** Format: int64 */
+            organizations_in_range: number;
+            phones: components["schemas"]["InsightsTotalsPhonesStruct"];
+            /** Format: int64 */
+            projects: number;
+            /**
+             * Format: int64
+             * @description Paid subscriptions with status active.
+             */
+            subscriptions_active: number;
+            /**
+             * Format: int64
+             * @description Every account on this instance.
+             */
+            users: number;
+            /** Format: int64 */
+            users_email_verified: number;
+            /**
+             * Format: int64
+             * @description Accounts created in the range.
+             */
+            users_in_range: number;
+            /**
+             * Format: int64
+             * @description Accounts with a verified mobile number.
+             */
+            users_with_phone: number;
+        };
+        InsightsTotalsPhonesStruct: {
+            /**
+             * Format: int64
+             * @description Connected to Bridge right now.
+             */
+            online: number;
+            /**
+             * Format: int64
+             * @description Paired phones that are not revoked.
+             */
+            total: number;
+        };
+        InsightsUser: {
+            /** Format: date-time */
+            created_at: string;
+            email: string;
+            email_verified: boolean;
+            id: string;
+            name: string;
+            /**
+             * Format: int64
+             * @description Workspaces the account belongs to.
+             */
+            organizations: number;
+            phone_verified: boolean;
+        };
+        InsightsVerify: {
+            /**
+             * Format: int64
+             * @description Verifications started (live and test).
+             */
+            started: number;
+            /** Format: int64 */
+            verified: number;
+            /**
+             * Format: double
+             * @description verified / started, 0 to 1. Null when none started.
+             */
+            verify_rate: number | null;
+        };
         Integration: {
             /** Format: date-time */
             created_at: string;
@@ -4351,6 +4655,25 @@ export interface components {
              */
             request_logs_seconds: number;
         };
+        SystemInsights: {
+            /** @description Fixed 7 and 30 day windows, whatever the range. */
+            activity: components["schemas"]["InsightsActivity"];
+            /** @description Plans and revenue. Null unless billing is on (hosted Bridge, BRIDGE_CLOUD). */
+            billing: components["schemas"]["InsightsBilling"];
+            /** Format: date-time */
+            generated_at: string;
+            messages: components["schemas"]["InsightsMessages"];
+            range: components["schemas"]["InsightsRange"];
+            /** @description The 15 newest accounts. */
+            recent_signups: components["schemas"]["InsightsUser"][];
+            /** @description New accounts and workspaces per day, oldest first, including days without any. */
+            signups: components["schemas"]["InsightsSignupDay"][];
+            /** @description The 10 workspaces that sent the most live messages in the range. */
+            top_organizations: components["schemas"]["InsightsOrganization"][];
+            /** @description Counts across the whole instance; *_in_range fields cover the range only. */
+            totals: components["schemas"]["InsightsTotals"];
+            verify: components["schemas"]["InsightsVerify"];
+        };
         SystemInstance: {
             alive: boolean;
             hostname: string;
@@ -5019,6 +5342,22 @@ export type ForwardingRuleList = components['schemas']['ForwardingRuleList'];
 export type ForwardingRuleUpdateInput = components['schemas']['ForwardingRuleUpdateInput'];
 export type ForwardingSecret = components['schemas']['ForwardingSecret'];
 export type HeartbeatPolicy = components['schemas']['HeartbeatPolicy'];
+export type InsightsActivity = components['schemas']['InsightsActivity'];
+export type InsightsBilling = components['schemas']['InsightsBilling'];
+export type InsightsBillingChange = components['schemas']['InsightsBillingChange'];
+export type InsightsErrorCount = components['schemas']['InsightsErrorCount'];
+export type InsightsMessageDay = components['schemas']['InsightsMessageDay'];
+export type InsightsMessageTotals = components['schemas']['InsightsMessageTotals'];
+export type InsightsMessages = components['schemas']['InsightsMessages'];
+export type InsightsOrganization = components['schemas']['InsightsOrganization'];
+export type InsightsPlanShare = components['schemas']['InsightsPlanShare'];
+export type InsightsProviderCount = components['schemas']['InsightsProviderCount'];
+export type InsightsRange = components['schemas']['InsightsRange'];
+export type InsightsSignupDay = components['schemas']['InsightsSignupDay'];
+export type InsightsTotals = components['schemas']['InsightsTotals'];
+export type InsightsTotalsPhonesStruct = components['schemas']['InsightsTotalsPhonesStruct'];
+export type InsightsUser = components['schemas']['InsightsUser'];
+export type InsightsVerify = components['schemas']['InsightsVerify'];
 export type Integration = components['schemas']['Integration'];
 export type Invite = components['schemas']['Invite'];
 export type InvitePreview = components['schemas']['InvitePreview'];
@@ -5085,6 +5424,7 @@ export type SystemHealthBacklogStruct = components['schemas']['SystemHealthBackl
 export type SystemHealthDatabaseStruct = components['schemas']['SystemHealthDatabaseStruct'];
 export type SystemHealthPhonesStruct = components['schemas']['SystemHealthPhonesStruct'];
 export type SystemHealthRetentionStruct = components['schemas']['SystemHealthRetentionStruct'];
+export type SystemInsights = components['schemas']['SystemInsights'];
 export type SystemInstance = components['schemas']['SystemInstance'];
 export type SystemQueue = components['schemas']['SystemQueue'];
 export type TestDeviceRequest = components['schemas']['TestDeviceRequest'];
@@ -13926,8 +14266,58 @@ export interface operations {
                     "application/json": components["schemas"]["SystemHealth"];
                 };
             };
-            /** @description Forbidden */
-            403: {
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    getSystemInsights: {
+        parameters: {
+            query?: {
+                /** @description Days to cover, today included: 7 to 180. */
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemInsights"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

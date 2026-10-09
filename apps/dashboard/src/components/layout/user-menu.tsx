@@ -2,6 +2,7 @@
 
 import {
   Activity01Icon,
+  Analytics01Icon,
   CreditCardIcon,
   Logout03Icon,
   MoreVerticalIcon,
@@ -126,6 +127,14 @@ export function UserMenu({ compact = false }: { compact?: boolean }) {
             <Link href="/system">
               <HugeiconsIcon icon={ServerStack01Icon} strokeWidth={2} className="size-4" />
               System health
+            </Link>
+          </DropdownMenuItem>
+        ) : null}
+        {user.operator ? (
+          <DropdownMenuItem asChild>
+            <Link href="/system/insights">
+              <HugeiconsIcon icon={Analytics01Icon} strokeWidth={2} className="size-4" />
+              Insights
             </Link>
           </DropdownMenuItem>
         ) : null}

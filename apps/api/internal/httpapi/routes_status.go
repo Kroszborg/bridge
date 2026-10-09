@@ -99,14 +99,24 @@ func (s *Server) registerStatus(api huma.API) {
 	huma.Register(api, huma.Operation{
 		OperationID: "getSystemHealth", Method: http.MethodGet, Path: "/v1/system", Tags: []string{"Status"},
 		Summary:     "Get system health",
-		Description: "Instance-wide internals for operators: processes, job queues, phones, backlog and database. Operators are BRIDGE_OPERATOR_EMAILS, or the first account when that is unset.",
-		Security:    sessionAuth, Errors: []int{http.StatusForbidden},
+		Description: "Instance-wide internals for operators: processes, job queues, phones, backlog and database. Operators are BRIDGE_OPERATOR_EMAILS, or the first account when that is unset. Anyone else gets the same 404 as an unknown route.",
+		Security:    sessionAuth, Errors: []int{http.StatusNotFound},
 	}, func(ctx context.Context, _ *struct{}) (*struct{ Body SystemHealth }, error) {
 		if !s.isOperator(ctx) {
-			return nil, Errorf(http.StatusForbidden, CodeForbidden, "System health is only available to the operators of this Bridge instance.")
+			return nil, noRoute(http.MethodGet, "/v1/system")
 		}
 		return s.systemHealth(ctx)
 	})
+}
+
+// noRoute is the error for a path no route matches. Operator-only routes
+// answer everyone else with it too, so they cannot tell the route exists.
+func noRoute(method, path string) error {
+	return Errorf(http.StatusNotFound, CodeNotFound, noRouteMessage(method, path))
+}
+
+func noRouteMessage(method, path string) string {
+	return "No route matches " + method + " " + path + ". See /docs for the API reference."
 }
 
 // isOperator reports whether the signed-in user runs this instance.

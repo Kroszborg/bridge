@@ -49,7 +49,7 @@ automatically. The settings that matter for a public deployment:
 | `BRIDGE_PUBLIC_URL` | The HTTPS URL of the API, e.g. `https://api.sms.example.com`. Android devices and your apps use it. |
 | `BRIDGE_DASHBOARD_URL` | The HTTPS URL of the dashboard, e.g. `https://sms.example.com`. |
 | `BRIDGE_ALLOW_SIGNUP` | `false` once you have created your own account. Invite teammates from **Team**; invite links work with sign-up off. |
-| `BRIDGE_OPERATOR_EMAILS` | Your email. Operators see **System health**. When unset, the first account is the operator. |
+| `BRIDGE_OPERATOR_EMAILS` | Your email (comma-separate several). Operators see **System health** and **Insights**. When unset, the first account is the operator; set it explicitly on any server others can sign up to. |
 | `BRIDGE_SECRET_KEY` | 32 random bytes as base64 or hex: `openssl rand -base64 32`. Needed to store [SMS provider](../providers/README.md) credentials, [integration](../integrations/README.md) secrets, Verify apps' token signing and Turnstile secrets, and Telegram bot tokens for [forwarding](../automation/README.md#telegram). |
 | `BRIDGE_SMTP_*` | Optional. An SMTP server for password reset links, email verification codes and forwarding incoming SMS by email. See [Email](#email). |
 | `BRIDGE_ACCOUNT_VERIFY_API_KEY` | Optional. An API key of one of your projects; users then verify a phone number with a code Bridge sends through that project's Verify. See [Account verification](#account-verification). |
@@ -216,6 +216,32 @@ How it is measured:
 Operators (see `BRIDGE_OPERATOR_EMAILS`) also get **System health** in the dashboard: running
 processes, job queues by state, messages waiting for a phone, database size and connections, and
 retention settings. The page refreshes every 10 seconds.
+
+### Insights
+
+**Insights** (`/system/insights` in the dashboard, `GET /v1/system/insights?days=30` in the API)
+shows operators how the installation is used over the last 7, 30 or 90 days (the API takes 7 to
+180):
+
+* Accounts, workspaces, projects, active API keys and phones online, with new sign-ups per day and
+  the newest 15 accounts (email, when they joined, whether email and phone are verified).
+* Live SMS per day by status, the delivery rate (delivered out of delivered plus failed), test
+  messages, messages by route (`android`, a provider, or `simulator` for test mode) and the most
+  common failure codes.
+* Verify codes started and verified, workspaces that sent messages in the last 7 and 30 days, and
+  the ten workspaces sending the most live SMS.
+* With billing on (`BRIDGE_CLOUD`), workspaces per plan, an estimated monthly recurring revenue from
+  active subscriptions, and the most recent subscription changes.
+
+It is computed from Bridge's own database when the page loads (and every minute while it is open);
+nothing is sent to an analytics service, and it never shows message text or recipients' numbers.
+Days are UTC.
+
+Who can see it: only operators. Everyone else, signed in or not, gets the same answer as for a page
+or API route that does not exist (404; signed-out requests and API keys get 401, as for any
+dashboard route). When `BRIDGE_OPERATOR_EMAILS` is unset the first account to sign up is the
+operator, which suits a private install; on a hosted or public server set it explicitly, e.g.
+`BRIDGE_OPERATOR_EMAILS=you@example.com`.
 
 For alerting, point an external monitor at `GET /readyz` and `GET /v1/status`; the latter's
 `status` field is `operational`, `degraded` or `outage`.

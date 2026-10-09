@@ -1,4 +1,5 @@
 import {
+  Analytics01Icon,
   BookOpen01Icon,
   ChartHistogramIcon,
   CloudServerIcon,
@@ -103,8 +104,12 @@ export function buildNav({ projectId, apiUrl, workspace }: NavContext): NavGroup
       if (workspace.admin)
         items.push({ href: `${org}/audit`, label: 'Audit log', icon: SecurityCheckIcon });
     }
+    // Operator-only pages; nobody else sees them (the routes 404 for them).
     if (workspace.operator)
-      items.push({ href: '/system', label: 'System health', icon: ServerStack01Icon });
+      items.push(
+        { href: '/system', label: 'System health', icon: ServerStack01Icon, exact: true },
+        { href: '/system/insights', label: 'Insights', icon: Analytics01Icon },
+      );
     groups.push({ title: 'Workspace', items });
   }
   return groups;

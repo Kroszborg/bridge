@@ -2,6 +2,7 @@
 
 import {
   Activity01Icon,
+  Analytics01Icon,
   BookOpen01Icon,
   ChartHistogramIcon,
   CloudServerIcon,
@@ -261,7 +262,16 @@ export function CommandPalette() {
       keywords: ['password', 'sessions', 'profile'],
     },
     ...(user.operator
-      ? [{ id: 'system', label: 'System health', icon: Activity01Icon, run: go('/system') }]
+      ? [
+          { id: 'system', label: 'System health', icon: Activity01Icon, run: go('/system') },
+          {
+            id: 'insights',
+            label: 'Insights',
+            icon: Analytics01Icon,
+            run: go('/system/insights'),
+            keywords: ['analytics', 'signups', 'revenue', 'mrr'],
+          },
+        ]
       : []),
   ];
   const actions: Item[] = [

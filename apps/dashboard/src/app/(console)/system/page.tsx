@@ -5,7 +5,6 @@ import { EmptyState } from '@/components/kit/empty-state';
 import { PageHeader } from '@/components/kit/page-header';
 import { SectionCard } from '@/components/kit/section-card';
 import { StatusBadge } from '@/components/kit/status-badge';
-import { useConsole } from '@/components/layout/console-context';
 import { ComponentRow, OverallBanner, StatusLegend } from '@/components/status';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -57,23 +56,9 @@ function Stat({ label, value, note }: { label: string; value: string; note?: str
   );
 }
 
+// Non-operators never get here: the /system layout answers them with a 404.
 export default function SystemPage() {
-  const { user } = useConsole();
   const health = useSystemHealth();
-
-  if (!user.operator) {
-    return (
-      <EmptyState
-        title="System health is for operators"
-        description="It shows internals of this Bridge installation. Operators are set with BRIDGE_OPERATOR_EMAILS (by default, the first account)."
-        action={
-          <Button asChild variant="outline">
-            <Link href="/status">Open the public status page</Link>
-          </Button>
-        }
-      />
-    );
-  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -81,11 +66,16 @@ export default function SystemPage() {
         title="System health"
         subtitle="Processes, job queues and resources of this Bridge installation. Refreshes every 10 seconds."
         actions={
-          <Button asChild variant="outline">
-            <a href="/status" target="_blank" rel="noreferrer">
-              Public status page
-            </a>
-          </Button>
+          <>
+            <Button asChild variant="outline">
+              <Link href="/system/insights">Insights</Link>
+            </Button>
+            <Button asChild variant="outline">
+              <a href="/status" target="_blank" rel="noreferrer">
+                Public status page
+              </a>
+            </Button>
+          </>
         }
       />
       {health.isPending ? (

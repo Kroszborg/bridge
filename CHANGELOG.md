@@ -26,6 +26,19 @@ and the CLI come only with a new major version, and are called out here with mig
   `phone_verification`. New error codes: `invalid_code`, `code_expired`, `already_verified`,
   `email_in_use`, `phone_in_use`, `email_verification_unavailable` and
   `phone_verification_unavailable`.
+- Insights for operators: `GET /v1/system/insights?days=30` (7 to 180 days) and a dashboard page
+  under System health with accounts, workspaces, phones, sign-ups per day, live and test SMS per
+  day, delivery and Verify rates, top failure codes, routes, the busiest workspaces, the newest
+  accounts and, with `BRIDGE_CLOUD`, plan mix, estimated MRR and recent subscription changes. It is
+  computed from Bridge's own database; no analytics service is involved. A migration adds indexes
+  on `messages.created_at` and `otp_verifications.created_at`.
+
+### Changed
+
+- System health and Insights are hidden from anyone who is not an operator: `GET /v1/system` and
+  `GET /v1/system/insights` answer them with the same `404 not_found` as an unknown route (System
+  health returned `403 forbidden` before), and the dashboard shows its 404 page instead of an
+  "operators only" notice.
 
 ## [1.0.0] - 2026-10-09
 
