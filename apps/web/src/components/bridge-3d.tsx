@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 
 /*
  * The hero's 3D suspension bridge, drawn as a cloud of glowing particles.
@@ -281,8 +281,6 @@ const PULSE_FRAGMENT = /* glsl */ `
  */
 export function Bridge3D({ className }: { className?: string }) {
   const host = useRef<HTMLDivElement>(null);
-  // A quiet hint that the bridge can be played with, gone after the first try.
-  const [hint, setHint] = useState<'off' | 'click' | 'tap' | 'used'>('off');
 
   useEffect(() => {
     const el = host.current;
@@ -524,7 +522,6 @@ export function Bridge3D({ className }: { className?: string }) {
         const p = toBridge(at);
         uniforms.uBlasts.value[slot]?.set(p.x, p.y, p.z, uniforms.uTime.value);
         slot = (slot + 1) % BLASTS;
-        setHint('used');
       };
       el.addEventListener('pointerdown', onPress);
 
@@ -639,7 +636,6 @@ export function Bridge3D({ className }: { className?: string }) {
 
       const begin = performance.now();
       let frame = 0;
-      let hinted = false;
       const tick = (now: number) => {
         frame = requestAnimationFrame(tick);
         if (!visible || document.hidden) return;
@@ -651,12 +647,6 @@ export function Bridge3D({ className }: { className?: string }) {
         place(t);
         if (inside) uniforms.uMouse.value.copy(toBridge(ndc));
         uniforms.uHover.value += ((inside ? 1 : 0) - uniforms.uHover.value) * 0.08;
-        if (!hinted && t > 2.8) {
-          hinted = true;
-          setHint((h) =>
-            h === 'off' ? (window.matchMedia('(hover: none)').matches ? 'tap' : 'click') : h,
-          );
-        }
         renderer.render(scene, camera);
       };
       resize();
@@ -695,14 +685,6 @@ export function Bridge3D({ className }: { className?: string }) {
         role="img"
         aria-label="A suspension bridge drawn in points of light, with messages crossing its deck"
       />
-      <p
-        aria-hidden
-        data-show={hint === 'click' || hint === 'tap'}
-        className="bridge-hint pointer-events-none absolute inset-x-0 bottom-[7%] z-10 flex items-center justify-center gap-2 font-mono text-xs text-muted-foreground"
-      >
-        <span className="size-1.5 animate-pulse rounded-full bg-primary" />
-        {hint === 'tap' ? 'Tap the bridge' : 'Click the bridge'}
-      </p>
     </div>
   );
 }

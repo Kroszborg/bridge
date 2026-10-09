@@ -256,14 +256,3 @@
 .bridge-layer {
   mask-image: linear-gradient(to bottom, #000 72%, rgb(0 0 0 / 0.6) 86%, transparent);
 }
-.bridge-hint {
-  opacity: 0;
-  transform: translateY(4px);
-  transition:
-    opacity 0.6s ease,
-    transform 0.6s ease;
-}
-.bridge-hint[data-show="true"] {
-  opacity: 1;
-  transform: none;
-}
