@@ -1,0 +1,52 @@
+# Draft of metadata/dev.bridge.gateway.yml for https://gitlab.com/fdroid/fdroiddata.
+# Copy it there unchanged (fdroiddata keeps the file name = applicationId) and open a merge
+# request. See docs/android/f-droid.md. This copy in the Bridge repository is not read by F-Droid.
+
+Categories:
+  - Connectivity
+  - Phone & SMS
+License: AGPL-3.0-only
+AuthorName: kroszborg
+AuthorEmail: abhimanpanwar6@gmail.com
+WebSite: https://bridge.kroszborg.co
+SourceCode: https://github.com/kroszborg/bridge
+IssueTracker: https://github.com/kroszborg/bridge/issues
+Changelog: https://github.com/kroszborg/bridge/blob/main/CHANGELOG.md
+
+# Name, summary, description, icon, feature graphic and changelogs come from
+# android/gateway/app/fastlane/metadata/android/en-US/ in the source (the build's subdir).
+AutoName: Bridge
+
+RepoType: git
+Repo: https://github.com/kroszborg/bridge.git
+
+Builds:
+  - versionName: 1.0.0
+    versionCode: 1000099
+    commit: v1.0.0
+    subdir: android/gateway/app
+    # The app compiles Kotlin with a JDK 25 toolchain (jvmToolchain(25)); Gradle's foojay
+    # resolver downloads one when none is installed. If the build server's policy prefers a
+    # distribution JDK, install it here instead. Check the package name against the build
+    # server's Debian release in the MR pipeline before relying on it.
+    sudo:
+      - apt-get update
+      - apt-get install -y openjdk-25-jdk-headless
+      - update-java-alternatives -a
+    gradle:
+      - foss
+    # Reproducible builds: once the GitHub release APK is reproducible from this recipe,
+    # uncomment `binary` (and AllowedAPKSigningKeys below) so F-Droid ships the APK signed with
+    # Bridge's own key, which lets F-Droid and GitHub installs update each other.
+    # binary: https://github.com/kroszborg/bridge/releases/download/v%v/bridge-gateway-%v-foss.apk
+
+# TODO: SHA-256 of the release signing certificate, lowercase hex without colons, from
+#   apksigner verify --print-certs bridge-gateway-1.0.0-foss.apk
+# Only needed together with `binary` (reproducible builds).
+# AllowedAPKSigningKeys: <sha256-of-release-certificate>
+
+AutoUpdateMode: Version
+# Final releases only: vX.Y.Z. Release candidates (vX.Y.Z-rc.N) do not match.
+UpdateCheckMode: Tags ^v[0-9.]+$
+CurrentVersion: 1.0.0
+CurrentVersionCode: 1000099

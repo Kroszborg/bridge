@@ -5,7 +5,7 @@
 <li>Pair by scanning the QR code from the dashboard, entering the code by hand, or signing in with your account.</li>
 <li>Sends the SMS your server queues, on the SIM you choose on dual-SIM phones, with multipart messages and delivery reports.</li>
 <li>Optionally forwards the SMS this phone receives to your server, only after you turn it on in the dashboard.</li>
-<li>Keeps a battery-friendly connection with adaptive heartbeats, reconnects with backoff, and can be woken by UnifiedPush (for example ntfy) when the connection drops.</li>
+<li>Keeps a battery-friendly connection with adaptive heartbeats, reconnects with backoff, and can be woken by a push when the connection drops: UnifiedPush (for example ntfy), or Firebase Cloud Messaging in the Google Play build.</li>
 <li>A reliability checklist shows what Android needs so the gateway keeps running.</li>
 </ul>
 
@@ -19,7 +19,7 @@
 
 <p><b>Private by design</b></p>
 <ul>
-<li>The app talks only to the server you pair it with or sign in to. No analytics, no ads, no trackers.</li>
+<li>The app talks only to the server you pair it with or sign in to. No analytics, no ads, no trackers. Wake-up pushes carry no message data.</li>
 <li>The device credential and your session are encrypted with keys held in the Android Keystore.</li>
 <li>Your phone number is never read. The camera is used only to scan the pairing code.</li>
 </ul>

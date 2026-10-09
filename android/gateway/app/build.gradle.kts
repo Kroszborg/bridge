@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -6,8 +8,8 @@ plugins {
 
 // Release builds take their version from the git tag (BRIDGE_VERSION_NAME, set by
 // .github/workflows/release.yml). 1.0.0-rc.1 → 1000001, 1.0.0 → 1000099: always increasing.
-val releaseVersion: String = System.getenv("BRIDGE_VERSION_NAME") ?: "1.0.0"
-
+// Builds without it (F-Droid, local) use the literals in defaultConfig, which F-Droid's update
+// checker reads from this file. Nothing else (no timestamp, no git hash) goes into the version.
 fun versionCodeOf(version: String): Int {
     val match = Regex("""^(\d+)\.(\d+)\.(\d+)(?:-rc\.(\d+))?$""").matchEntire(version)
         ?: error("BRIDGE_VERSION_NAME must be X.Y.Z or X.Y.Z-rc.N, got \"$version\"")
@@ -23,9 +25,19 @@ android {
         applicationId = "dev.bridge.gateway"
         minSdk = 26
         targetSdk = 37
-        versionCode = versionCodeOf(releaseVersion)
-        versionName = releaseVersion
+        // Bump both, and add fastlane/.../changelogs/<versionCode>.txt, in the release commit.
+        versionCode = 1000099
+        versionName = "1.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    check(versionCodeOf(defaultConfig.versionName!!) == defaultConfig.versionCode) {
+        "defaultConfig.versionCode must be versionCodeOf(\"${defaultConfig.versionName}\") = " +
+            "${versionCodeOf(defaultConfig.versionName!!)}"
+    }
+    System.getenv("BRIDGE_VERSION_NAME")?.takeIf { it.isNotBlank() }?.let { tag ->
+        defaultConfig.versionName = tag
+        defaultConfig.versionCode = versionCodeOf(tag)
     }
 
     // foss: 100% open source, UnifiedPush wake-ups. Published on GitHub Releases (and F-Droid later).
@@ -42,15 +54,25 @@ android {
         }
     }
 
-    // Release signing comes from the environment so no key material lives in the repository.
-    val releaseKeystore = System.getenv("BRIDGE_KEYSTORE_FILE")
+    // Release signing: the BRIDGE_KEYSTORE_* environment (CI, see .github/workflows/release.yml), or
+    // a git-ignored android/gateway/keystore.properties for local builds. With neither, release
+    // builds are unsigned (F-Droid signs its own; Play needs the upload key). No key material
+    // lives in the repository.
+    val keystoreProperties = Properties().apply {
+        val file = rootProject.file("keystore.properties")
+        if (file.isFile) file.inputStream().use(::load)
+    }
+    fun signingValue(env: String, property: String): String? =
+        System.getenv(env)?.takeIf { it.isNotBlank() } ?: keystoreProperties.getProperty(property)
+    val releaseKeystore = System.getenv("BRIDGE_KEYSTORE_FILE")?.takeIf { it.isNotBlank() }?.let(::file)
+        ?: keystoreProperties.getProperty("storeFile")?.let(rootProject::file)
     signingConfigs {
         if (releaseKeystore != null) {
             create("release") {
-                storeFile = file(releaseKeystore)
-                storePassword = System.getenv("BRIDGE_KEYSTORE_PASSWORD")
-                keyAlias = System.getenv("BRIDGE_KEY_ALIAS")
-                keyPassword = System.getenv("BRIDGE_KEY_PASSWORD")
+                storeFile = releaseKeystore
+                storePassword = signingValue("BRIDGE_KEYSTORE_PASSWORD", "storePassword")
+                keyAlias = signingValue("BRIDGE_KEY_ALIAS", "keyAlias")
+                keyPassword = signingValue("BRIDGE_KEY_PASSWORD", "keyPassword")
             }
         }
     }
@@ -61,7 +83,16 @@ android {
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             if (releaseKeystore != null) signingConfig = signingConfigs.getByName("release")
+            // No git commit in the APK or bundle: reproducible from the tag's source alone.
+            vcsInfo.include = false
         }
+    }
+
+    // The dependency list AGP embeds is encrypted with a Google key, so F-Droid rejects APKs that
+    // carry it. Play Console reads it from the bundle for SDK warnings, so bundles keep it.
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = true
     }
 
     buildFeatures {

@@ -31,7 +31,7 @@ const FOLDERS: Record<string, MetaData> = {
       'releasing',
     ],
   },
-  android: { title: 'Android app', pages: ['play-store'] },
+  android: { title: 'Android app', pages: ['play-store', 'f-droid'] },
   integrations: {
     title: 'Integrations',
     pages: ['supabase', 'auth0', 'better-auth', 'firebase-clerk', 'no-code'],
@@ -48,6 +48,7 @@ const LABELS: Record<string, string> = {
   'otp/index.md': 'Verify (OTP)',
   'android/index.md': 'Android app',
   'android/play-store.md': 'Google Play',
+  'android/f-droid.md': 'F-Droid',
   'integrations/index.md': 'Integrations',
   'integrations/supabase.md': 'Supabase',
   'integrations/firebase-clerk.md': 'Firebase and Clerk',

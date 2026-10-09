@@ -17,10 +17,18 @@ queue, and, if you turn it on, forwards the SMS it receives.
 | `foss` | UnifiedPush (ntfy or another distributor) | Everyone. 100% open source, no Google services. **Use this unless you have a reason not to.** |
 | `gms` | Firebase Cloud Messaging | Servers whose operator configured Firebase (see below). Needs Google Play services on the phone. |
 
-Download `bridge-gateway-<version>-foss.apk` (or `-gms.apk`) from
-[GitHub Releases](https://github.com/kroszborg/bridge/releases) and check it against `apk-checksums.txt`. Bridge is not on Google Play: Play only
-lets default SMS apps send SMS, and a gateway is not one. [Google Play](play-store.md) records what a
-submission would need. The F-Droid listing text lives in `android/gateway/app/fastlane/`.
+## Install
+
+| Where | Build | Status |
+| --- | --- | --- |
+| [GitHub Releases](https://github.com/kroszborg/bridge/releases) | `foss` and `gms` | **Available now.** Download `bridge-gateway-<version>-foss.apk` (or `-gms.apk`) and check it against `apk-checksums.txt`. |
+| [F-Droid](https://f-droid.org) | `foss`, built by F-Droid from source | After inclusion. Submission steps: [F-Droid](f-droid.md). |
+| Google Play | `gms` | When approved. Play restricts the SMS permissions to default SMS apps and approved exceptions, so the listing depends on Google accepting the permissions declaration. Steps: [Google Play](play-store.md). |
+
+Updates install over the same app only when they are signed with the same key. The GitHub APKs are
+signed with Bridge's release key; Google Play uses the same key when it is registered as the Play
+app signing key; F-Droid signs with its own key unless the build is reproducible.
+Moving between sources with different keys means uninstalling and pairing again.
 
 ## Pairing
 
@@ -232,6 +240,16 @@ export BRIDGE_KEYSTORE_PASSWORD=…
 export BRIDGE_KEY_ALIAS=bridge
 export BRIDGE_KEY_PASSWORD=…
 ./gradlew assembleFossRelease assembleGmsRelease
+```
+
+Or, for local builds, put the same four values in a git-ignored `android/gateway/keystore.properties`
+(`storeFile`, `storePassword`, `keyAlias`, `keyPassword`; a relative `storeFile` is resolved from
+`android/gateway/`). The environment wins when both are set. Without either, release builds are
+unsigned, which is what F-Droid builds.
+
+```bash
+./gradlew assembleFossRelease   # app/build/outputs/apk/foss/release/  (GitHub, F-Droid)
+./gradlew bundleGmsRelease      # app/build/outputs/bundle/gmsRelease/ (Google Play)
 ```
 
 Keep the keystore safe and backed up. Android only installs updates signed with the same key.

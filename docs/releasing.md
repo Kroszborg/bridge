@@ -114,9 +114,11 @@ release's (1010099), so phones can update from an RC to the release. Only `vX.Y.
 
 The Android version comes from the tag: `versionName` is the version and `versionCode` is
 `major × 1,000,000 + minor × 10,000 + patch × 100 + (rc number, or 99 for a final release)`, so
-1.0.0 is 1000099. Bump the default in `android/gateway/app/build.gradle.kts` and add
-`android/gateway/app/fastlane/metadata/android/en-US/changelogs/<versionCode>.txt` in the release
-commit, so builds without the tag (F-Droid) get the same version.
+1.0.0 is 1000099. In the release commit, set both `versionCode` and `versionName` in
+`defaultConfig` in `android/gateway/app/build.gradle.kts` (the build fails if they disagree with
+the formula) and add `android/gateway/app/fastlane/metadata/android/en-US/changelogs/<versionCode>.txt`,
+so builds without the tag (F-Droid) get the same version. F-Droid reads those two literal values to
+detect new releases; see [F-Droid](android/f-droid.md).
 
 ## When a release fails
 
