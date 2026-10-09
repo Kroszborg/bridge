@@ -213,12 +213,18 @@ func (s *Server) checkPassword(ctx context.Context, u *dbq.User, password, locat
 // auditUser records an account action in each of the user's organizations,
 // so every organization's admins can see security changes of their members.
 func (s *Server) auditUser(ctx context.Context, q *dbq.Queries, action string) error {
+	return s.auditUserWith(ctx, q, action, nil)
+}
+
+// auditUserWith is auditUser with metadata, which must never contain secrets.
+func (s *Server) auditUserWith(ctx context.Context, q *dbq.Queries, action string, metadata map[string]any) error {
 	orgs, err := q.ListOrganizationsForUser(ctx, principalFrom(ctx).User.ID)
 	if err != nil {
 		return err
 	}
 	for _, o := range orgs {
-		if err := s.audit(ctx, q, auditEntry{OrganizationID: o.ID, Action: action, TargetType: "user", TargetID: principalFrom(ctx).User.ID}); err != nil {
+		entry := auditEntry{OrganizationID: o.ID, Action: action, TargetType: "user", TargetID: principalFrom(ctx).User.ID, Metadata: metadata}
+		if err := s.audit(ctx, q, entry); err != nil {
 			return err
 		}
 	}

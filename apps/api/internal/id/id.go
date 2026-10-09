@@ -21,6 +21,7 @@ const (
 	User            = "usr"
 	Session         = "ses"
 	PasswordReset   = "pwr"
+	EmailCode       = "evc"
 	Organization    = "org"
 	Member          = "mem"
 	Project         = "prj"

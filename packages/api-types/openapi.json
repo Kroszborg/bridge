@@ -258,12 +258,20 @@
       "AuthConfig": {
         "additionalProperties": false,
         "properties": {
+          "email_verification": {
+            "description": "Whether users can verify their email address with an emailed code.",
+            "type": "boolean"
+          },
           "hosted": {
             "description": "Whether this is hosted Bridge (plans and billing apply).",
             "type": "boolean"
           },
           "password_reset": {
             "description": "Whether forgotten passwords can be reset by email.",
+            "type": "boolean"
+          },
+          "phone_verification": {
+            "description": "Whether users can verify a phone number with a code sent by SMS through this server's own Verify.",
             "type": "boolean"
           },
           "privacy_url": {
@@ -287,6 +295,8 @@
           "signup_open",
           "password_reset",
           "hosted",
+          "email_verification",
+          "phone_verification",
           "terms_url",
           "privacy_url"
         ],
@@ -2155,6 +2165,76 @@
         ],
         "type": "object"
       },
+      "EmailChangeInput": {
+        "additionalProperties": false,
+        "properties": {
+          "email": {
+            "description": "The new address. The code goes there.",
+            "examples": [
+              "ada@example.org"
+            ],
+            "format": "email",
+            "maxLength": 254,
+            "type": "string"
+          },
+          "password": {
+            "description": "Your current password.",
+            "maxLength": 128,
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ],
+        "type": "object"
+      },
+      "EmailVerificationConfirmInput": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "description": "The code you received.",
+            "examples": [
+              "482913"
+            ],
+            "maxLength": 12,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "type": "object"
+      },
+      "EmailVerificationSent": {
+        "additionalProperties": false,
+        "properties": {
+          "email": {
+            "description": "The address the code was sent to.",
+            "examples": [
+              "ada@example.com"
+            ],
+            "type": "string"
+          },
+          "expires_at": {
+            "description": "The code stops working at this time, 15 minutes after it was sent.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "resend_available_at": {
+            "description": "When another code may be requested.",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "expires_at",
+          "resend_available_at"
+        ],
+        "type": "object"
+      },
       "ErrorBody": {
         "additionalProperties": false,
         "properties": {
@@ -3923,6 +4003,103 @@
           "expires_at",
           "api_url",
           "pairing_uri"
+        ],
+        "type": "object"
+      },
+      "PhoneVerificationConfirmInput": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "description": "The code from the SMS.",
+            "examples": [
+              "482913"
+            ],
+            "maxLength": 12,
+            "minLength": 1,
+            "type": "string"
+          },
+          "phone": {
+            "description": "The number the code was sent to.",
+            "examples": [
+              "+919876543210"
+            ],
+            "maxLength": 32,
+            "minLength": 3,
+            "type": "string"
+          }
+        },
+        "required": [
+          "phone",
+          "code"
+        ],
+        "type": "object"
+      },
+      "PhoneVerificationInput": {
+        "additionalProperties": false,
+        "properties": {
+          "phone": {
+            "description": "The number in international E.164 format, with the country code.",
+            "examples": [
+              "+919876543210"
+            ],
+            "maxLength": 32,
+            "minLength": 3,
+            "type": "string"
+          }
+        },
+        "required": [
+          "phone"
+        ],
+        "type": "object"
+      },
+      "PhoneVerificationSent": {
+        "additionalProperties": false,
+        "properties": {
+          "environment": {
+            "description": "live sends a real SMS; test (the server verifies phones with a test key) sends nothing.",
+            "enum": [
+              "live",
+              "test"
+            ],
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "description": "The verification in this server's Verify project.",
+            "examples": [
+              "otp_01ja8z3k5wq2v7c9e4r2n0w6yb"
+            ],
+            "type": "string"
+          },
+          "resend_available_at": {
+            "description": "When another code may be sent to this number.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "test_code": {
+            "description": "The code itself. Only returned when the server verifies phones with a test key, which sends no SMS.",
+            "examples": [
+              "482913"
+            ],
+            "type": "string"
+          },
+          "to": {
+            "description": "The number, in E.164 format.",
+            "examples": [
+              "+919876543210"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "to",
+          "environment",
+          "expires_at",
+          "resend_available_at"
         ],
         "type": "object"
       },
@@ -6091,6 +6268,7 @@
             "type": "string"
           },
           "email_verified": {
+            "description": "Whether you proved the address with a code sent to it.",
             "type": "boolean"
           },
           "id": {
@@ -6108,6 +6286,20 @@
           "operator": {
             "description": "Whether you operate this Bridge instance and can see System health.",
             "type": "boolean"
+          },
+          "phone": {
+            "description": "Your verified phone number in E.164 format; null until you verify one.",
+            "examples": [
+              "+919876543210"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "phone_verified": {
+            "description": "Whether you proved the phone number with a code sent to it.",
+            "type": "boolean"
           }
         },
         "required": [
@@ -6116,6 +6308,8 @@
           "email",
           "name",
           "email_verified",
+          "phone",
+          "phone_verified",
           "created_at"
         ],
         "type": "object"
@@ -8833,6 +9027,334 @@
         ]
       }
     },
+    "/v1/me/email/change": {
+      "post": {
+        "description": "Needs your current password. Emails a 6-digit code to the new address and a notice to the current one; the address changes once the code is confirmed with `POST /v1/me/email/change/confirm`. The code expires after 15 minutes or 5 wrong attempts. One code a minute and at most 5 an hour. `email_in_use` when another account uses the address.",
+        "operationId": "requestEmailChange",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailChangeInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailVerificationSent"
+                }
+              }
+            },
+            "description": "Accepted"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Change your email address",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/v1/me/email/change/confirm": {
+      "post": {
+        "description": "Checks the code sent to the new address and switches your account to it; the new address counts as verified. You stay signed in, and password reset links sent to the old address stop working. Errors: `invalid_code`, `code_expired` and `email_in_use` (another account took the address meanwhile).",
+        "operationId": "confirmEmailChange",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailVerificationConfirmInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Confirm the new email address",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/v1/me/email/verification": {
+      "post": {
+        "description": "Emails a 6-digit code to your address. The code expires after 15 minutes or 5 wrong attempts, and replaces any code sent before. One code a minute and at most 5 an hour. Sign-up sends the first code by itself. Needs an SMTP server (`email_verification` in `GET /v1/auth/config`).",
+        "operationId": "sendEmailVerification",
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailVerificationSent"
+                }
+              }
+            },
+            "description": "Accepted"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Email a verification code",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/v1/me/email/verification/confirm": {
+      "post": {
+        "description": "Checks the code from the verification email and marks your address verified. A wrong code uses one of 5 attempts; after the last one, or 15 minutes, ask for a new code. Errors: `invalid_code` (wrong code) and `code_expired` (no usable code: expired, used up or replaced).",
+        "operationId": "confirmEmailVerification",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailVerificationConfirmInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Verify your email address",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
     "/v1/me/password": {
       "post": {
         "description": "Signs out every other session.",
@@ -8898,6 +9420,237 @@
           }
         ],
         "summary": "Change your password",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/v1/me/phone": {
+      "delete": {
+        "description": "Forgets your verified phone number. You can verify a number again later.",
+        "operationId": "removePhone",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Remove your phone number",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/v1/me/phone/verification": {
+      "post": {
+        "description": "Sends a code by SMS through this server's own Verify, from the project of `BRIDGE_ACCOUNT_VERIFY_API_KEY`. With a live key the SMS goes out through that project's paired phones or providers; with a test key nothing is sent and the code is returned in `test_code`. A number can be verified on one account only (`phone_in_use`). One code per number every 30 seconds, at most 5 per number and 5 per account an hour. Needs `phone_verification` in `GET /v1/auth/config`.",
+        "operationId": "sendPhoneVerification",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PhoneVerificationInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhoneVerificationSent"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Text a verification code to a phone number",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/v1/me/phone/verification/confirm": {
+      "post": {
+        "description": "Checks the code sent to the number and saves it as your verified phone number, replacing any number verified before. Errors: `invalid_code` (wrong code; the code allows 5 attempts) and `code_expired` (no usable code for the number: expired, used up or replaced).",
+        "operationId": "confirmPhoneVerification",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PhoneVerificationConfirmInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Verify a phone number",
         "tags": [
           "Auth"
         ]

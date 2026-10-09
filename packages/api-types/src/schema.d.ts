@@ -376,6 +376,86 @@ export interface paths {
         patch: operations["updateMe"];
         trace?: never;
     };
+    "/v1/me/email/change": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change your email address
+         * @description Needs your current password. Emails a 6-digit code to the new address and a notice to the current one; the address changes once the code is confirmed with `POST /v1/me/email/change/confirm`. The code expires after 15 minutes or 5 wrong attempts. One code a minute and at most 5 an hour. `email_in_use` when another account uses the address.
+         */
+        post: operations["requestEmailChange"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/email/change/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm the new email address
+         * @description Checks the code sent to the new address and switches your account to it; the new address counts as verified. You stay signed in, and password reset links sent to the old address stop working. Errors: `invalid_code`, `code_expired` and `email_in_use` (another account took the address meanwhile).
+         */
+        post: operations["confirmEmailChange"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/email/verification": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Email a verification code
+         * @description Emails a 6-digit code to your address. The code expires after 15 minutes or 5 wrong attempts, and replaces any code sent before. One code a minute and at most 5 an hour. Sign-up sends the first code by itself. Needs an SMTP server (`email_verification` in `GET /v1/auth/config`).
+         */
+        post: operations["sendEmailVerification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/email/verification/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify your email address
+         * @description Checks the code from the verification email and marks your address verified. A wrong code uses one of 5 attempts; after the last one, or 15 minutes, ask for a new code. Errors: `invalid_code` (wrong code) and `code_expired` (no usable code: expired, used up or replaced).
+         */
+        post: operations["confirmEmailVerification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me/password": {
         parameters: {
             query?: never;
@@ -390,6 +470,66 @@ export interface paths {
          * @description Signs out every other session.
          */
         post: operations["changePassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/phone": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove your phone number
+         * @description Forgets your verified phone number. You can verify a number again later.
+         */
+        delete: operations["removePhone"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/phone/verification": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Text a verification code to a phone number
+         * @description Sends a code by SMS through this server's own Verify, from the project of `BRIDGE_ACCOUNT_VERIFY_API_KEY`. With a live key the SMS goes out through that project's paired phones or providers; with a test key nothing is sent and the code is returned in `test_code`. A number can be verified on one account only (`phone_in_use`). One code per number every 30 seconds, at most 5 per number and 5 per account an hour. Needs `phone_verification` in `GET /v1/auth/config`.
+         */
+        post: operations["sendPhoneVerification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/phone/verification/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify a phone number
+         * @description Checks the code sent to the number and saves it as your verified phone number, replacing any number verified before. Errors: `invalid_code` (wrong code; the code allows 5 attempts) and `code_expired` (no usable code for the number: expired, used up or replaced).
+         */
+        post: operations["confirmPhoneVerification"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2341,10 +2481,14 @@ export interface components {
             has_more: boolean;
         };
         AuthConfig: {
+            /** @description Whether users can verify their email address with an emailed code. */
+            email_verification: boolean;
             /** @description Whether this is hosted Bridge (plans and billing apply). */
             hosted: boolean;
             /** @description Whether forgotten passwords can be reset by email. */
             password_reset: boolean;
+            /** @description Whether users can verify a phone number with a code sent by SMS through this server's own Verify. */
+            phone_verification: boolean;
             privacy_url: string | null;
             /** @description Whether anyone can create an account. Invites always work. */
             signup_open: boolean;
@@ -3019,6 +3163,40 @@ export interface components {
             /** Format: int64 */
             segments: number;
         };
+        EmailChangeInput: {
+            /**
+             * Format: email
+             * @description The new address. The code goes there.
+             * @example ada@example.org
+             */
+            email: string;
+            /** @description Your current password. */
+            password: string;
+        };
+        EmailVerificationConfirmInput: {
+            /**
+             * @description The code you received.
+             * @example 482913
+             */
+            code: string;
+        };
+        EmailVerificationSent: {
+            /**
+             * @description The address the code was sent to.
+             * @example ada@example.com
+             */
+            email: string;
+            /**
+             * Format: date-time
+             * @description The code stops working at this time, 15 minutes after it was sent.
+             */
+            expires_at: string;
+            /**
+             * Format: date-time
+             * @description When another code may be requested.
+             */
+            resend_available_at: string;
+        };
         ErrorBody: {
             /**
              * @description Stable, machine-readable error code.
@@ -3584,6 +3762,54 @@ export interface components {
             pairing_uri: string;
             /** @description Single-use pairing token. Shown once. */
             token: string;
+        };
+        PhoneVerificationConfirmInput: {
+            /**
+             * @description The code from the SMS.
+             * @example 482913
+             */
+            code: string;
+            /**
+             * @description The number the code was sent to.
+             * @example +919876543210
+             */
+            phone: string;
+        };
+        PhoneVerificationInput: {
+            /**
+             * @description The number in international E.164 format, with the country code.
+             * @example +919876543210
+             */
+            phone: string;
+        };
+        PhoneVerificationSent: {
+            /**
+             * @description live sends a real SMS; test (the server verifies phones with a test key) sends nothing.
+             * @enum {string}
+             */
+            environment: "live" | "test";
+            /** Format: date-time */
+            expires_at: string;
+            /**
+             * @description The verification in this server's Verify project.
+             * @example otp_01ja8z3k5wq2v7c9e4r2n0w6yb
+             */
+            id: string;
+            /**
+             * Format: date-time
+             * @description When another code may be sent to this number.
+             */
+            resend_available_at: string;
+            /**
+             * @description The code itself. Only returned when the server verifies phones with a test key, which sends no SMS.
+             * @example 482913
+             */
+            test_code?: string;
+            /**
+             * @description The number, in E.164 format.
+             * @example +919876543210
+             */
+            to: string;
         };
         PlanBody: {
             /**
@@ -4320,6 +4546,7 @@ export interface components {
             created_at: string;
             /** @example ada@example.com */
             email: string;
+            /** @description Whether you proved the address with a code sent to it. */
             email_verified: boolean;
             /** @example usr_01j9tq4m2xk3v8c7e5r2n0w6yb */
             id: string;
@@ -4327,6 +4554,13 @@ export interface components {
             name: string;
             /** @description Whether you operate this Bridge instance and can see System health. */
             operator: boolean;
+            /**
+             * @description Your verified phone number in E.164 format; null until you verify one.
+             * @example +919876543210
+             */
+            phone: string | null;
+            /** @description Whether you proved the phone number with a code sent to it. */
+            phone_verified: boolean;
         };
         Verification: {
             /**
@@ -4767,6 +5001,9 @@ export type DeviceHeartbeatInputBody = components['schemas']['DeviceHeartbeatInp
 export type DeviceHeartbeatResponse = components['schemas']['DeviceHeartbeatResponse'];
 export type DeviceSim = components['schemas']['DeviceSIM'];
 export type DeviceUsage = components['schemas']['DeviceUsage'];
+export type EmailChangeInput = components['schemas']['EmailChangeInput'];
+export type EmailVerificationConfirmInput = components['schemas']['EmailVerificationConfirmInput'];
+export type EmailVerificationSent = components['schemas']['EmailVerificationSent'];
 export type ErrorBody = components['schemas']['ErrorBody'];
 export type ErrorDetail = components['schemas']['ErrorDetail'];
 export type FcmClientConfig = components['schemas']['FCMClientConfig'];
@@ -4809,6 +5046,9 @@ export type OtpVerifyBody = components['schemas']['OtpVerifyBody'];
 export type PairInputBody = components['schemas']['PairInputBody'];
 export type PairResponse = components['schemas']['PairResponse'];
 export type PairingToken = components['schemas']['PairingToken'];
+export type PhoneVerificationConfirmInput = components['schemas']['PhoneVerificationConfirmInput'];
+export type PhoneVerificationInput = components['schemas']['PhoneVerificationInput'];
+export type PhoneVerificationSent = components['schemas']['PhoneVerificationSent'];
 export type PlanBody = components['schemas']['PlanBody'];
 export type PlanLimits = components['schemas']['PlanLimits'];
 export type Project = components['schemas']['Project'];
@@ -6121,6 +6361,269 @@ export interface operations {
             };
         };
     };
+    requestEmailChange: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailChangeInput"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailVerificationSent"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    confirmEmailChange: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailVerificationConfirmInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    sendEmailVerification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailVerificationSent"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    confirmEmailVerification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailVerificationConfirmInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
     changePassword: {
         parameters: {
             query?: never;
@@ -6170,6 +6673,191 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    removePhone: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    sendPhoneVerification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PhoneVerificationInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PhoneVerificationSent"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    confirmPhoneVerification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PhoneVerificationConfirmInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

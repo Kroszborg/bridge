@@ -43,6 +43,8 @@ Bridge's control.
 | Device credential | `bd_` + 43 base62 chars | SHA-256 | until the device is removed |
 | Pairing token | `bp_` + 43 base62 chars | SHA-256 | 10 minutes, single use |
 | Password reset link | `br_` + 32 base62 chars | SHA-256 | 1 hour, single use |
+| Email verification / change code | 6 digits | SHA-256 bound to the code's ID | 15 minutes or 5 wrong attempts, single use; a new code replaces it |
+| Phone verification code | Verify code of the operator's project | HMAC-SHA-256 (the Verify service's own storage) | the Verify app's expiry and attempts |
 | Team invite link | `bi_` + 32 base62 chars | SHA-256 | 7 days, single use |
 | Verify publishable key | `bpk_` + 32 chars | plaintext (it is public) | for the app's life |
 | Verify app signing secret | `bvs_` + 48 base62 chars | AES-256-GCM under `BRIDGE_SECRET_KEY`, bound to the app ID | until rotated |
@@ -87,6 +89,24 @@ Bridge's control.
   hour. Using it sets the new password, expires every other open reset link for the account, and
   signs out **every** session, then starts a new one for the browser that reset it.
 
+## Account verification
+
+* Email codes are 6 random digits (`crypto/rand`), sent only to the address being proven and stored
+  as a SHA-256 hash bound to the code's ID. Checks compare in constant time; a code dies after 15
+  minutes, 5 wrong attempts, use, or a newer code. Sends are limited to one a minute and 5 an hour
+  per account, checks to 30 an hour.
+* A code proves only the address it was sent to: if the account's address changed in between, the
+  verification code no longer works.
+* Changing the email address needs the current password (so the endpoint cannot be used to look up
+  accounts), sends the code to the new address and a notice to the old one, and changes the address
+  only when the code is entered. It expires open password reset links and codes; sessions stay.
+* Phone codes are sent and checked by the [Verify](../otp/README.md) service through the project of
+  `BRIDGE_ACCOUNT_VERIFY_API_KEY`, with its protections: hashed codes, attempts, expiry, per-number
+  limits, fraud checks and redaction of the SMS once used. Bridge only checks a code that was issued
+  for the same account (metadata `user_id`), so one user cannot use or burn another's code, and
+  limits each account to 5 codes an hour. A verified number can belong to one account only.
+* The key is resolved on every use; revoking it stops phone verification at once.
+
 ## Tenant isolation
 
 * Every project-scoped query includes the project ID, and access is resolved through organization
@@ -124,6 +144,8 @@ Bridge's control.
 | Verify widget, per IP: settings / sends / checks / redirect checks | 120 / 10 / 30 / 60 per minute |
 | Password reset requests | 10 per IP and 3 per email per hour |
 | Password changes / re-authentication per user | 10 per hour / 10 per 15 minutes |
+| Email verification and change codes per user | 1 per minute and 5 per hour each; 30 checks per hour |
+| Phone verification codes per user | 5 per hour (plus Verify's per-number limits); 30 checks per hour |
 | Messages accepted per project | 1,000 per hour (broadcasts are admitted as a whole instead) |
 | Messages to one number, per project | 20 per hour |
 | Incoming SMS per phone | 1,000 per hour |
@@ -145,7 +167,8 @@ and the header is read right to left so clients cannot spoof their address.
 * Server errors return a generic message plus the request ID; the cause is logged, never sent.
 * The `audit_logs` table records sign-ups, organization and project changes, API keys, phones,
   webhooks and their secrets being revealed or rotated, invites, role changes, member removal,
-  password changes, session revocations, SMS providers, routing, integrations, Verify apps
+  password changes, session revocations, email verification and email changes (old and new
+  address), phone numbers verified or removed, SMS providers, routing, integrations, Verify apps
   (created, updated, deleted, signing secret revealed or rotated), broadcasts created or canceled
   and schedule changes from the dashboard, opt-outs added or removed in the dashboard, and
   auto-reply and forwarding rules (created, updated, deleted, signing secret revealed), with actor,

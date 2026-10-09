@@ -9,6 +9,58 @@ import (
 	"context"
 )
 
+const changeUserEmail = `-- name: ChangeUserEmail :one
+UPDATE users SET email = $1, email_verified_at = now(), updated_at = now()
+WHERE id = $2
+RETURNING id, email, name, password_hash, email_verified_at, created_at, updated_at, phone, phone_verified_at
+`
+
+type ChangeUserEmailParams struct {
+	Email string
+	ID    string
+}
+
+// The new address was proven with a code, so it is verified.
+func (q *Queries) ChangeUserEmail(ctx context.Context, arg ChangeUserEmailParams) (User, error) {
+	row := q.db.QueryRow(ctx, changeUserEmail, arg.Email, arg.ID)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Name,
+		&i.PasswordHash,
+		&i.EmailVerifiedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Phone,
+		&i.PhoneVerifiedAt,
+	)
+	return i, err
+}
+
+const clearUserPhone = `-- name: ClearUserPhone :one
+UPDATE users SET phone = NULL, phone_verified_at = NULL, updated_at = now()
+WHERE id = $1
+RETURNING id, email, name, password_hash, email_verified_at, created_at, updated_at, phone, phone_verified_at
+`
+
+func (q *Queries) ClearUserPhone(ctx context.Context, id string) (User, error) {
+	row := q.db.QueryRow(ctx, clearUserPhone, id)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Name,
+		&i.PasswordHash,
+		&i.EmailVerifiedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Phone,
+		&i.PhoneVerifiedAt,
+	)
+	return i, err
+}
+
 const countUsers = `-- name: CountUsers :one
 SELECT count(*) FROM users
 `
@@ -23,7 +75,7 @@ func (q *Queries) CountUsers(ctx context.Context) (int64, error) {
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (id, email, name, password_hash)
 VALUES ($1, $2, $3, $4)
-RETURNING id, email, name, password_hash, email_verified_at, created_at, updated_at
+RETURNING id, email, name, password_hash, email_verified_at, created_at, updated_at, phone, phone_verified_at
 `
 
 type CreateUserParams struct {
@@ -49,12 +101,14 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.EmailVerifiedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Phone,
+		&i.PhoneVerifiedAt,
 	)
 	return i, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, name, password_hash, email_verified_at, created_at, updated_at FROM users WHERE lower(email) = lower($1)
+SELECT id, email, name, password_hash, email_verified_at, created_at, updated_at, phone, phone_verified_at FROM users WHERE lower(email) = lower($1)
 `
 
 func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
@@ -68,12 +122,14 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.EmailVerifiedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Phone,
+		&i.PhoneVerifiedAt,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, name, password_hash, email_verified_at, created_at, updated_at FROM users WHERE id = $1
+SELECT id, email, name, password_hash, email_verified_at, created_at, updated_at, phone, phone_verified_at FROM users WHERE id = $1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id string) (User, error) {
@@ -87,6 +143,83 @@ func (q *Queries) GetUserByID(ctx context.Context, id string) (User, error) {
 		&i.EmailVerifiedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Phone,
+		&i.PhoneVerifiedAt,
+	)
+	return i, err
+}
+
+const markUserEmailVerified = `-- name: MarkUserEmailVerified :one
+UPDATE users SET email_verified_at = now(), updated_at = now()
+WHERE id = $1 AND lower(email) = lower($2)
+RETURNING id, email, name, password_hash, email_verified_at, created_at, updated_at, phone, phone_verified_at
+`
+
+type MarkUserEmailVerifiedParams struct {
+	ID    string
+	Email string
+}
+
+// Only while the address is still the one the code was sent to.
+func (q *Queries) MarkUserEmailVerified(ctx context.Context, arg MarkUserEmailVerifiedParams) (User, error) {
+	row := q.db.QueryRow(ctx, markUserEmailVerified, arg.ID, arg.Email)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Name,
+		&i.PasswordHash,
+		&i.EmailVerifiedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Phone,
+		&i.PhoneVerifiedAt,
+	)
+	return i, err
+}
+
+const phoneVerifiedByOtherUser = `-- name: PhoneVerifiedByOtherUser :one
+SELECT EXISTS (
+    SELECT 1 FROM users WHERE phone = $1 AND phone_verified_at IS NOT NULL AND id <> $2
+)
+`
+
+type PhoneVerifiedByOtherUserParams struct {
+	Phone  *string
+	UserID string
+}
+
+func (q *Queries) PhoneVerifiedByOtherUser(ctx context.Context, arg PhoneVerifiedByOtherUserParams) (bool, error) {
+	row := q.db.QueryRow(ctx, phoneVerifiedByOtherUser, arg.Phone, arg.UserID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
+const setUserPhoneVerified = `-- name: SetUserPhoneVerified :one
+UPDATE users SET phone = $1, phone_verified_at = now(), updated_at = now()
+WHERE id = $2
+RETURNING id, email, name, password_hash, email_verified_at, created_at, updated_at, phone, phone_verified_at
+`
+
+type SetUserPhoneVerifiedParams struct {
+	Phone *string
+	ID    string
+}
+
+func (q *Queries) SetUserPhoneVerified(ctx context.Context, arg SetUserPhoneVerifiedParams) (User, error) {
+	row := q.db.QueryRow(ctx, setUserPhoneVerified, arg.Phone, arg.ID)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Name,
+		&i.PasswordHash,
+		&i.EmailVerifiedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Phone,
+		&i.PhoneVerifiedAt,
 	)
 	return i, err
 }

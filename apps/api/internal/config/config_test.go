@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"bridge/internal/auth"
 )
 
 func env(m map[string]string) func(string) string {
@@ -119,5 +121,39 @@ func TestDodo(t *testing.T) {
 		if err == nil || !strings.Contains(err.Error(), want) {
 			t.Errorf("error does not mention %s: %v", want, err)
 		}
+	}
+}
+
+func TestAccountVerify(t *testing.T) {
+	c, err := load(env(map[string]string{"BRIDGE_DATABASE_URL": "postgres://x"}))
+	if err != nil || c.AccountVerifyAPIKey != "" || c.AccountVerifyApp != "" {
+		t.Fatalf("phone verification must be off by default: %q %q %v", c.AccountVerifyAPIKey, c.AccountVerifyApp, err)
+	}
+	for _, environment := range []auth.Environment{auth.EnvLive, auth.EnvTest} {
+		key, _ := auth.NewAPIKey(environment)
+		c, err = load(env(map[string]string{
+			"BRIDGE_DATABASE_URL": "postgres://x", "BRIDGE_ACCOUNT_VERIFY_API_KEY": " " + key + " ", "BRIDGE_ACCOUNT_VERIFY_APP": "signup",
+		}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if c.AccountVerifyAPIKey != key || c.AccountVerifyApp != "signup" {
+			t.Fatalf("account verify: %q %q", c.AccountVerifyAPIKey, c.AccountVerifyApp)
+		}
+	}
+	live, _ := auth.NewAPIKey(auth.EnvLive)
+	last := "x"
+	if strings.HasSuffix(live, last) {
+		last = "y"
+	}
+	for _, bad := range []string{"bk_live_nope", live[:len(live)-1] + last, "sk_test_123"} {
+		_, err = load(env(map[string]string{"BRIDGE_DATABASE_URL": "postgres://x", "BRIDGE_ACCOUNT_VERIFY_API_KEY": bad}))
+		if err == nil || !strings.Contains(err.Error(), "BRIDGE_ACCOUNT_VERIFY_API_KEY") {
+			t.Errorf("malformed key %q accepted: %v", bad, err)
+		}
+	}
+	_, err = load(env(map[string]string{"BRIDGE_DATABASE_URL": "postgres://x", "BRIDGE_ACCOUNT_VERIFY_APP": "signup"}))
+	if err == nil || !strings.Contains(err.Error(), "BRIDGE_ACCOUNT_VERIFY_APP") {
+		t.Fatalf("app without a key accepted: %v", err)
 	}
 }

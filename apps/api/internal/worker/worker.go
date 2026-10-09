@@ -57,6 +57,11 @@ func (w *MaintenanceWorker) Work(ctx context.Context, _ *river.Job[MaintenanceAr
 	if err != nil {
 		return err
 	}
+	// Email verification codes live 15 minutes; a day later they are only clutter.
+	emailCodes, err := w.q.DeleteOldEmailVerifications(ctx, time.Now().Add(-24*time.Hour))
+	if err != nil {
+		return err
+	}
 	devices, err := w.q.SweepStaleDevices(ctx)
 	if err != nil {
 		return err
@@ -97,7 +102,7 @@ func (w *MaintenanceWorker) Work(ctx context.Context, _ *river.Job[MaintenanceAr
 		}
 	}
 	w.log.Info("maintenance complete", "status_samples_deleted", samples, "expired_sessions", sessions, "stale_rate_limits", counters,
-		"expired_pairing_tokens", tokens, "stale_devices_marked_offline", devices, "message_bodies_redacted", redacted,
+		"expired_pairing_tokens", tokens, "email_codes_deleted", emailCodes, "stale_devices_marked_offline", devices, "message_bodies_redacted", redacted,
 		"webhook_events_deleted", events, "request_logs_deleted", logs, "otps_expired", otps.Expired, "otps_deleted", otps.Deleted,
 		"otp_blocks_deleted", otps.BlocksDeleted, "forwarding_deliveries_deleted", forwards)
 	return nil

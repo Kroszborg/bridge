@@ -7,6 +7,26 @@ and the CLI come only with a new major version, and are called out here with mig
 
 ## [Unreleased]
 
+### Added
+
+- Email verification: sign-up emails a 6-digit code (15 minutes, 5 attempts, stored hashed), and
+  `POST /v1/me/email/verification` and `/v1/me/email/verification/confirm` send and check it. The
+  dashboard shows a dismissible "Verify your email address" banner and a Verified badge under
+  Account. Needs `BRIDGE_SMTP_*`.
+- Changing your email address: `POST /v1/me/email/change` (needs your password) emails a code to
+  the new address and a notice to the old one; `POST /v1/me/email/change/confirm` switches the
+  account to it. Open password reset links stop working; sessions stay signed in.
+- Phone verification for accounts, sent by Bridge's own Verify: set `BRIDGE_ACCOUNT_VERIFY_API_KEY`
+  to an API key of one of your projects (and optionally `BRIDGE_ACCOUNT_VERIFY_APP`). A live key
+  texts the code through that project's paired phones or providers, so it doubles as an end-to-end
+  check of Verify; a test key sends nothing and returns the code. `POST /v1/me/phone/verification`,
+  `/v1/me/phone/verification/confirm` and `DELETE /v1/me/phone`; a number can be verified on one
+  account only.
+- `User` has `phone` and `phone_verified`; `GET /v1/auth/config` has `email_verification` and
+  `phone_verification`. New error codes: `invalid_code`, `code_expired`, `already_verified`,
+  `email_in_use`, `phone_in_use`, `email_verification_unavailable` and
+  `phone_verification_unavailable`.
+
 ## [1.0.0] - 2026-10-09
 
 Bridge 1.0, the first stable release. It brings together everything built since the first Android

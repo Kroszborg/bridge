@@ -51,7 +51,8 @@ automatically. The settings that matter for a public deployment:
 | `BRIDGE_ALLOW_SIGNUP` | `false` once you have created your own account. Invite teammates from **Team**; invite links work with sign-up off. |
 | `BRIDGE_OPERATOR_EMAILS` | Your email. Operators see **System health**. When unset, the first account is the operator. |
 | `BRIDGE_SECRET_KEY` | 32 random bytes as base64 or hex: `openssl rand -base64 32`. Needed to store [SMS provider](../providers/README.md) credentials, [integration](../integrations/README.md) secrets, Verify apps' token signing and Turnstile secrets, and Telegram bot tokens for [forwarding](../automation/README.md#telegram). |
-| `BRIDGE_SMTP_*` | Optional. An SMTP server for password reset links and for forwarding incoming SMS by email. See [Email](#email). |
+| `BRIDGE_SMTP_*` | Optional. An SMTP server for password reset links, email verification codes and forwarding incoming SMS by email. See [Email](#email). |
+| `BRIDGE_ACCOUNT_VERIFY_API_KEY` | Optional. An API key of one of your projects; users then verify a phone number with a code Bridge sends through that project's Verify. See [Account verification](#account-verification). |
 | `BRIDGE_SITE_URL` | Optional. Your public website, e.g. `https://sms.example.com`. Sign-up then links to its `/terms` and `/privacy`. |
 
 When `BRIDGE_DASHBOARD_URL` uses `https`, session cookies are automatically marked `Secure`.
@@ -93,10 +94,11 @@ put Bridge behind a reverse proxy, make sure it forwards WebSocket upgrades and 
 
 ### Email
 
-Bridge sends two kinds of email through your SMTP server: password reset links, and incoming SMS
-for [forwarding rules](../automation/README.md#forwarding-rules) with email destinations. Without
-these settings, the sign-in page hides "Forgot password?", email destinations are unavailable, and
-everything else works.
+Bridge sends three kinds of email through your SMTP server: password reset links, verification
+codes for users' email addresses (see [Account verification](#account-verification)), and incoming
+SMS for [forwarding rules](../automation/README.md#forwarding-rules) with email destinations.
+Without these settings, the sign-in page hides "Forgot password?", users cannot verify or change
+their email address, email destinations are unavailable, and everything else works.
 
 | Variable | Default | Notes |
 | --- | --- | --- |
@@ -114,13 +116,51 @@ same values on the API (which checks email destinations) and the worker (which s
 Compose file passes them to both. Most mail providers need the From address to belong to the
 account you log in with.
 
+### Account verification
+
+Users can prove their email address and phone number from **Account** in the dashboard. Both are
+optional and independent; `GET /v1/auth/config` reports which one the server offers
+(`email_verification`, `phone_verification`) and the dashboard hides the other.
+
+**Email.** With [SMTP](#email) configured, sign-up emails a 6-digit code, and a banner reminds the
+user until they enter it. They can ask for a new code once a minute, at most 5 an hour; a code
+expires after 15 minutes or 5 wrong attempts. Changing the email address works the same way: the
+user confirms their password, Bridge emails a code to the new address and a notice to the current
+one, and the address changes (already verified) once the code is entered. Password reset links sent
+to the old address stop working; sessions stay signed in.
+
+**Phone.** Bridge verifies phone numbers with its own [Verify](../otp/README.md), through one of
+your projects, so account verification doubles as an end-to-end check of your Verify setup:
+
+1. In a project of yours, pair a phone (or connect an SMS provider) and create an API key.
+2. Set `BRIDGE_ACCOUNT_VERIFY_API_KEY` to it on the API and restart.
+
+| Variable | Default | Notes |
+| --- | --- | --- |
+| `BRIDGE_ACCOUNT_VERIFY_API_KEY` | | A `bk_live_…` or `bk_test_…` key. Bridge refuses to start if it is malformed. |
+| `BRIDGE_ACCOUNT_VERIFY_APP` | the default app | The Verify app (ID or slug) whose message template, code length and limits the codes use. |
+
+With a **live** key, the code is a real SMS sent through that project's paired phones or SMS
+providers, and counts toward its usage like any other code. With a **test** key nothing is sent:
+the dashboard shows the code ("Test key: the code is …"), which is handy to try the flow, but
+proves nothing about the number, so use a live key in production. The codes appear in that
+project's Verify activity with the metadata `{"purpose": "account_phone", "user_id": "usr_…"}`.
+
+The key is looked up each time a code is sent or checked: when it is revoked, expired or deleted,
+or `BRIDGE_ACCOUNT_VERIFY_APP` names no app of its project, phone verification answers
+`503 phone_verification_unavailable` and the API logs the reason. A verified number belongs to one
+account (`409 phone_in_use`); users can change or remove theirs. Codes follow the Verify app's
+rules (expiry, attempts, one code per number every 30 seconds and 5 an hour, fraud protection),
+and each account can request at most 5 codes an hour.
+
 ## Production checklist
 
 - [ ] TLS in front of both the API and the dashboard (Caddy, nginx, Traefik or a cloud load balancer).
 - [ ] `POSTGRES_PASSWORD` changed from the default.
 - [ ] `BRIDGE_SECRET_KEY` set and backed up, if you use SMS providers, integrations, the Verify widget
       or Telegram forwarding.
-- [ ] `BRIDGE_SMTP_*` set, if you want to forward incoming SMS by email.
+- [ ] `BRIDGE_SMTP_*` set, if you want password reset, email verification or forwarding by email.
+- [ ] `BRIDGE_ACCOUNT_VERIFY_API_KEY` set to a live key, if users should verify phone numbers.
 - [ ] `BRIDGE_ALLOW_SIGNUP=false` after creating your account.
 - [ ] Your reverse proxy's address is covered by `BRIDGE_TRUSTED_PROXIES` (private networks are
       trusted by default), so rate limits see real client IPs.

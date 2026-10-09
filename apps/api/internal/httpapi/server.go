@@ -53,7 +53,8 @@ type Server struct {
 	tools *tools.Services
 	// billing applies hosted plans; it allows everything unless BRIDGE_CLOUD is on.
 	billing *billing.Service
-	// mail sends account email (password resets); nil without BRIDGE_SMTP_HOST.
+	// mail sends account email (password resets, verification codes); nil
+	// without BRIDGE_SMTP_HOST.
 	mail    mail.Sender
 	version string
 }
@@ -176,6 +177,7 @@ func (s *Server) register(api huma.API) {
 	s.registerUsage(api)
 	s.registerTeams(api)
 	s.registerAccount(api)
+	s.registerVerification(api)
 	s.registerStatus(api)
 	s.registerOTP(api)
 	s.registerVerifyApps(api)

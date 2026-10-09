@@ -15,6 +15,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"bridge/internal/auth"
 )
 
 type Config struct {
@@ -64,6 +66,14 @@ type Config struct {
 	// Dodo takes payments for paid plans. Nil: plans are enforced but nobody
 	// can upgrade (or Cloud is off).
 	Dodo *DodoConfig
+	// AccountVerifyAPIKey is an API key (bk_live_… or bk_test_…) of one of
+	// this server's own projects. Users' phone numbers are verified with codes
+	// sent through that project's Verify (BRIDGE_ACCOUNT_VERIFY_API_KEY).
+	// Empty: phone verification is off.
+	AccountVerifyAPIKey string
+	// AccountVerifyApp is the Verify app (ID or slug) for those codes; empty
+	// uses the project's default app (BRIDGE_ACCOUNT_VERIFY_APP).
+	AccountVerifyApp string
 }
 
 // Dodo Payments environments.
@@ -317,6 +327,16 @@ func load(get func(string) string) (*Config, error) {
 			errs = append(errs, errors.New("BRIDGE_DODO_API_KEY is set but BRIDGE_CLOUD is not true; billing only runs on hosted Bridge"))
 		}
 		c.Dodo = dodo
+	}
+
+	c.AccountVerifyAPIKey = str("BRIDGE_ACCOUNT_VERIFY_API_KEY", "")
+	c.AccountVerifyApp = str("BRIDGE_ACCOUNT_VERIFY_APP", "")
+	if c.AccountVerifyAPIKey != "" {
+		if _, ok := auth.ParseAPIKey(c.AccountVerifyAPIKey); !ok {
+			errs = append(errs, errors.New("BRIDGE_ACCOUNT_VERIFY_API_KEY must be a Bridge API key (bk_live_… or bk_test_…) from one of this server's projects"))
+		}
+	} else if c.AccountVerifyApp != "" {
+		errs = append(errs, errors.New("BRIDGE_ACCOUNT_VERIFY_APP is set but BRIDGE_ACCOUNT_VERIFY_API_KEY is not; set the key of the project that sends account codes"))
 	}
 
 	// Secure cookies are required whenever the dashboard is served over HTTPS.

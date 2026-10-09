@@ -28,8 +28,16 @@ const (
 	CodeOTPBlocked              = "otp_blocked"
 	CodeOptedOut                = "opted_out"
 	CodePlanLimitReached        = "plan_limit_reached"
-	CodeInternal                = "internal_error"
-	CodeUnavailable             = "service_unavailable"
+	// Account verification (email and phone codes).
+	CodeAlreadyVerified              = "already_verified"
+	CodeInvalidCode                  = "invalid_code"
+	CodeCodeExpired                  = "code_expired"
+	CodePhoneInUse                   = "phone_in_use"
+	CodeEmailInUse                   = "email_in_use"
+	CodeEmailVerificationUnavailable = "email_verification_unavailable"
+	CodePhoneVerificationUnavailable = "phone_verification_unavailable"
+	CodeInternal                     = "internal_error"
+	CodeUnavailable                  = "service_unavailable"
 )
 
 // ErrorBody is the JSON shape of every error response.

@@ -674,7 +674,7 @@ func (q *Queries) UpdateOrganizationName(ctx context.Context, arg UpdateOrganiza
 }
 
 const updateUserName = `-- name: UpdateUserName :one
-UPDATE users SET name = $1, updated_at = now() WHERE id = $2 RETURNING id, email, name, password_hash, email_verified_at, created_at, updated_at
+UPDATE users SET name = $1, updated_at = now() WHERE id = $2 RETURNING id, email, name, password_hash, email_verified_at, created_at, updated_at, phone, phone_verified_at
 `
 
 type UpdateUserNameParams struct {
@@ -693,6 +693,8 @@ func (q *Queries) UpdateUserName(ctx context.Context, arg UpdateUserNameParams) 
 		&i.EmailVerifiedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Phone,
+		&i.PhoneVerifiedAt,
 	)
 	return i, err
 }

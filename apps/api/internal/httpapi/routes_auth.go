@@ -134,6 +134,7 @@ func (s *Server) signup(ctx context.Context, in *signupInput) (*sessionOutput, e
 			return nil, err
 		}
 		s.log.Info("user signed up from an invite", "request_id", RequestIDFrom(ctx), "user_id", user.ID, "organization_id", joined.ID)
+		s.sendFirstEmailCode(ctx, user)
 		me, err := s.meResponse(ctx, &user)
 		if err != nil {
 			return nil, err
@@ -164,6 +165,7 @@ func (s *Server) signup(ctx context.Context, in *signupInput) (*sessionOutput, e
 	}
 
 	s.log.Info("user signed up", "request_id", RequestIDFrom(ctx), "user_id", user.ID, "organization_id", org.ID)
+	s.sendFirstEmailCode(ctx, user)
 	return &sessionOutput{SetCookie: cookie, Body: MeResponse{
 		User:          toUser(&user),
 		Organizations: []Organization{toOrganization(org.ID, org.Name, org.Slug, dbq.MemberRoleOwner, org.CreatedAt)},

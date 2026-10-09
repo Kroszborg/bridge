@@ -427,6 +427,18 @@ type DevicePairingToken struct {
 	CreatedAt time.Time
 }
 
+type EmailVerification struct {
+	ID         string
+	UserID     string
+	Purpose    string
+	Email      string
+	CodeHash   []byte
+	Attempts   int32
+	ExpiresAt  time.Time
+	ConsumedAt *time.Time
+	CreatedAt  time.Time
+}
+
 type ForwardingDelivery struct {
 	ID                 string
 	RuleID             string
@@ -752,6 +764,8 @@ type User struct {
 	EmailVerifiedAt *time.Time
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
+	Phone           *string
+	PhoneVerifiedAt *time.Time
 }
 
 type VerifyApp struct {

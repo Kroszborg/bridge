@@ -14,7 +14,9 @@ type User struct {
 	Operator      bool      `json:"operator" doc:"Whether you operate this Bridge instance and can see System health."`
 	Email         string    `json:"email" example:"ada@example.com"`
 	Name          string    `json:"name" example:"Ada Lovelace"`
-	EmailVerified bool      `json:"email_verified"`
+	EmailVerified bool      `json:"email_verified" doc:"Whether you proved the address with a code sent to it."`
+	Phone         *string   `json:"phone" nullable:"true" example:"+919876543210" doc:"Your verified phone number in E.164 format; null until you verify one."`
+	PhoneVerified bool      `json:"phone_verified" doc:"Whether you proved the phone number with a code sent to it."`
 	CreatedAt     time.Time `json:"created_at"`
 }
 
@@ -58,7 +60,11 @@ type ListResponse[T any] struct {
 }
 
 func toUser(u *dbq.User) User {
-	return User{ID: u.ID, Email: u.Email, Name: u.Name, EmailVerified: u.EmailVerifiedAt != nil, CreatedAt: u.CreatedAt}
+	out := User{ID: u.ID, Email: u.Email, Name: u.Name, EmailVerified: u.EmailVerifiedAt != nil, CreatedAt: u.CreatedAt}
+	if u.Phone != nil && u.PhoneVerifiedAt != nil {
+		out.Phone, out.PhoneVerified = u.Phone, true
+	}
+	return out
 }
 
 func toOrganization(id, name, slug string, role dbq.MemberRole, createdAt time.Time) Organization {

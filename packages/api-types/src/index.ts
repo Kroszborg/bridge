@@ -114,3 +114,5 @@ export type Billing = Schemas['Billing'];
 export type BillingPlan = Schemas['BillingPlan'];
 export type BillingUsage = Schemas['BillingUsage'];
 export type AuthConfig = Schemas['AuthConfig'];
+export type EmailVerificationSent = Schemas['EmailVerificationSent'];
+export type PhoneVerificationSent = Schemas['PhoneVerificationSent'];

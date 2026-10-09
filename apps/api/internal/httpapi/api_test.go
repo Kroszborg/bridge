@@ -130,9 +130,13 @@ func newServer(t *testing.T, mutate ...func(*config.Config)) *httptest.Server {
 	go func() { _ = requests.Run(ctx) }()
 	broker := events.NewBroker(testDB.Pool, logger)
 	go func() { _ = broker.Run(ctx) }()
+	var mailer mail.Sender = sentMail
+	if withoutMail {
+		mailer = nil // and testConfig has no SMTP server, so account email is off
+	}
 	srv := httptest.NewServer(httpapi.New(httpapi.Options{
 		Config: cfg, Pool: testDB.Pool, Logger: logger, Version: "test", Hub: hub, Push: pushService, Messaging: msgs, Webhooks: hooks,
-		RequestLog: requests, Events: broker, Status: health, Providers: providers, Tools: kit, Billing: bill, Mail: sentMail,
+		RequestLog: requests, Events: broker, Status: health, Providers: providers, Tools: kit, Billing: bill, Mail: mailer,
 	}).Handler())
 	t.Cleanup(func() {
 		stopCtx, stop := context.WithTimeout(context.Background(), 5*time.Second)
@@ -177,6 +181,9 @@ func (c *captureMail) waitFor(t *testing.T, to string) mail.Message {
 }
 
 var sentMail = &captureMail{}
+
+// withoutMail starts servers with no way to send account email.
+var withoutMail bool
 
 var ipCounter atomic.Uint32
 

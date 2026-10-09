@@ -22,6 +22,10 @@ type AuthConfig struct {
 	SignupOpen    bool `json:"signup_open" doc:"Whether anyone can create an account. Invites always work."`
 	PasswordReset bool `json:"password_reset" doc:"Whether forgotten passwords can be reset by email."`
 	Hosted        bool `json:"hosted" doc:"Whether this is hosted Bridge (plans and billing apply)."`
+	// Account verification: email codes need SMTP; phone codes need
+	// BRIDGE_ACCOUNT_VERIFY_API_KEY.
+	EmailVerification bool `json:"email_verification" doc:"Whether users can verify their email address with an emailed code."`
+	PhoneVerification bool `json:"phone_verification" doc:"Whether users can verify a phone number with a code sent by SMS through this server's own Verify."`
 	// Legal pages on the public website, when BRIDGE_SITE_URL is set.
 	TermsURL   *string `json:"terms_url" nullable:"true"`
 	PrivacyURL *string `json:"privacy_url" nullable:"true"`
@@ -41,7 +45,10 @@ func (s *Server) registerPassword(api huma.API) {
 			}
 			open = n == 0 // the first account can always be created
 		}
-		out := AuthConfig{SignupOpen: open, PasswordReset: s.mail != nil, Hosted: s.billing.Enabled()}
+		out := AuthConfig{
+			SignupOpen: open, PasswordReset: s.mail != nil, Hosted: s.billing.Enabled(),
+			EmailVerification: s.mail != nil, PhoneVerification: s.phoneVerificationEnabled(),
+		}
 		if site := s.cfg.SiteURL; site != nil {
 			terms, privacy := site.String()+"/terms", site.String()+"/privacy"
 			out.TermsURL, out.PrivacyURL = &terms, &privacy
