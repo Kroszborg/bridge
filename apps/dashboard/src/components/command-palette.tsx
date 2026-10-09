@@ -5,6 +5,7 @@ import {
   BookOpen01Icon,
   ChartHistogramIcon,
   CloudServerIcon,
+  CreditCardIcon,
   DashboardSquare01Icon,
   Folder01Icon,
   Key01Icon,
@@ -118,13 +119,13 @@ export function CommandPalette() {
           label: 'Send',
           icon: SentIcon,
           run: go(`${base}/send`),
-          keywords: ['bulk', 'csv', 'campaign', 'broadcast', 'mass sms', 'newsletter'],
+          keywords: ['sms', 'compose', 'new message'],
         },
         {
           id: 'schedules',
-          label: 'Schedules',
+          label: 'Scheduled messages',
           icon: TimeScheduleIcon,
-          run: go(`${base}/schedules`),
+          run: go(`${base}/send?tab=scheduled`),
           keywords: ['schedule', 'recurring', 'reminder', 'later', 'daily', 'weekly'],
         },
         {
@@ -157,10 +158,10 @@ export function CommandPalette() {
         },
         {
           id: 'devices',
-          label: 'Devices',
+          label: 'Phones',
           icon: SmartPhone01Icon,
           run: go(`${base}/devices`),
-          keywords: ['phones', 'android'],
+          keywords: ['devices', 'android', 'pair'],
         },
         {
           id: 'providers',
@@ -230,6 +231,14 @@ export function CommandPalette() {
             run: go(`/organizations/${org.id}/team`),
             keywords: ['members', 'invite'],
           },
+          {
+            id: 'billing',
+            label: 'Billing',
+            hint: org.name,
+            icon: CreditCardIcon,
+            run: go(`/organizations/${org.id}/billing`),
+            keywords: ['plan', 'upgrade', 'subscription', 'invoice', 'usage', 'limits'],
+          },
           ...(canAdmin
             ? [
                 {
@@ -260,22 +269,22 @@ export function CommandPalette() {
       ? [
           {
             id: 'a-send',
-            label: 'Send a test message',
-            icon: TestTube01Icon,
-            run: go(`${base}/playground`),
+            label: 'Send a message',
+            icon: SentIcon,
+            run: go(`${base}/send`),
           },
           {
             id: 'a-broadcast',
             label: 'Send a bulk message',
             icon: SentIcon,
-            run: go(`${base}/send`),
+            run: go(`${base}/send?tab=bulk`),
             keywords: ['bulk', 'csv', 'campaign'],
           },
           {
             id: 'a-schedule',
             label: 'Schedule a message',
             icon: TimeScheduleIcon,
-            run: go(`${base}/schedules`),
+            run: go(`${base}/send?tab=scheduled`),
             keywords: ['recurring', 'reminder'],
           },
           {

@@ -5,6 +5,7 @@ import type {
   AutoReplyRule,
   AutoReplyRuleCreateInput,
   AutoReplyRuleUpdateInput,
+  Billing,
   Broadcast,
   BroadcastCreateInput,
   BroadcastPreview,
@@ -220,6 +221,7 @@ export type DeviceSettings = {
   name?: string;
   preferred_sim_slot?: number;
   send_limit_count?: number;
+  daily_send_limit?: number;
   forward_inbound?: boolean;
 };
 
@@ -1461,5 +1463,66 @@ export function useForwardingSecret(projectId: string) {
           params: { path: { projectId, ruleId } },
         }),
       ),
+  });
+}
+
+export function useBilling(organizationId: string) {
+  return useQuery({
+    queryKey: ['organizations', organizationId, 'billing'],
+    queryFn: () =>
+      unwrap(
+        api.GET('/v1/organizations/{organizationId}/billing', {
+          params: { path: { organizationId } },
+        }),
+      ),
+    enabled: organizationId !== '',
+  });
+}
+
+/** Checkout and the customer portal both return a URL to open. */
+export function useBillingMutations(organizationId: string) {
+  const qc = useQueryClient();
+  const path = { organizationId };
+  const store = (data: Billing) =>
+    qc.setQueryData(['organizations', organizationId, 'billing'], data);
+  return {
+    checkout: useMutation({
+      mutationFn: (plan: 'pro' | 'business') =>
+        unwrap(
+          api.POST('/v1/organizations/{organizationId}/billing/checkout', {
+            params: { path },
+            body: { plan },
+          }),
+        ),
+    }),
+    portal: useMutation({
+      mutationFn: () =>
+        unwrap(api.POST('/v1/organizations/{organizationId}/billing/portal', { params: { path } })),
+    }),
+    /** Reads a subscription from Dodo after checkout, before the webhook lands. */
+    sync: useMutation({
+      mutationFn: (subscriptionId: string) =>
+        unwrap(
+          api.POST('/v1/organizations/{organizationId}/billing/sync', {
+            params: { path },
+            body: { subscription_id: subscriptionId },
+          }),
+        ),
+      onSuccess: store,
+    }),
+    /** Withdraws a scheduled cancellation. */
+    resume: useMutation({
+      mutationFn: () =>
+        unwrap(api.POST('/v1/organizations/{organizationId}/billing/resume', { params: { path } })),
+      onSuccess: store,
+    }),
+  };
+}
+
+export function usePlans() {
+  return useQuery({
+    queryKey: ['plans'],
+    queryFn: () => unwrap(api.GET('/v1/plans')),
+    staleTime: 5 * 60_000,
   });
 }

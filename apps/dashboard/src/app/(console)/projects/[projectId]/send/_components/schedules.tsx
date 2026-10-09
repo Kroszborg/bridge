@@ -16,10 +16,9 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { EmptyState } from '@/components/kit/empty-state';
-import { PageHeader } from '@/components/kit/page-header';
 import { Segmented } from '@/components/kit/segmented';
 import { StatusBadge, type StatusKind } from '@/components/kit/status-badge';
-import { useCan, useProjectId } from '@/components/layout/console-context';
+import { useCan } from '@/components/layout/console-context';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -54,7 +53,7 @@ import {
   useScheduleAction,
   useSchedules,
 } from '@/lib/queries';
-import { ScheduleDialog } from './_components/schedule-dialog';
+import { ScheduleDialog } from './schedule-dialog';
 
 const STATUS: Record<Schedule['status'], { kind: StatusKind; label: string }> = {
   active: { kind: 'success', label: 'Active' },
@@ -67,8 +66,8 @@ function excerpt(text: string, n = 70): string {
   return t.length > n ? `${t.slice(0, n)}…` : t;
 }
 
-export default function SchedulesPage() {
-  const projectId = useProjectId() ?? '';
+/** The Scheduled tab of Send: one-off and recurring messages. */
+export function Schedules({ projectId }: { projectId: string }) {
   const canAdmin = useCan('admin');
   const [environment, setEnvironment] = useState<Environment>('test');
   const [editing, setEditing] = useState<Schedule | null>(null);
@@ -107,24 +106,24 @@ export default function SchedulesPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Schedules"
-        subtitle="Messages sent at a set time: once, or every day, week or month. Times follow the chosen time zone, including daylight saving."
-        actions={
-          <>
-            <Segmented
-              label="Environment"
-              value={environment}
-              onChange={setEnvironment}
-              options={[
-                { value: 'test', label: 'Test' },
-                { value: 'live', label: 'Live' },
-              ]}
-            />
-            {rows.length > 0 ? addButton : null}
-          </>
-        }
-      />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="max-w-prose text-sm text-muted-foreground">
+          Messages sent at a set time: once, or every day, week or month. Times follow the chosen
+          time zone, including daylight saving.
+        </p>
+        <div className="flex items-center gap-3">
+          <Segmented
+            label="Environment"
+            value={environment}
+            onChange={setEnvironment}
+            options={[
+              { value: 'test', label: 'Test' },
+              { value: 'live', label: 'Live' },
+            ]}
+          />
+          {rows.length > 0 ? addButton : null}
+        </div>
+      </div>
 
       <div data-slot="section-card" className="overflow-hidden rounded-xl border bg-card">
         {list.isPending ? (

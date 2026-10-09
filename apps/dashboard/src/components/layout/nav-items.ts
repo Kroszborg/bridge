@@ -1,5 +1,4 @@
 import {
-  Activity01Icon,
   BookOpen01Icon,
   ChartHistogramIcon,
   CloudServerIcon,
@@ -9,15 +8,10 @@ import {
   Message01Icon,
   PasswordValidationIcon,
   PlugSocketIcon,
-  SecurityCheckIcon,
   SentIcon,
-  ServerStack01Icon,
   Settings02Icon,
   SmartPhone01Icon,
   TestTube01Icon,
-  TimeScheduleIcon,
-  UserCircleIcon,
-  UserGroupIcon,
   WebhookIcon,
   WorkflowSquare03Icon,
 } from '@hugeicons/core-free-icons';
@@ -36,21 +30,10 @@ export type NavGroup = { title: string; items: NavItem[] };
 
 export type NavContext = {
   projectId?: string;
-  organizationId?: string;
   apiUrl: string;
-  /** Admin or owner of the organization in view. */
-  canAdmin: boolean;
-  /** Operator of this Bridge instance. */
-  operator: boolean;
 };
 
-export function buildNav({
-  projectId,
-  organizationId,
-  apiUrl,
-  canAdmin,
-  operator,
-}: NavContext): NavGroup[] {
+export function buildNav({ projectId, apiUrl }: NavContext): NavGroup[] {
   const groups: NavGroup[] = [];
   if (projectId) {
     const base = `/projects/${projectId}`;
@@ -60,42 +43,44 @@ export function buildNav({
         { href: base, label: 'Overview', icon: DashboardSquare01Icon, exact: true },
         { href: `${base}/messages`, label: 'Messages', icon: Message01Icon },
         { href: `${base}/send`, label: 'Send', icon: SentIcon },
-        { href: `${base}/schedules`, label: 'Schedules', icon: TimeScheduleIcon },
-        { href: `${base}/automation`, label: 'Automation', icon: WorkflowSquare03Icon },
         { href: `${base}/verify`, label: 'Verify', icon: PasswordValidationIcon },
-        { href: `${base}/devices`, label: 'Devices', icon: SmartPhone01Icon },
+        { href: `${base}/automation`, label: 'Automation', icon: WorkflowSquare03Icon },
+      ],
+    });
+    groups.push({
+      title: 'Sending',
+      items: [
+        { href: `${base}/devices`, label: 'Phones', icon: SmartPhone01Icon },
         { href: `${base}/providers`, label: 'Providers', icon: CloudServerIcon },
-        { href: `${base}/integrations`, label: 'Integrations', icon: PlugSocketIcon },
-        { href: `${base}/usage`, label: 'Usage', icon: ChartHistogramIcon },
-        { href: `${base}/settings`, label: 'Settings', icon: Settings02Icon },
       ],
     });
     groups.push({
       title: 'Developers',
       items: [
-        { href: `${base}/playground`, label: 'Playground', icon: TestTube01Icon },
         { href: `${base}/api-keys`, label: 'API keys', icon: Key01Icon },
         { href: `${base}/webhooks`, label: 'Webhooks', icon: WebhookIcon },
+        { href: `${base}/integrations`, label: 'Integrations', icon: PlugSocketIcon },
+        { href: `${base}/playground`, label: 'Playground', icon: TestTube01Icon },
         { href: `${base}/logs`, label: 'Logs', icon: LeftToRightListBulletIcon },
+        { href: `${apiUrl}/docs`, label: 'API reference', icon: BookOpen01Icon, external: true },
+      ],
+    });
+    groups.push({
+      title: 'Manage',
+      items: [
+        { href: `${base}/usage`, label: 'Usage', icon: ChartHistogramIcon },
+        { href: `${base}/settings`, label: 'Settings', icon: Settings02Icon },
+      ],
+    });
+  } else {
+    groups.push({
+      title: 'Developers',
+      items: [
+        { href: `${apiUrl}/docs`, label: 'API reference', icon: BookOpen01Icon, external: true },
       ],
     });
   }
-  const workspace: NavItem[] = [];
-  if (organizationId) {
-    const org = `/organizations/${organizationId}`;
-    workspace.push({ href: `${org}/team`, label: 'Team', icon: UserGroupIcon });
-    if (canAdmin)
-      workspace.push({ href: `${org}/audit`, label: 'Audit log', icon: SecurityCheckIcon });
-  }
-  workspace.push(
-    { href: `${apiUrl}/docs`, label: 'API reference', icon: BookOpen01Icon, external: true },
-    { href: '/account', label: 'Account', icon: UserCircleIcon },
-  );
-  groups.push({ title: 'Workspace', items: workspace });
-  const instance: NavItem[] = [];
-  if (operator) instance.push({ href: '/system', label: 'System health', icon: ServerStack01Icon });
-  instance.push({ href: '/status', label: 'Status page', icon: Activity01Icon, external: true });
-  groups.push({ title: 'Instance', items: instance });
+  // Team, audit log, account and instance pages live in the account menu.
   return groups;
 }
 

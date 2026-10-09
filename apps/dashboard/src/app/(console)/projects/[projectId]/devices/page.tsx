@@ -17,7 +17,7 @@ import {
   SmartPhone01Icon,
 } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { type FormEvent, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { CodeBlock } from '@/components/kit/code-block';
 import { CopyField } from '@/components/kit/copy-button';
@@ -68,6 +68,9 @@ import { cn } from '@/lib/utils';
 type Presence = 'online' | 'stale' | 'offline' | 'disabled';
 
 /** The server sweeps vanished connections every couple of minutes; flag them sooner here. */
+/** How long a pairing code is valid; matches the API's pairingTokenTTL. */
+const PAIRING_TTL_MS = 10 * 60 * 1000;
+
 function presenceOf(d: Device, now: number): Presence {
   if (d.status === 'disabled') return 'disabled';
   if (d.status === 'offline') return 'offline';
@@ -186,30 +189,49 @@ function simLabel(d: Device): string {
   return `SIM ${d.preferred_sim_slot}${sim?.carrier ? ` · ${sim.carrier}` : ''}`;
 }
 
-/** How much of Android's per-app SMS allowance this phone has used. */
-function SendWindow({ d }: { d: Device }) {
-  const used = Math.min(1, d.recent_sends / d.send_limit_count);
-  const minutes = Math.round(d.send_limit_window_seconds / 60);
+/** One allowance as a labelled bar. */
+function Allowance({ label, used, limit }: { label: string; used: number; limit: number }) {
+  const share = Math.min(1, used / limit);
   return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1 text-xs">
-        <span className="text-muted-foreground">
-          Sent in the last {minutes} min:{' '}
-          <span className="font-medium tabular-nums text-foreground">
-            {d.recent_sends} of {d.send_limit_count}
-          </span>
+    <div className="flex flex-col gap-1">
+      <span className="text-xs text-muted-foreground">
+        {label}:{' '}
+        <span className="font-medium tabular-nums text-foreground">
+          {used} of {limit}
         </span>
-        <span className="tabular-nums text-faint">
-          {d.total_sent} sent · {d.total_failed} failed · paired {formatDate(d.created_at)}
-        </span>
-      </div>
+      </span>
       <div className="h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden>
         <div
-          className={cn('h-full rounded-full', used >= 1 ? 'bg-warning' : 'bg-primary')}
-          style={{ width: `${Math.max(used * 100, d.recent_sends > 0 ? 3 : 0)}%` }}
+          className={cn('h-full rounded-full', share >= 1 ? 'bg-warning' : 'bg-primary')}
+          style={{ width: `${Math.max(share * 100, used > 0 ? 3 : 0)}%` }}
         />
       </div>
-      {used >= 1 ? (
+    </div>
+  );
+}
+
+/**
+ * How much of its allowances this phone has used: Android's per-app burst limit
+ * and the daily cap that keeps its SIM within the operator's allowance.
+ */
+function SendWindow({ d }: { d: Device }) {
+  const minutes = Math.round(d.send_limit_window_seconds / 60);
+  const burstFull = d.recent_sends >= d.send_limit_count;
+  const dayFull = d.day_sends >= d.daily_send_limit;
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Allowance label={`Last ${minutes} min`} used={d.recent_sends} limit={d.send_limit_count} />
+        <Allowance label="Last 24 hours" used={d.day_sends} limit={d.daily_send_limit} />
+      </div>
+      <span className="text-xs tabular-nums text-faint">
+        {d.total_sent} sent · {d.total_failed} failed · paired {formatDate(d.created_at)}
+      </span>
+      {dayFull ? (
+        <p className="text-xs text-warning">
+          Sent its daily limit. New messages go to another phone or wait until it has room again.
+        </p>
+      ) : burstFull ? (
         <p className="text-xs text-warning">
           At its limit. New messages wait for capacity or go to another phone.
         </p>
@@ -385,7 +407,6 @@ function PairDialog({
   const create = useCreatePairingToken(projectId);
   const [token, setToken] = useState<PairingToken | null>(null);
   const [manual, setManual] = useState(false);
-  const openedAt = useRef(0);
   const left = useCountdown(token?.expires_at);
   const expired = token !== null && left === 0;
 
@@ -405,15 +426,21 @@ function PairDialog({
       setManual(false);
       return;
     }
-    openedAt.current = Date.now();
     void newCode();
   }, [open]);
 
-  // Close automatically once the phone pairs and connects.
+  // Close automatically once a phone pairs with this code and connects. Times are the
+  // server's (the code was minted PAIRING_TTL before it expires), never the browser's
+  // clock, and removed phones never count.
   useEffect(() => {
     if (!open || !token) return;
+    const mintedAt = new Date(token.expires_at).getTime() - PAIRING_TTL_MS;
     const paired = devices.find(
-      (d) => d.connected_at && new Date(d.connected_at).getTime() > openedAt.current - 2000,
+      (d) =>
+        !d.revoked_at &&
+        d.status === 'online' &&
+        d.connected_at &&
+        new Date(d.connected_at).getTime() >= mintedAt,
     );
     if (paired) {
       toast.success(`${paired.name} is paired and online`);
@@ -638,11 +665,13 @@ function SettingsDialog({ device, onClose }: { device: Device | null; onClose: (
   const update = useUpdateDevice(projectId);
   const [sim, setSim] = useState('0');
   const [limit, setLimit] = useState('30');
+  const [daily, setDaily] = useState('100');
   const [forward, setForward] = useState(false);
   useEffect(() => {
     if (device) {
       setSim(String(device.preferred_sim_slot ?? 0));
       setLimit(String(device.send_limit_count));
+      setDaily(String(device.daily_send_limit));
       setForward(device.forward_inbound);
     }
   }, [device]);
@@ -658,6 +687,7 @@ function SettingsDialog({ device, onClose }: { device: Device | null; onClose: (
         deviceId: device.id,
         preferred_sim_slot: Number(sim),
         send_limit_count: Number(limit),
+        daily_send_limit: Number(daily),
         forward_inbound: forward,
       });
       toast.success('Device settings saved');
@@ -727,8 +757,24 @@ function SettingsDialog({ device, onClose }: { device: Device | null; onClose: (
                 'adb shell settings put global sms_outgoing_check_max_count 1000\nadb shell settings put global sms_outgoing_check_interval_ms 1800000'
               }
             />
-            <p className="text-xs text-muted-foreground">
-              Your carrier may still limit or block bulk sending.
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="daily-limit">Messages per day</Label>
+            <Input
+              id="daily-limit"
+              type="number"
+              min={1}
+              max={10000}
+              value={daily}
+              onChange={(e) => setDaily(e.target.value)}
+              className="w-32 tabular-nums"
+              required
+            />
+            <p className="text-xs/relaxed text-muted-foreground">
+              The most this phone sends in any 24 hours. Operators cap how many SMS a SIM may send a
+              day, about 100 on most Indian prepaid and unlimited plans, and can block SIMs that
+              send far more or that send promotional messages. Keep this within your SIM plan&apos;s
+              daily allowance; add phones to send more.
             </p>
           </div>
           <div className="flex flex-col gap-2 border-t pt-4">
@@ -889,7 +935,7 @@ export default function DevicesPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Devices"
+        title="Phones"
         subtitle={
           devices.data
             ? `${onlineCount} of ${active.length} online · Android phones that send SMS through their SIM`
@@ -907,7 +953,7 @@ export default function DevicesPage() {
       ) : devices.isError ? (
         <div className="rounded-xl border bg-card">
           <EmptyState
-            title="Could not load devices"
+            title="Could not load phones"
             description={devices.error.message}
             action={
               <Button variant="outline" onClick={() => devices.refetch()}>

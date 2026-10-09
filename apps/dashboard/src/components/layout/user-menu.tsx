@@ -1,6 +1,15 @@
 'use client';
 
-import { Logout03Icon, MoreVerticalIcon, UserCircleIcon } from '@hugeicons/core-free-icons';
+import {
+  Activity01Icon,
+  CreditCardIcon,
+  Logout03Icon,
+  MoreVerticalIcon,
+  SecurityCheckIcon,
+  ServerStack01Icon,
+  UserCircleIcon,
+  UserGroupIcon,
+} from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -14,7 +23,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { api } from '@/lib/api';
-import { useConsole } from './console-context';
+import { usePlans } from '@/lib/queries';
+import { useCan, useConsole, useOrganization } from './console-context';
 
 function initials(name: string, email: string) {
   const source = name.trim() || email.split('@')[0] || '?';
@@ -33,6 +43,10 @@ export function useSignOut() {
 
 export function UserMenu({ compact = false }: { compact?: boolean }) {
   const { user } = useConsole();
+  const org = useOrganization();
+  const canAdmin = useCan('admin');
+  // Plans exist only on hosted Bridge; self-hosted servers have no billing.
+  const hosted = (usePlans().data?.data.length ?? 0) > 0;
   const signOut = useSignOut();
   const display = user.name || user.email.split('@')[0];
 
@@ -76,6 +90,52 @@ export function UserMenu({ compact = false }: { compact?: boolean }) {
             Account
           </Link>
         </DropdownMenuItem>
+        {org ? (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="truncate text-xs font-normal text-muted-foreground">
+              {org.name}
+            </DropdownMenuLabel>
+            <DropdownMenuItem asChild>
+              <Link href={`/organizations/${org.id}/team`}>
+                <HugeiconsIcon icon={UserGroupIcon} strokeWidth={2} className="size-4" />
+                Team
+              </Link>
+            </DropdownMenuItem>
+            {hosted ? (
+              <DropdownMenuItem asChild>
+                <Link href={`/organizations/${org.id}/billing`}>
+                  <HugeiconsIcon icon={CreditCardIcon} strokeWidth={2} className="size-4" />
+                  Billing
+                </Link>
+              </DropdownMenuItem>
+            ) : null}
+            {canAdmin ? (
+              <DropdownMenuItem asChild>
+                <Link href={`/organizations/${org.id}/audit`}>
+                  <HugeiconsIcon icon={SecurityCheckIcon} strokeWidth={2} className="size-4" />
+                  Audit log
+                </Link>
+              </DropdownMenuItem>
+            ) : null}
+          </>
+        ) : null}
+        <DropdownMenuSeparator />
+        {user.operator ? (
+          <DropdownMenuItem asChild>
+            <Link href="/system">
+              <HugeiconsIcon icon={ServerStack01Icon} strokeWidth={2} className="size-4" />
+              System health
+            </Link>
+          </DropdownMenuItem>
+        ) : null}
+        <DropdownMenuItem asChild>
+          <a href="/status" target="_blank" rel="noreferrer">
+            <HugeiconsIcon icon={Activity01Icon} strokeWidth={2} className="size-4" />
+            Status page
+          </a>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
         <DropdownMenuItem variant="destructive" onSelect={() => void signOut()}>
           <HugeiconsIcon icon={Logout03Icon} strokeWidth={2} className="size-4" />
           Sign out

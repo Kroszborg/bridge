@@ -120,49 +120,49 @@
 
 /* ── Dark (default): warm carbon black, phosphor is the only colour ─────── */
 .dark {
-  --background: #0c0b0a;
-  --foreground: #f7f4ef;
-  --card: #14120f;
-  --card-foreground: #f7f4ef;
-  --popover: #1a1814;
-  --popover-foreground: #f7f4ef;
+  --background: #09090b;
+  --foreground: #fafafa;
+  --card: #111113;
+  --card-foreground: #fafafa;
+  --popover: #18181b;
+  --popover-foreground: #fafafa;
 
   --primary: #3eebc0;
   --primary-foreground: #0a0a0b;
-  --secondary: #1c1915;
-  --secondary-foreground: #f7f4ef;
-  --muted: #1c1915;
-  --muted-foreground: #a8a097;
-  --faint: #776f66;
-  --accent: #221f1a;
-  --accent-foreground: #f7f4ef;
+  --secondary: #18181b;
+  --secondary-foreground: #fafafa;
+  --muted: #18181b;
+  --muted-foreground: #a1a1aa;
+  --faint: #71717a;
+  --accent: #1f1f23;
+  --accent-foreground: #fafafa;
 
   --destructive: #f87171;
   --success: #4ade80;
   --warning: #fbbf24;
 
-  --border: #2b2722;
-  --input: #34302a;
+  --border: #27272a;
+  --input: #3f3f46;
   --ring: #3eebc0;
 
   --chart-1: #3eebc0;
   --chart-2: #2bb594;
-  --chart-3: #a8a097;
-  --chart-4: #5e574e;
+  --chart-3: #a1a1aa;
+  --chart-4: #52525b;
   --chart-5: #f87171;
   --viz-1: #22a382;
   --viz-2: #3987e5;
   --viz-3: #d95926;
-  --viz-grid: #221f1b;
-  --viz-axis: #36312b;
+  --viz-grid: #1f1f23;
+  --viz-axis: #3f3f46;
 
-  --sidebar: #100f0d;
-  --sidebar-foreground: #a8a097;
+  --sidebar: #0c0c0e;
+  --sidebar-foreground: #a1a1aa;
   --sidebar-primary: #3eebc0;
   --sidebar-primary-foreground: #0a0a0b;
   --sidebar-accent: rgb(62 235 192 / 0.11);
   --sidebar-accent-foreground: #8ff5dc;
-  --sidebar-border: #211e1a;
+  --sidebar-border: #1f1f23;
   --sidebar-ring: #3eebc0;
 }
 
@@ -171,7 +171,7 @@
   scrollbar-color: #d6d0c5 transparent;
 }
 .dark .scroll-slim {
-  scrollbar-color: #3a352e transparent;
+  scrollbar-color: #3f3f46 transparent;
 }
 
 @layer base {
@@ -297,5 +297,24 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* Sign-in pages: one faint glow at the top of the page; no motion. */
+.auth-glow {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 28rem;
+  pointer-events: none;
+  background: radial-gradient(
+    50% 100% at 50% 0%,
+    color-mix(in srgb, var(--primary) 8%, transparent),
+    transparent 70%
+  );
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .auth-enter {
+    animation: enter-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 }

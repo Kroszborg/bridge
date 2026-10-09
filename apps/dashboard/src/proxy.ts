@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 
-const PUBLIC = new Set(['/login', '/signup', '/status']);
+const PUBLIC = new Set(['/login', '/signup', '/forgot-password', '/reset-password', '/status']);
 
 /** Fast path: send visitors without a session cookie to sign in. The API remains the authority. */
 export function proxy(req: NextRequest) {

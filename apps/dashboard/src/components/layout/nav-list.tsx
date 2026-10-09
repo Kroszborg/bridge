@@ -7,7 +7,7 @@ import { usePathname } from 'next/navigation';
 import * as React from 'react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { useCan, useConsole, useOrganization, useProjectId } from './console-context';
+import { useConsole, useProjectId } from './console-context';
 import { buildNav, isActive } from './nav-items';
 
 /**
@@ -17,19 +17,11 @@ import { buildNav, isActive } from './nav-items';
 export function NavList({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const projectId = useProjectId();
-  const { apiUrl, user } = useConsole();
-  const org = useOrganization();
-  const canAdmin = useCan('admin');
+  const { apiUrl } = useConsole();
   const navRef = React.useRef<HTMLElement>(null);
   const [bar, setBar] = React.useState<{ top: number; height: number } | null>(null);
   const [settled, setSettled] = React.useState(false);
-  const groups = buildNav({
-    projectId,
-    organizationId: org?.id,
-    apiUrl,
-    canAdmin,
-    operator: user.operator,
-  });
+  const groups = buildNav({ projectId, apiUrl });
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: re-measure when the route changes
   React.useLayoutEffect(() => {

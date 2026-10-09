@@ -7,7 +7,7 @@ import { useConsole, useProjectId } from './console-context';
 
 const LABELS: Record<string, string> = {
   'api-keys': 'API keys',
-  devices: 'Devices',
+  devices: 'Phones',
   messages: 'Messages',
   send: 'Send',
   schedules: 'Schedules',
@@ -23,6 +23,7 @@ const LABELS: Record<string, string> = {
   account: 'Account',
   team: 'Team',
   audit: 'Audit log',
+  billing: 'Billing',
   system: 'System health',
 };
 

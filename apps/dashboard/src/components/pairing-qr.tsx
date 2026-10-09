@@ -11,7 +11,7 @@ import { BridgeMark } from '@/components/brand';
 export const PAIRING_QR_STYLE = {
   margin: 2,
   background: '#ffffff',
-  dots: { style: 'rounded', color: '#0c0b0a' },
+  dots: { style: 'rounded', color: '#09090b' },
   corners: {
     square: { style: 'extra-rounded', color: '#0b6b4f' },
     dot: { style: 'dot', color: '#0b6b4f' },
