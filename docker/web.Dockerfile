@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # Bridge website: a static Next.js export served by nginx.
 
-FROM node:24-alpine AS base
+FROM node:25-alpine AS base
 ENV PNPM_HOME=/pnpm COREPACK_ENABLE_DOWNLOAD_PROMPT=0 NEXT_TELEMETRY_DISABLED=1
 ENV PATH=$PNPM_HOME:$PATH
 # Node 25+ no longer ships corepack, so install it explicitly; it then provides the
