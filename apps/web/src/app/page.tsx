@@ -449,7 +449,7 @@ export default function Home() {
           <div
             data-bridge-stage
             aria-hidden
-            className="-mx-4 mt-4 aspect-[2/1] w-[calc(100%+2rem)] sm:-mx-6 sm:mt-2 sm:aspect-[5/1] sm:w-[calc(100%+3rem)] xl:aspect-[6/1]"
+            className="-mx-4 mt-4 aspect-[5/2] w-[calc(100%+2rem)] sm:-mx-6 sm:mt-2 sm:aspect-[4/1] sm:w-[calc(100%+3rem)] xl:aspect-[5/1]"
           />
         </section>
 

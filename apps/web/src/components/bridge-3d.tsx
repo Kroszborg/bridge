@@ -334,7 +334,10 @@ export function Bridge3D({ className }: { className?: string }) {
       const scene = new THREE.Scene();
       const camera = new THREE.PerspectiveCamera(small ? 38 : 24, 1, 1, 2000);
       const target = new THREE.Vector3(0, TOWER_TOP * 0.45, 0);
-      const AZ = small ? -0.62 : -0.38; // the resting view angle
+      // The resting view: nearly straight on and a little above the deck, so the
+      // bridge reads level and symmetric, with just enough angle to feel 3D.
+      const AZ = -0.1;
+      const TILT = 0.2;
 
       // Particles: target positions, scattered starts, colours, sizes and a
       // random direction each one flies off in when the bridge comes apart.
@@ -552,9 +555,9 @@ export function Bridge3D({ className }: { className?: string }) {
         let r = 150;
         for (let k = 0; k < 6; k++) {
           camera.position.set(
-            Math.sin(AZ) * r * Math.cos(0.16),
-            target.y + Math.sin(0.16) * r,
-            Math.cos(AZ) * r * Math.cos(0.16),
+            Math.sin(AZ) * r * Math.cos(TILT),
+            target.y + Math.sin(TILT) * r,
+            Math.cos(AZ) * r * Math.cos(TILT),
           );
           camera.lookAt(target);
           camera.updateMatrixWorld();
@@ -574,7 +577,7 @@ export function Bridge3D({ className }: { className?: string }) {
             probe.copy(c).project(camera);
             ex = Math.max(ex, Math.abs(probe.x));
           }
-          r *= Math.max(tx / (small ? 0.96 : 0.74), ex / (small ? 1.5 : 1.08), ty / 0.94);
+          r *= Math.max(tx / (small ? 0.92 : 0.8), ex / 2.2, ty / 0.94);
         }
         return r;
       };
@@ -625,7 +628,7 @@ export function Bridge3D({ className }: { className?: string }) {
         look.x += (look.tx - look.x) * 0.04;
         look.y += (look.ty - look.y) * 0.04;
         const az = AZ + Math.sin(time * 0.06) * 0.06 + look.x * 0.1;
-        const tilt = 0.16 + look.y * -0.05;
+        const tilt = TILT + look.y * -0.04;
         camera.position.set(
           Math.sin(az) * radius * Math.cos(tilt),
           target.y + Math.sin(tilt) * radius,
