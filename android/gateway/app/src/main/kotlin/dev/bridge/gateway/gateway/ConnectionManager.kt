@@ -1,6 +1,7 @@
 package dev.bridge.gateway.gateway
 
 import dev.bridge.gateway.net.BridgeApiException
+import dev.bridge.gateway.diagnostics.Redact
 import dev.bridge.gateway.net.BridgeJson
 import dev.bridge.gateway.net.DeviceStatus
 import kotlinx.coroutines.CancellationException
@@ -29,7 +30,9 @@ data class GatewaySession(
     val websocketUrl: String,
     val credential: String,
     val schedule: HeartbeatSchedule,
-)
+) {
+    override fun toString() = "GatewaySession(websocketUrl=$websocketUrl, credential=${Redact.HIDDEN}, schedule=$schedule)"
+}
 
 /** A health snapshot plus the power state that decides the heartbeat interval. */
 data class StatusSnapshot(val status: DeviceStatus, val charging: Boolean, val powerSave: Boolean)

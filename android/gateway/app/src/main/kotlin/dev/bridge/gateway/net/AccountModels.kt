@@ -1,12 +1,15 @@
 package dev.bridge.gateway.net
 
+import dev.bridge.gateway.diagnostics.Redact
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 // Session-authenticated (dashboard) endpoints. Field names follow packages/api-types/openapi.json.
 
 @Serializable
-data class LoginRequest(val email: String, val password: String)
+data class LoginRequest(val email: String, val password: String) {
+    override fun toString() = "LoginRequest(email=$email, password=${Redact.HIDDEN})"
+}
 
 @Serializable
 data class UserDto(
@@ -50,7 +53,9 @@ data class PairingTokenDto(
     @SerialName("expires_at") val expiresAt: String,
     @SerialName("api_url") val apiUrl: String,
     @SerialName("pairing_uri") val pairingUri: String,
-)
+) {
+    override fun toString() = "PairingTokenDto(id=$id, expiresAt=$expiresAt, apiUrl=$apiUrl, token=${Redact.HIDDEN})"
+}
 
 @Serializable
 data class MessageDto(

@@ -35,6 +35,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.bridge.gateway.account.ServerUrls
+import dev.bridge.gateway.pairing.PairingUri
 import dev.bridge.gateway.ui.theme.Bridge
 import dev.bridge.gateway.ui.theme.RedHatMono
 
@@ -76,6 +77,12 @@ fun SignInScreen(vm: AccountViewModel, onBack: () -> Unit) {
             textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = RedHatMono),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Next),
         )
+        if (PairingUri.normalizeServerUrl(server)?.startsWith("http://") == true) {
+            Notice(
+                "This server uses plain HTTP: your password and session travel unencrypted. Use HTTPS unless the server is on a network you trust.",
+                color = Bridge.colors.warning,
+            )
+        }
         OutlinedTextField(
             value = email, onValueChange = { email = it.trim() }, singleLine = true, modifier = Modifier.fillMaxWidth(),
             label = { Text("Email") },

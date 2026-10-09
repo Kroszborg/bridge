@@ -7,6 +7,7 @@ import android.provider.Telephony
 import android.util.Log
 import dev.bridge.gateway.AppContainer
 import dev.bridge.gateway.container
+import dev.bridge.gateway.diagnostics.Redact
 import dev.bridge.gateway.gateway.ConnectionState
 import dev.bridge.gateway.gateway.Frames
 import dev.bridge.gateway.gateway.GatewayService
@@ -15,7 +16,9 @@ import dev.bridge.gateway.gateway.SyncWorker
 import java.util.UUID
 
 /** One PDU of a received SMS. */
-data class SmsPart(val from: String, val body: String, val timestampMs: Long)
+data class SmsPart(val from: String, val body: String, val timestampMs: Long) {
+    override fun toString() = "SmsPart(from=${Redact.number(from)}, body=${Redact.body(body)}, timestampMs=$timestampMs)"
+}
 
 object InboundSms {
     /**

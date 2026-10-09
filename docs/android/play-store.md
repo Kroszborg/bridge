@@ -69,6 +69,14 @@ cd android/gateway
 jarsigner -verify -verbose:summary app/build/outputs/bundle/gmsRelease/app-gms-release.aab
 ```
 
+The bundle is shrunk and obfuscated by R8. It carries its own mapping file
+(`BUNDLE-METADATA/com.android.tools.build.obfuscation/proguard.map`), which Play Console uses to
+deobfuscate crash and ANR traces. Still archive
+`app/build/outputs/mapping/gmsRelease/mapping.txt` from the same build, outside the repository,
+for every release. It is the only way to read a trace from that version if the upload's copy is
+missing (upload it under *Android vitals → Deobfuscation files*) or for a trace a user sends. See
+[Obfuscation and mapping files](README.md#obfuscation-and-mapping-files).
+
 Without `BRIDGE_VERSION_NAME` the version comes from `defaultConfig` in
 `android/gateway/app/build.gradle.kts`, which the release commit bumps. Build the bundle from the
 release tag so it matches the GitHub APKs. Keep `keystore.properties` pointing at the upload key;
@@ -306,6 +314,6 @@ website `https://bridge.kroszborg.co`.
 ## Updates
 
 Each release: bump `defaultConfig` and add the changelog file in the release commit, tag it, build
-`bundleGmsRelease` from the tag with the upload key, upload to Internal testing, then promote to
-Production. The version code must always increase, which the formula in `build.gradle.kts`
+`bundleGmsRelease` from the tag with the upload key, archive that build's `mapping.txt`, upload to
+Internal testing, then promote to Production. The version code must always increase, which the formula in `build.gradle.kts`
 guarantees.

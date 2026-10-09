@@ -74,9 +74,11 @@
             </intent-filter>
         </receiver>
 
+        <!-- Only the system sends these, and it can reach a receiver that is not exported
+             (as WorkManager's own boot receiver does); other apps cannot. -->
         <receiver
             android:name=".gateway.BootReceiver"
-            android:exported="true">
+            android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
@@ -84,7 +86,8 @@
             </intent-filter>
         </receiver>
 
-        <!-- Home-screen widgets: the same status in two default sizes. -->
+        <!-- Home-screen widgets: the same status in two default sizes. Exported as AppWidgetProvider
+             receivers usually are; they only redraw the widget, whoever sends the update. -->
         <receiver
             android:name=".widget.GatewayWidgetReceiver"
             android:exported="true"

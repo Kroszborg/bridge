@@ -4,6 +4,7 @@ import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
+import dev.bridge.gateway.diagnostics.Redact
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,7 +17,9 @@ data class SendJob(
     val to: String,
     val body: String,
     val simSlot: Int?,
-)
+) {
+    override fun toString() = "SendJob(messageId=$messageId, attempt=$attempt, to=${Redact.number(to)}, body=${Redact.body(body)}, simSlot=$simSlot)"
+}
 
 /** A report waiting for the server's acknowledgement. */
 data class PendingReport(val messageId: String, val type: String, val payload: String)

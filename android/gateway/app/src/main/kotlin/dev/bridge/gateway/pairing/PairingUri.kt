@@ -1,5 +1,6 @@
 package dev.bridge.gateway.pairing
 
+import dev.bridge.gateway.diagnostics.Redact
 import java.net.URI
 import java.net.URLDecoder
 
@@ -10,6 +11,8 @@ data class PairingRequest(val apiUrl: String, val token: String) {
 
     /** Host shown to the user when confirming which server to trust. */
     val host: String get() = runCatching { URI(apiUrl).authority }.getOrNull() ?: apiUrl
+
+    override fun toString() = "PairingRequest(apiUrl=$apiUrl, token=${Redact.HIDDEN})"
 }
 
 object PairingUri {

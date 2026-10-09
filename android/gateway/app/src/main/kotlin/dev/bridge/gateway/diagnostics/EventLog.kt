@@ -29,8 +29,10 @@ data class GatewayEvent(val at: Long, val kind: String, val message: String, val
  * A small persisted log of what the gateway did and why: process starts and how the
  * previous process ended, service starts and stops, connects, closes, retries,
  * network changes, revokes and pairing attempts. It keeps the newest [capacity]
- * events, survives process death and unpairing, and mirrors every line to Logcat
- * under [TAG], so a disconnect on a user's phone can be explained afterwards.
+ * events, survives process death and unpairing, and mirrors lines to Logcat under
+ * [TAG] (all of them in debug builds; release builds strip Log.i, so only warnings),
+ * so a disconnect on a user's phone can be explained afterwards. Messages never
+ * contain credentials, pairing codes, phone numbers or message bodies.
  *
  * Writes go to one background thread; [record] never blocks the caller.
  */

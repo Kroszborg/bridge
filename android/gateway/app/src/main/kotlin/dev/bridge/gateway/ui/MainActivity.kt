@@ -56,10 +56,15 @@ class MainActivity : ComponentActivity() {
     private val phonesVm: PhonesViewModel by viewModels()
     private var checks by mutableStateOf(ReliabilityChecks())
     private var cameraGranted by mutableStateOf(false)
+    // Denied with "don't ask again": Android no longer shows its dialog, only the app's settings can grant it.
+    private var cameraBlocked by mutableStateOf(false)
     private var askedReceiveSms = false
 
     private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { refreshChecks() }
-    private val cameraPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { cameraGranted = it }
+    private val cameraPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        cameraGranted = granted
+        cameraBlocked = !granted && !shouldShowRequestPermissionRationale(Manifest.permission.CAMERA)
+    }
     private val smsPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { refreshChecks() }
     private val phoneStatePermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { refreshChecks() }
     private val receiveSmsPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { refreshChecks() }
@@ -67,6 +72,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        // Read here, not only when a scan starts, so a rotation (which recreates the activity) keeps the scanner open.
+        cameraGranted = hasPermission(Manifest.permission.CAMERA)
+        cameraBlocked = !cameraGranted && savedInstanceState?.getBoolean(KEY_CAMERA_BLOCKED) == true
         handleIntent(intent)
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -140,8 +148,13 @@ class MainActivity : ComponentActivity() {
                         scanning -> {
                             BackHandler { scanning = false }
                             ScanScreen(
-                                hasCameraPermission = cameraGranted,
+                                access = when {
+                                    cameraGranted -> CameraAccess.Granted
+                                    cameraBlocked -> CameraAccess.Blocked
+                                    else -> CameraAccess.Ask
+                                },
                                 onRequestPermission = { cameraPermission.launch(Manifest.permission.CAMERA) },
+                                onOpenSettings = ::openAppSettings,
                                 onResult = { scanning = false; vm.requestPairing(it) },
                                 onCancel = { scanning = false },
                             )
@@ -248,8 +261,16 @@ class MainActivity : ComponentActivity() {
         handleIntent(intent)
     }
 
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putBoolean(KEY_CAMERA_BLOCKED, cameraBlocked)
+    }
+
     override fun onResume() {
         super.onResume()
+        // Camera access may have been granted in Settings meanwhile.
+        cameraGranted = hasPermission(Manifest.permission.CAMERA)
+        if (cameraGranted) cameraBlocked = false
         refreshChecks()
         vm.ensureRunning()
     }
@@ -311,6 +332,14 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun openAppSettings() {
+        try {
+            startActivity(BackgroundSettings.appDetails(packageName))
+        } catch (_: ActivityNotFoundException) {
+        } catch (_: SecurityException) {
+        }
+    }
+
     private fun openVendorSettings() {
         val skin = BackgroundSettings.skin() ?: return
         val opened = BackgroundSettings.open(this, skin)
@@ -325,4 +354,8 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun hasPermission(p: String) = ContextCompat.checkSelfPermission(this, p) == PackageManager.PERMISSION_GRANTED
+
+    private companion object {
+        const val KEY_CAMERA_BLOCKED = "camera_blocked"
+    }
 }

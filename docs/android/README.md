@@ -277,9 +277,8 @@ app/build/outputs/mapping/gmsRelease/mapping.txt
 **Keep the mapping files of every release** (for example next to the tag's artifacts, outside the
 repository); a mapping belongs to exactly one build. Google Play bundles carry theirs
 (`BUNDLE-METADATA/com.android.tools.build.obfuscation/proguard.map`), so Play Console deobfuscates
-crashes from bundle uploads by itself, but keep a copy anyway, and upload it under *App bundle
-explorer → Downloads → ReTrace mapping file* if Play ever shows obfuscated traces. To read a trace
-by hand:
+crashes from bundle uploads by itself; keep a copy anyway, and upload it under *Android vitals →
+Deobfuscation files* if Play ever shows obfuscated traces. To read a trace by hand:
 
 ```bash
 retrace mapping.txt stacktrace.txt   # from the Android SDK's cmdline-tools

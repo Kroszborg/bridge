@@ -1,7 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Self-hosted Bridge servers on a local network often run without TLS, so plain
-  HTTP is allowed. The app warns before pairing with an http:// server.
+  Self-hosted Bridge servers on a local network often run without TLS, and their
+  addresses are typed or scanned by the user, so Android cannot list them here:
+  plain HTTP stays allowed for those. It is only ever used for an http:// address the
+  user chose, and the app warns first (pairing confirmation, sign-in screen and a
+  standing "Unencrypted server" check). Everything else the app talks to is HTTPS,
+  and the hosted service is pinned to HTTPS below so it can never be reached in the
+  clear. Only the system's certificate authorities are trusted (no user-added CAs).
 -->
 <network-security-config xmlns:tools="http://schemas.android.com/tools">
     <base-config cleartextTrafficPermitted="true" tools:ignore="InsecureBaseConfiguration">
@@ -9,4 +14,7 @@
             <certificates src="system" />
         </trust-anchors>
     </base-config>
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">bridge.kroszborg.co</domain>
+    </domain-config>
 </network-security-config>

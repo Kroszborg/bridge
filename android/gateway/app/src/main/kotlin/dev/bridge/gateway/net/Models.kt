@@ -1,5 +1,6 @@
 package dev.bridge.gateway.net
 
+import dev.bridge.gateway.diagnostics.Redact
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -20,7 +21,9 @@ data class PairRequest(
     @SerialName("android_version") val androidVersion: String,
     @SerialName("app_version") val appVersion: String,
     @SerialName("app_flavor") val appFlavor: String,
-)
+) {
+    override fun toString() = "PairRequest(installationId=$installationId, deviceModel=$deviceModel, appVersion=$appVersion, token=${Redact.HIDDEN})"
+}
 
 @Serializable
 data class HeartbeatPolicyDto(
@@ -57,7 +60,9 @@ data class PairResponse(
     @SerialName("websocket_url") val websocketUrl: String,
     val heartbeat: HeartbeatPolicyDto = HeartbeatPolicyDto(),
     val push: PushConfigDto,
-)
+) {
+    override fun toString() = "PairResponse(deviceId=$deviceId, projectId=$projectId, apiUrl=$apiUrl, credential=${Redact.HIDDEN})"
+}
 
 /** Device health reported with every heartbeat. Null fields are omitted. */
 @Serializable

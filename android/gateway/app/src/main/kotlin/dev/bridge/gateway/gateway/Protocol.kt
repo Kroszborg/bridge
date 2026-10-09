@@ -1,5 +1,6 @@
 package dev.bridge.gateway.gateway
 
+import dev.bridge.gateway.diagnostics.Redact
 import dev.bridge.gateway.net.BridgeJson
 import dev.bridge.gateway.net.DeviceStatus
 import kotlinx.serialization.SerialName
@@ -56,7 +57,10 @@ data class ServerFrame(
     val report: String? = null,
     /** welcome and config: whether to forward the SMS this phone receives. */
     @SerialName("forward_inbound") val forwardInbound: Boolean? = null,
-)
+) {
+    override fun toString() =
+        "ServerFrame(type=$type, seq=$seq, messageId=$messageId, attempt=$attempt, to=${Redact.number(to)}, body=${Redact.body(body)})"
+}
 
 /** A message status report. Stored until the server acknowledges it. */
 @Serializable
@@ -82,4 +86,6 @@ data class InboundSmsFrame(
     val type: String = Frames.SMS_RECEIVED,
 ) {
     fun encode(): String = BridgeJson.encodeToString(serializer(), this)
+
+    override fun toString() = "InboundSmsFrame(inboundId=$inboundId, from=${Redact.number(from)}, body=${Redact.body(body)}, simSlot=$simSlot)"
 }

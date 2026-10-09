@@ -264,6 +264,16 @@ jobs:
             cp "$apk" "$GITHUB_WORKSPACE/dist-apk/bridge-gateway-$VERSION-$flavor.apk"
           done
           cd "$GITHUB_WORKSPACE/dist-apk" && sha256sum -- *.apk > apk-checksums.txt
+      # R8 mapping files turn obfuscated crash stack traces back into readable ones. They are
+      # kept as a workflow artifact, not a public release asset, so the obfuscation stays useful;
+      # download and archive them for every release (see docs/android/README.md).
+      - if: env.SIGNING == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-mapping-${{ needs.prepare.outputs.version }}
+          path: android/gateway/app/build/outputs/mapping/*Release/mapping.txt
+          retention-days: 90
+          if-no-files-found: error
       - if: env.SIGNING == 'true' && env.ATTEST == 'true'
         uses: actions/attest-build-provenance@v4
         with:
