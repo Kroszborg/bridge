@@ -4,6 +4,13 @@ name: Release
 on:
   push:
     tags: ["v*.*.*"]
+  # Re-publish the npm SDK for an existing tag (for example after fixing npm's trusted
+  # publisher settings) without rebuilding or re-releasing anything else.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag, e.g. v1.0.0
+        required: true
 
 permissions:
   contents: read
@@ -27,12 +34,14 @@ jobs:
       dockerhub_namespace: ${{ steps.version.outputs.dockerhub_namespace }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag || github.ref }}
       - id: version
         name: Version from tag
         run: |
-          version="${GITHUB_REF_NAME#v}"
+          version="${TAG#v}"
           if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$ ]]; then
-            echo "::error::Tag $GITHUB_REF_NAME is not vX.Y.Z or vX.Y.Z-rc.N"; exit 1
+            echo "::error::Tag $TAG is not vX.Y.Z or vX.Y.Z-rc.N"; exit 1
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
           # Image names must be lowercase; account names often are not.
@@ -40,6 +49,7 @@ jobs:
           echo "owner=$owner" >> "$GITHUB_OUTPUT"
           echo "dockerhub_namespace=${DOCKERHUB_NAMESPACE_VAR:-$owner}" | tr '[:upper:]' '[:lower:]' >> "$GITHUB_OUTPUT"
         env:
+          TAG: ${{ inputs.tag || github.ref_name }}
           DOCKERHUB_NAMESPACE_VAR: ${{ vars.DOCKERHUB_NAMESPACE }}
       - name: CHANGELOG.md has a section for this version
         run: bash .github/scripts/release-notes.sh "${{ steps.version.outputs.version }}" > /dev/null
@@ -50,6 +60,7 @@ jobs:
 
   binaries:
     name: Binaries (GoReleaser)
+    if: github.event_name == 'push'
     needs: [prepare, ci]
     runs-on: ubuntu-latest
     permissions:
@@ -82,6 +93,7 @@ jobs:
 
   images:
     name: Image ${{ matrix.image }} (${{ matrix.arch }})
+    if: github.event_name == 'push'
     needs: [prepare, ci]
     runs-on: ${{ matrix.runner }}
     permissions:
@@ -137,6 +149,7 @@ jobs:
 
   images-merge:
     name: Publish ${{ matrix.image }} image
+    if: github.event_name == 'push'
     needs: [prepare, images]
     runs-on: ubuntu-latest
     permissions:
@@ -201,6 +214,7 @@ jobs:
 
   android:
     name: Android APKs
+    if: github.event_name == 'push'
     needs: [prepare, binaries]
     runs-on: ubuntu-latest
     permissions:
@@ -279,6 +293,8 @@ jobs:
         working-directory: packages/sdk
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag || github.ref }}
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v7
         with:
@@ -304,10 +320,12 @@ jobs:
           if [[ "$VERSION" == *-* ]]; then tag=next; fi
           flags=(--access public --tag "$tag")
           if [ "$ATTEST" = true ]; then flags+=(--provenance); fi
-          npm publish "${flags[@]}"
+          # Verbose, so a refused trusted-publishing (OIDC) exchange says why in the log.
+          npm publish "${flags[@]}" --loglevel verbose
 
   publish:
     name: Publish release
+    if: github.event_name == 'push'
     needs: [binaries, images-merge, android]
     runs-on: ubuntu-latest
     permissions:

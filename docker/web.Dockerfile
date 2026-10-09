@@ -4,7 +4,9 @@
 FROM node:24-alpine AS base
 ENV PNPM_HOME=/pnpm COREPACK_ENABLE_DOWNLOAD_PROMPT=0 NEXT_TELEMETRY_DISABLED=1
 ENV PATH=$PNPM_HOME:$PATH
-RUN corepack enable
+# Node 25+ no longer ships corepack, so install it explicitly; it then provides the
+# pnpm version pinned in package.json (packageManager).
+RUN npm install -g corepack@0.36.0 && corepack enable
 WORKDIR /repo
 
 FROM base AS deps

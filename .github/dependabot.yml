@@ -8,6 +8,11 @@ updates:
     directory: /
     schedule: { interval: weekly }
     groups: { npm: { patterns: ["*"] } }
+    ignore:
+      # tools/openapi-codegen stays on TypeScript 5.9 on purpose: openapi-typescript uses the
+      # TypeScript JS API, which TypeScript 7 no longer ships. Majors are taken by hand.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: docker
     directory: /docker
     schedule: { interval: weekly }
