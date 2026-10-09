@@ -13,7 +13,7 @@ export function LegalPage({
 }) {
   return (
     <div className="flex min-h-dvh flex-col bg-background">
-      <header className="border-b">
+      <header>
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4 sm:px-6">
           <a href="/" aria-label="Bridge home">
             <Wordmark />

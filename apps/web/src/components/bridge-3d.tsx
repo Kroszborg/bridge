@@ -310,11 +310,21 @@ export function Bridge3D({ className }: { className?: string }) {
         const fg = color('--foreground');
         dark = document.documentElement.classList.contains('dark');
         primary.copy(color('--primary'));
-        palette.cable.copy(primary);
-        palette.hanger.copy(primary).lerp(fg, 0.15);
-        palette.tower.copy(fg);
-        palette.deck.copy(fg).lerp(primary, 0.25);
-        palette.water.copy(primary).multiplyScalar(dark ? 0.55 : 0.8);
+        if (dark) {
+          palette.cable.copy(primary);
+          palette.hanger.copy(primary).lerp(fg, 0.15);
+          palette.tower.copy(fg);
+          palette.deck.copy(fg).lerp(primary, 0.25);
+          palette.water.copy(primary).multiplyScalar(0.55);
+        } else {
+          // On a light page the bridge is inked in the brand green, darkest where it is solid.
+          const bg = color('--background');
+          palette.cable.copy(primary);
+          palette.hanger.copy(primary).lerp(bg, 0.35);
+          palette.tower.copy(primary).lerp(fg, 0.45);
+          palette.deck.copy(primary).lerp(fg, 0.3);
+          palette.water.copy(primary).lerp(bg, 0.55);
+        }
       };
       readPalette();
 

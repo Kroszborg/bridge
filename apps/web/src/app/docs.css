@@ -35,7 +35,22 @@
 }
 
 :root {
-  --fd-layout-width: 1440px;
+  /* Full width: the sidebar keeps to the left edge instead of absorbing the page's side margin. */
+  --fd-layout-width: 100vw;
+}
+
+/* A compact sidebar: a fixed, narrower column and tighter rows. */
+@media (min-width: 768px) {
+  #nd-docs-layout#nd-docs-layout {
+    --fd-sidebar-width: 248px;
+  }
+}
+#nd-sidebar {
+  font-size: 0.875rem;
+}
+#nd-sidebar a.rounded-lg,
+#nd-sidebar button.rounded-lg {
+  padding-block: 0.3125rem;
 }
 
 /* One background for the whole page: the sidebar sits on the page colour, divided by its border.
