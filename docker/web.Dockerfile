@@ -27,7 +27,7 @@ COPY packages/sdk/README.md packages/sdk/
 COPY apps/web apps/web
 RUN pnpm --filter @bridge/web build
 
-FROM nginx:1.29-alpine AS runtime
+FROM nginx:1.31-alpine AS runtime
 COPY docker/web.nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /repo/apps/web/out /usr/share/nginx/html
 EXPOSE 80
