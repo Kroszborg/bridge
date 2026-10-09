@@ -34,6 +34,16 @@ func TestPostgresLimiter(t *testing.T) {
 		t.Fatalf("4th hit should be denied with 30s retry: %+v %v", res, err)
 	}
 
+	if n, err := l.Count(ctx, "k", time.Minute); err != nil || n != 4 {
+		t.Fatalf("Count = %d, %v; want 4", n, err)
+	}
+	if n, _ := l.Count(ctx, "k", time.Minute); n != 4 {
+		t.Fatalf("Count must not add a hit, got %d", n)
+	}
+	if n, err := l.Count(ctx, "never-hit", time.Minute); err != nil || n != 0 {
+		t.Fatalf("Count of an unknown key = %d, %v", n, err)
+	}
+
 	// Different keys and windows are independent.
 	if res, _ := l.Hit(ctx, "other", 3, time.Minute); !res.Allowed {
 		t.Fatal("independent key was limited")
@@ -44,6 +54,9 @@ func TestPostgresLimiter(t *testing.T) {
 
 	// The next window resets the counter.
 	now = now.Add(time.Minute)
+	if n, _ := l.Count(ctx, "k", time.Minute); n != 0 {
+		t.Fatalf("Count in a new window = %d", n)
+	}
 	if res, _ := l.Hit(ctx, "k", 3, time.Minute); !res.Allowed || res.Remaining != 2 {
 		t.Fatalf("new window did not reset: %+v", res)
 	}

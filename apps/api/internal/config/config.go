@@ -55,6 +55,15 @@ type Config struct {
 	// TurnstileVerifyURL replaces Cloudflare Turnstile's siteverify endpoint.
 	// Tests point it at a fake; empty uses Cloudflare.
 	TurnstileVerifyURL string
+	// TurnstileSiteKey and TurnstileSecretKey put Cloudflare Turnstile on
+	// sign-up, password-reset requests and repeated failed sign-ins
+	// (BRIDGE_TURNSTILE_SITE_KEY, BRIDGE_TURNSTILE_SECRET_KEY). Both or
+	// neither; empty: no CAPTCHA anywhere.
+	TurnstileSiteKey   string
+	TurnstileSecretKey string
+	// BlockDisposableEmail refuses sign-ups from throwaway email providers
+	// (BRIDGE_BLOCK_DISPOSABLE_EMAIL). Defaults to BRIDGE_CLOUD.
+	BlockDisposableEmail bool
 	// SMTP sends forwarded SMS by email. Nil: email forwarding is unavailable.
 	SMTP *SMTPConfig
 	// TelegramAPIURL replaces https://api.telegram.org for forwarding. Tests
@@ -121,6 +130,9 @@ type FCMConfig struct {
 	APIKey   string
 	SenderID string
 }
+
+// Turnstile reports whether sign-up and sign-in forms use Cloudflare Turnstile.
+func (c *Config) Turnstile() bool { return c.TurnstileSiteKey != "" && c.TurnstileSecretKey != "" }
 
 // Production reports whether Bridge runs in production mode.
 func (c *Config) Production() bool { return c.Env == "production" }
@@ -296,6 +308,17 @@ func load(get func(string) string) (*Config, error) {
 	}
 
 	c.Cloud = parseBool("BRIDGE_CLOUD", false)
+	c.BlockDisposableEmail = parseBool("BRIDGE_BLOCK_DISPOSABLE_EMAIL", c.Cloud)
+
+	c.TurnstileSiteKey = str("BRIDGE_TURNSTILE_SITE_KEY", "")
+	c.TurnstileSecretKey = str("BRIDGE_TURNSTILE_SECRET_KEY", "")
+	switch {
+	case (c.TurnstileSiteKey == "") != (c.TurnstileSecretKey == ""):
+		errs = append(errs, errors.New("set both BRIDGE_TURNSTILE_SITE_KEY and BRIDGE_TURNSTILE_SECRET_KEY, or neither"))
+	case len(c.TurnstileSiteKey) > 100 || len(c.TurnstileSecretKey) > 200 ||
+		strings.ContainsFunc(c.TurnstileSiteKey+c.TurnstileSecretKey, func(r rune) bool { return r <= ' ' || r == '"' || r == '\'' }):
+		errs = append(errs, errors.New("BRIDGE_TURNSTILE_SITE_KEY and BRIDGE_TURNSTILE_SECRET_KEY must be the keys from the Cloudflare dashboard (Turnstile → your widget)"))
+	}
 	if key := str("BRIDGE_DODO_API_KEY", ""); key != "" {
 		dodo := &DodoConfig{
 			APIKey: key, WebhookSecret: str("BRIDGE_DODO_WEBHOOK_SECRET", ""),

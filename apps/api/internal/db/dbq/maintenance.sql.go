@@ -54,3 +54,22 @@ func (q *Queries) HitRateLimit(ctx context.Context, arg HitRateLimitParams) (int
 	err := row.Scan(&count)
 	return count, err
 }
+
+const peekRateLimit = `-- name: PeekRateLimit :one
+SELECT COALESCE((
+    SELECT count FROM rate_limit_counters WHERE key = $1 AND window_start >= $2
+), 0)::int AS count
+`
+
+type PeekRateLimitParams struct {
+	Key         string
+	WindowStart time.Time
+}
+
+// The count for key in the window starting at window_start, without adding a hit.
+func (q *Queries) PeekRateLimit(ctx context.Context, arg PeekRateLimitParams) (int32, error) {
+	row := q.db.QueryRow(ctx, peekRateLimit, arg.Key, arg.WindowStart)
+	var count int32
+	err := row.Scan(&count)
+	return count, err
+}

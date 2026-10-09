@@ -33,6 +33,14 @@ x-api-env: &api-env
   BRIDGE_FCM_APP_ID: ${BRIDGE_FCM_APP_ID:-}
   BRIDGE_FCM_API_KEY: ${BRIDGE_FCM_API_KEY:-}
   BRIDGE_FCM_SENDER_ID: ${BRIDGE_FCM_SENDER_ID:-}
+  # Bot protection on sign-up, sign-in and password reset. Empty: off.
+  # Account phone verification: an API key from one of your projects (codes go out through Bridge).
+  BRIDGE_ACCOUNT_VERIFY_API_KEY: ${BRIDGE_ACCOUNT_VERIFY_API_KEY:-}
+  BRIDGE_ACCOUNT_VERIFY_APP: ${BRIDGE_ACCOUNT_VERIFY_APP:-}
+  BRIDGE_TURNSTILE_SITE_KEY: ${BRIDGE_TURNSTILE_SITE_KEY:-}
+  BRIDGE_TURNSTILE_SECRET_KEY: ${BRIDGE_TURNSTILE_SECRET_KEY:-}
+  # Empty: on with BRIDGE_CLOUD, off otherwise.
+  BRIDGE_BLOCK_DISPOSABLE_EMAIL: ${BRIDGE_BLOCK_DISPOSABLE_EMAIL:-}
   # Hosted Bridge only: plans, limits and Dodo Payments. Self-hosters leave these empty.
   BRIDGE_CLOUD: ${BRIDGE_CLOUD:-false}
   BRIDGE_DODO_API_KEY: ${BRIDGE_DODO_API_KEY:-}

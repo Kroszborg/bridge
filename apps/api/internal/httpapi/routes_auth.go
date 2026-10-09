@@ -28,14 +28,18 @@ type signupInput struct {
 		Name     string `json:"name,omitempty" maxLength:"100" example:"Ada Lovelace"`
 		// An invite joins its organization instead of creating a new workspace,
 		// and works even when sign-ups are disabled.
-		InviteToken string `json:"invite_token,omitempty" maxLength:"128" doc:"Join the organization of this invite instead of creating a workspace."`
+		InviteToken    string `json:"invite_token,omitempty" maxLength:"128" doc:"Join the organization of this invite instead of creating a workspace."`
+		TurnstileToken string `json:"turnstile_token,omitempty" maxLength:"2048" doc:"The Cloudflare Turnstile response. Required when GET /v1/auth/config has a turnstile_site_key."`
+		// A honeypot: the sign-up form hides it from people, so only bots fill it.
+		Website string `json:"website,omitempty" maxLength:"500" hidden:"true"`
 	}
 }
 
 type loginInput struct {
 	Body struct {
-		Email    string `json:"email" format:"email" maxLength:"254" example:"ada@example.com"`
-		Password string `json:"password" minLength:"1" maxLength:"512"`
+		Email          string `json:"email" format:"email" maxLength:"254" example:"ada@example.com"`
+		Password       string `json:"password" minLength:"1" maxLength:"512"`
+		TurnstileToken string `json:"turnstile_token,omitempty" maxLength:"2048" doc:"The Cloudflare Turnstile response. Required after repeated failed sign-ins, when the server answers captcha_required."`
 	}
 }
 
@@ -55,16 +59,24 @@ type meOutput struct {
 func (s *Server) registerAuth(api huma.API) {
 	huma.Register(api, huma.Operation{
 		OperationID: "signup", Method: http.MethodPost, Path: "/v1/auth/signup", Tags: []string{"Auth"},
-		Summary:       "Create an account",
-		Description:   "Creates a user, a first organization and a default project, and starts a session.",
+		Summary: "Create an account",
+		Description: "Creates a user, a first organization and a default project, and starts a session. " +
+			"When the server uses Cloudflare Turnstile (`turnstile_site_key` in `GET /v1/auth/config`), send the widget's " +
+			"token as `turnstile_token`: `captcha_required` without one, `captcha_failed` when it is rejected, and " +
+			"`captcha_unavailable` (503) while Turnstile cannot be reached. `email_not_allowed` refuses disposable " +
+			"email addresses on servers that block them.",
 		DefaultStatus: http.StatusCreated,
-		Errors:        []int{http.StatusConflict, http.StatusForbidden, http.StatusTooManyRequests},
+		Errors: []int{http.StatusBadRequest, http.StatusConflict, http.StatusForbidden, http.StatusUnprocessableEntity,
+			http.StatusTooManyRequests, http.StatusServiceUnavailable},
 	}, s.signup)
 
 	huma.Register(api, huma.Operation{
 		OperationID: "login", Method: http.MethodPost, Path: "/v1/auth/login", Tags: []string{"Auth"},
 		Summary: "Sign in",
-		Errors:  []int{http.StatusUnauthorized, http.StatusTooManyRequests},
+		Description: "When the server uses Cloudflare Turnstile, repeated failed sign-ins for an address or from a client " +
+			"make the next attempts answer `captcha_required` until they carry a Turnstile token as `turnstile_token` " +
+			"(`captcha_failed` when it is rejected).",
+		Errors: []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusTooManyRequests},
 	}, s.login)
 
 	huma.Register(api, huma.Operation{
@@ -82,8 +94,23 @@ func (s *Server) signup(ctx context.Context, in *signupInput) (*sessionOutput, e
 	if err := s.limit(ctx, "signup:ip:"+ClientIPFrom(ctx).String(), 10, time.Hour); err != nil {
 		return nil, err
 	}
+	// A filled honeypot gets a generic error rather than a fake success: a
+	// person whose browser filled it by mistake sees that the sign-up did not
+	// happen, and a bot learns nothing it could not see from any bad request.
+	if s.honeypotFilled(ctx, "signup", in.Body.Website) {
+		return nil, Errorf(http.StatusBadRequest, CodeInvalidRequest, "This sign-up could not be processed. Reload the page and try again.")
+	}
 	if err := auth.ValidatePassword(in.Body.Password); err != nil {
 		return nil, huma.Error422UnprocessableEntity("validation failed", &huma.ErrorDetail{Location: "body.password", Message: err.Error()})
+	}
+	// An invite was sent to its address by someone in the organization.
+	if in.Body.InviteToken == "" {
+		if err := s.checkEmailAllowed(in.Body.Email); err != nil {
+			return nil, err
+		}
+	}
+	if err := s.requireCaptcha(ctx, in.Body.TurnstileToken, captchaSignup); err != nil {
+		return nil, err
 	}
 	if in.Body.InviteToken != "" {
 		inv, err := s.inviteByToken(ctx, in.Body.InviteToken)
@@ -180,11 +207,21 @@ func (s *Server) login(ctx context.Context, in *loginInput) (*sessionOutput, err
 	if err := s.limit(ctx, "login:email:"+email, 10, 15*time.Minute); err != nil {
 		return nil, err
 	}
+	if s.loginNeedsCaptcha(ctx, email) {
+		err := s.verifyCaptcha(ctx, in.Body.TurnstileToken, captchaLogin)
+		if errors.Is(err, errCaptchaUnavailable) {
+			// Never lock everyone out while Turnstile is down: the rate limits still apply.
+			s.log.Warn("signing in without the Turnstile check", "request_id", RequestIDFrom(ctx))
+		} else if err != nil {
+			return nil, err
+		}
+	}
 	invalid := Errorf(http.StatusUnauthorized, CodeUnauthenticated, "Email or password is incorrect.")
 
 	user, err := s.q.GetUserByEmail(ctx, email)
 	if errors.Is(err, pgx.ErrNoRows) {
 		auth.BurnPasswordCheck(ctx, in.Body.Password)
+		s.loginFailed(ctx, email)
 		return nil, invalid
 	}
 	if err != nil {
@@ -195,6 +232,7 @@ func (s *Server) login(ctx context.Context, in *loginInput) (*sessionOutput, err
 		return nil, err
 	}
 	if !ok {
+		s.loginFailed(ctx, email)
 		return nil, invalid
 	}
 	cookie, err := s.startSession(ctx, s.q, user.ID)

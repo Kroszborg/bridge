@@ -9,24 +9,40 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { api, unwrap } from '@/lib/api';
-import { AuthHeading, errorText, FormError, useAuthConfig } from '../auth-form';
+import {
+  AuthHeading,
+  CaptchaBox,
+  errorText,
+  FormError,
+  Honeypot,
+  useAuthConfig,
+  useAuthTurnstile,
+} from '../auth-form';
 
 export function ForgotPassword() {
   const params = useSearchParams();
   const config = useAuthConfig();
   const [email, setEmail] = useState(params.get('email') ?? '');
+  const [website, setWebsite] = useState('');
   const [sentTo, setSentTo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const turnstile = useAuthTurnstile(config.data?.turnstile_site_key, 'reset', !sentTo);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setPending(true);
     setError(null);
     try {
-      await unwrap(api.POST('/v1/auth/password-reset', { body: { email } }));
+      const token = turnstile.enabled ? await turnstile.getToken() : '';
+      await unwrap(
+        api.POST('/v1/auth/password-reset', {
+          body: { email, turnstile_token: token || undefined, ...(website ? { website } : {}) },
+        }),
+      );
       setSentTo(email);
     } catch (err) {
+      turnstile.next();
       setError(errorText(err));
     } finally {
       setPending(false);
@@ -81,7 +97,8 @@ export function ForgotPassword() {
       <AuthHeading title="Reset your password">
         Enter the email you sign in with and we&apos;ll send a link to choose a new password.
       </AuthHeading>
-      <form onSubmit={onSubmit} className="mt-8 flex flex-col gap-4">
+      <form onSubmit={onSubmit} className="relative mt-8 flex flex-col gap-4">
+        <Honeypot value={website} onChange={setWebsite} />
         <div className="flex flex-col gap-2">
           <Label htmlFor="email">Email</Label>
           <Input
@@ -96,6 +113,7 @@ export function ForgotPassword() {
             autoFocus
           />
         </div>
+        <CaptchaBox turnstile={turnstile} />
         {error ? <FormError>{error}</FormError> : null}
         <Button type="submit" size="lg" disabled={pending} className="mt-2 w-full">
           {pending ? 'Sending…' : 'Send reset link'}

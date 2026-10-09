@@ -399,6 +399,9 @@ func (s *Server) requestEmailChange(ctx context.Context, in *EmailChangeInput) (
 	if err := s.checkPassword(ctx, u, in.Password, "body.password"); err != nil {
 		return EmailVerificationSent{}, err
 	}
+	if err := s.checkEmailAllowed(email); err != nil {
+		return EmailVerificationSent{}, err
+	}
 	if _, err := s.q.GetUserByEmail(ctx, email); err == nil {
 		return EmailVerificationSent{}, emailInUse()
 	} else if !errors.Is(err, pgx.ErrNoRows) {

@@ -160,6 +160,34 @@ also limit phones, live SMS a month, projects and members (see [plans](../hosted
 Client IPs come from `X-Forwarded-For` only when the direct peer is in `BRIDGE_TRUSTED_PROXIES`,
 and the header is read right to left so clients cannot spoof their address.
 
+### Bots on the account forms
+
+On top of the rate limits, these keep scripted sign-ups and credential stuffing out. All are
+optional, so a private self-hosted server behaves as before:
+
+* **Cloudflare Turnstile** (`BRIDGE_TURNSTILE_SITE_KEY` and `BRIDGE_TURNSTILE_SECRET_KEY`, both or
+  neither). Sign-up and password-reset requests need a token; sign-in needs one after 3 failed
+  attempts for an address or 5 from an IP within 15 minutes (fixed windows, counted whether or not
+  the address has an account, so the check does not reveal which addresses exist). The API verifies
+  each token server-side with siteverify: the secret, the client IP as `remoteip`, a 5-second
+  timeout, and, except with Cloudflare's test keys, the hostname (the dashboard's) and the action
+  (`signup`, `login` or `reset`), so a token solved for one form cannot be replayed on another.
+  Errors: `400 captcha_required` (no token), `400 captcha_failed` (rejected) and
+  `503 captcha_unavailable`. Sign-up and reset fail closed while siteverify is unreachable or
+  rejects the secret; sign-in fails open to the rate limits, so an outage never locks users out.
+  The secret never leaves the API; only the site key is public (`GET /v1/auth/config`).
+* **Honeypot.** The sign-up and reset forms include a field (`website`) hidden from people and
+  assistive technology, skipped by Tab and with autocomplete off; it is left out of the OpenAPI
+  document. A filled honeypot is logged at info level and the request does nothing. Sign-up answers
+  a generic `400 invalid_request` rather than a fake success, so a person whose browser filled the
+  field by mistake sees that no account was created; reset answers its usual `202`. There is no
+  minimum fill time: password managers submit legitimately fast, and the render time would come
+  from the client anyway.
+* **Disposable email.** With `BRIDGE_BLOCK_DISPOSABLE_EMAIL` (default on with `BRIDGE_CLOUD`), sign-ups
+  and email changes to about 275 well-known throwaway providers, and their subdomains, answer
+  `422 email_not_allowed`. The list is embedded in the binary (`internal/disposable`); invite
+  sign-ups are exempt and forwarding privacy relays are not listed.
+
 ## Logging and audit
 
 * Access logs record method, route pattern, status, duration, request ID and client IP. They never
@@ -186,9 +214,12 @@ when that is unset.
 ## Transport and headers
 
 * API responses set `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
-  `Referrer-Policy: no-referrer` and `Cross-Origin-Opener-Policy: same-origin`, plus HSTS when the
+  `Referrer-Policy: no-referrer`, `Cross-Origin-Opener-Policy: same-origin` and
+  `X-Robots-Tag: noindex` (so API JSON and docs stay out of search indexes), plus HSTS when the
   public URL is HTTPS.
 * The dashboard sends a Content-Security-Policy that allows only its own origin, and blocks framing.
+  The hosted Verify page and the sign-up, sign-in and password-reset pages also allow
+  `https://challenges.cloudflare.com` (script, frame and connect) for Turnstile.
 * Request bodies are capped at 1 MiB.
 * Terminate TLS in front of Bridge in production (Caddy, nginx, a cloud load balancer). See the
   [self-hosting guide](../self-hosting/README.md).

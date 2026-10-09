@@ -9,6 +9,19 @@ and the CLI come only with a new major version, and are called out here with mig
 
 ### Added
 
+- Bot protection for the account forms, all optional. With `BRIDGE_TURNSTILE_SITE_KEY` and
+  `BRIDGE_TURNSTILE_SECRET_KEY` (both or neither), sign-up and password-reset requests need a
+  Cloudflare Turnstile token (`turnstile_token`), and so does sign-in after 3 failed attempts for an
+  address or 5 from an IP in 15 minutes. `GET /v1/auth/config` has `turnstile_site_key`, and the
+  dashboard renders the widget (themed, usually invisible) on those pages. Tokens are verified
+  server-side with the client IP, hostname and per-form action. New error codes:
+  `captcha_required`, `captcha_failed` and `captcha_unavailable`; sign-up and reset fail closed
+  while Turnstile is unreachable, sign-in falls back to its rate limits.
+- Sign-up and reset forms carry a hidden honeypot field; requests that fill it are dropped.
+- `BRIDGE_BLOCK_DISPOSABLE_EMAIL` (default on with `BRIDGE_CLOUD`) refuses sign-ups and email changes
+  to well-known disposable email providers with `422 email_not_allowed`.
+- API responses carry `X-Robots-Tag: noindex`.
+
 - Email verification: sign-up emails a 6-digit code (15 minutes, 5 attempts, stored hashed), and
   `POST /v1/me/email/verification` and `/v1/me/email/verification/confirm` send and check it. The
   dashboard shows a dismissible "Verify your email address" banner and a Verified badge under

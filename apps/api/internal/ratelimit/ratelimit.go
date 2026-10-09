@@ -26,6 +26,9 @@ type Limiter interface {
 	// requests per window. Implementations fail open: on a storage error they
 	// return an allowed result together with the error, which callers log.
 	Hit(ctx context.Context, key string, limit int, window time.Duration) (Result, error)
+	// Count returns the hits recorded for key in the current window without
+	// adding one. On a storage error it returns 0 with the error.
+	Count(ctx context.Context, key string, window time.Duration) (int, error)
 }
 
 // Postgres stores counters in the UNLOGGED rate_limit_counters table.
@@ -58,4 +61,15 @@ func (p *Postgres) Hit(ctx context.Context, key string, limit int, window time.D
 		}
 	}
 	return res, nil
+}
+
+func (p *Postgres) Count(ctx context.Context, key string, window time.Duration) (int, error) {
+	n, err := p.q.PeekRateLimit(ctx, dbq.PeekRateLimitParams{
+		Key:         key + "|" + window.String(),
+		WindowStart: p.now().UTC().Truncate(window),
+	})
+	if err != nil {
+		return 0, err
+	}
+	return int(n), nil
 }

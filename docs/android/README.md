@@ -40,6 +40,12 @@ Moving between sources with different keys means uninstalling and pairing again.
    come from anyone, and a paired phone sends whatever that server asks it to.
 4. The dashboard closes the dialog once the phone connects.
 
+The scanner fills the window in either orientation, on any screen size, with the viewfinder and
+its hint kept clear of the status bar, navigation bar and display cutout. Only the area in and
+just around the square viewfinder is decoded. The light button appears when the camera has a
+flash. If the camera permission was denied with *Don't ask again*, the scanner offers **Open
+settings** instead; the camera is released as soon as the scanner closes.
+
 If you have an account, you can skip the QR code: tap **Sign in with your account**, sign in (the
 server defaults to hosted Bridge, `https://api.bridge.kroszborg.co`; enter your own API address if
 you self-host), choose a project and tap **Pair this phone**. The app creates the pairing code for
@@ -129,7 +135,9 @@ stops, connects, closes with their code, retries, network changes, revokes and p
 **Copy** puts the whole log, with the app version, phone model and Android version, on the
 clipboard for a bug report. The log stays on the phone and survives unpairing.
 
-The same lines go to Logcat under the `BridgeGateway` tag, in release builds too:
+Debug builds mirror every line to Logcat under the `BridgeGateway` tag. Release builds strip
+verbose, debug and info logging, so Logcat shows only the warnings there; use **Copy** for the
+full log.
 
 ```sh
 adb logcat -s BridgeGateway
@@ -254,6 +262,33 @@ unsigned, which is what F-Droid builds.
 
 Keep the keystore safe and backed up. Android only installs updates signed with the same key.
 
+### Obfuscation and mapping files
+
+Release builds are shrunk, optimized and obfuscated by R8 in full mode (`isMinifyEnabled`,
+`isShrinkResources`, the AGP default full mode, `-repackageclasses`; never `-dontobfuscate`). Class
+and member names in the APK are meaningless, so a stack trace from a release build can only be
+read with that build's mapping file:
+
+```
+app/build/outputs/mapping/fossRelease/mapping.txt
+app/build/outputs/mapping/gmsRelease/mapping.txt
+```
+
+**Keep the mapping files of every release** (for example next to the tag's artifacts, outside the
+repository); a mapping belongs to exactly one build. Google Play bundles carry theirs
+(`BUNDLE-METADATA/com.android.tools.build.obfuscation/proguard.map`), so Play Console deobfuscates
+crashes from bundle uploads by itself, but keep a copy anyway, and upload it under *App bundle
+explorer → Downloads → ReTrace mapping file* if Play ever shows obfuscated traces. To read a trace
+by hand:
+
+```bash
+retrace mapping.txt stacktrace.txt   # from the Android SDK's cmdline-tools
+```
+
+Keep rules are minimal (`app/proguard-rules.pro`): the libraries ship their own, and every network
+model is `@Serializable` with a generated serializer. Run `assembleFossRelease` and
+`bundleGmsRelease` after changing dependencies to catch a missing rule.
+
 ## Privacy
 
 The app reads battery level, charging state, network type, the carrier name and the number of SIM
@@ -266,3 +301,31 @@ Signing in stores the server's session cookie, encrypted with a second Keystore 
 is never stored. Signing out deletes the session on the server and the cookie and key on the phone.
 **About & privacy** in the app links to the [privacy policy](https://bridge.kroszborg.co/privacy)
 and the source code.
+
+## Security
+
+* **Secrets at rest.** The device credential and the session cookie are AES-256-GCM encrypted
+  with two separate Android Keystore keys. Nothing is backed up or moved to a new phone
+  (`allowBackup="false"`, and `data_extraction_rules.xml` excludes every domain), so a copied data
+  directory cannot impersonate the phone.
+* **No secrets in logs.** Logs and the connection log never contain the credential, the session,
+  pairing codes, passwords, phone numbers or message bodies. Classes holding them print redacted
+  (`***42`, `<19 chars>`, `<redacted>`). Release builds strip verbose, debug and info logging.
+* **Network.** Hosted Bridge (`*.bridge.kroszborg.co`) is HTTPS-only in
+  `network_security_config.xml`. Plain HTTP stays allowed for other hosts, because a self-hosted
+  server on a local network often has no TLS and Android cannot list user-entered hosts in
+  advance. It is only used for an `http://` address the user chose, and the app warns first: when
+  confirming the pairing, on the sign-in screen, and as a standing *Unencrypted server* check.
+  Only system certificate authorities are trusted. There is no certificate pinning, since
+  self-hosted servers bring their own certificates.
+* **Components.** Only what other apps or the system must reach is exported: the launcher activity
+  (and its `bridge://pair` link, which always asks before pairing), the SMS receiver (guarded by
+  `BROADCAST_SMS`, so only the system can deliver), the home-screen widgets, and the push
+  receivers that UnifiedPush distributors and Firebase need. The services, the boot receiver and
+  the SMS result receiver are not exported. Every `PendingIntent` is immutable except the SMS
+  delivery report, which Android fills in, and that one is explicit. There is no WebView.
+* **Obfuscation.** Release builds are obfuscated (see *Obfuscation and mapping files*).
+* **Screenshots.** Screenshots are allowed (`FLAG_SECURE` is not set): no screen shows a secret.
+  Pairing codes go straight from the QR code or the account API to the server.
+* **Not done on purpose.** No root or emulator detection: the app is open source and runs on
+  custom ROMs.

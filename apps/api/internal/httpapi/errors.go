@@ -36,8 +36,13 @@ const (
 	CodeEmailInUse                   = "email_in_use"
 	CodeEmailVerificationUnavailable = "email_verification_unavailable"
 	CodePhoneVerificationUnavailable = "phone_verification_unavailable"
-	CodeInternal                     = "internal_error"
-	CodeUnavailable                  = "service_unavailable"
+	// Abuse controls on the account forms (sign-up, sign-in, password reset).
+	CodeCaptchaRequired    = "captcha_required"
+	CodeCaptchaFailed      = "captcha_failed"
+	CodeCaptchaUnavailable = "captcha_unavailable"
+	CodeEmailNotAllowed    = "email_not_allowed"
+	CodeInternal           = "internal_error"
+	CodeUnavailable        = "service_unavailable"
 )
 
 // ErrorBody is the JSON shape of every error response.

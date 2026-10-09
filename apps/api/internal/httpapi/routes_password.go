@@ -29,6 +29,8 @@ type AuthConfig struct {
 	// Legal pages on the public website, when BRIDGE_SITE_URL is set.
 	TermsURL   *string `json:"terms_url" nullable:"true"`
 	PrivacyURL *string `json:"privacy_url" nullable:"true"`
+	// The public Cloudflare Turnstile site key (BRIDGE_TURNSTILE_SITE_KEY).
+	TurnstileSiteKey *string `json:"turnstile_site_key" nullable:"true" doc:"When set, sign-up and password-reset requests need a Cloudflare Turnstile token, and so does sign-in after repeated failures. Render the widget with this site key."`
 }
 
 func (s *Server) registerPassword(api huma.API) {
@@ -49,6 +51,10 @@ func (s *Server) registerPassword(api huma.API) {
 			SignupOpen: open, PasswordReset: s.mail != nil, Hosted: s.billing.Enabled(),
 			EmailVerification: s.mail != nil, PhoneVerification: s.phoneVerificationEnabled(),
 		}
+		if s.captcha != nil {
+			key := s.cfg.TurnstileSiteKey
+			out.TurnstileSiteKey = &key
+		}
 		if site := s.cfg.SiteURL; site != nil {
 			terms, privacy := site.String()+"/terms", site.String()+"/privacy"
 			out.TermsURL, out.PrivacyURL = &terms, &privacy
@@ -60,11 +66,15 @@ func (s *Server) registerPassword(api huma.API) {
 		OperationID: "requestPasswordReset", Method: http.MethodPost, Path: "/v1/auth/password-reset", Tags: []string{"Auth"},
 		Summary: "Email a password reset link",
 		Description: "Always answers 202, whether or not an account uses the address, so the endpoint cannot be used " +
-			"to find accounts. The link works once and expires after an hour.",
-		DefaultStatus: http.StatusAccepted, Errors: []int{http.StatusTooManyRequests, http.StatusServiceUnavailable},
+			"to find accounts. The link works once and expires after an hour. When the server uses Cloudflare Turnstile " +
+			"(`turnstile_site_key` in `GET /v1/auth/config`), send the widget's token as `turnstile_token`.",
+		DefaultStatus: http.StatusAccepted, Errors: []int{http.StatusBadRequest, http.StatusTooManyRequests, http.StatusServiceUnavailable},
 	}, func(ctx context.Context, in *struct {
 		Body struct {
-			Email string `json:"email" format:"email" maxLength:"254" example:"ada@example.com"`
+			Email          string `json:"email" format:"email" maxLength:"254" example:"ada@example.com"`
+			TurnstileToken string `json:"turnstile_token,omitempty" maxLength:"2048" doc:"The Cloudflare Turnstile response. Required when GET /v1/auth/config has a turnstile_site_key."`
+			// A honeypot the reset form hides from people.
+			Website string `json:"website,omitempty" maxLength:"500" hidden:"true"`
 		}
 	}) (*struct{}, error) {
 		if s.mail == nil {
@@ -76,6 +86,13 @@ func (s *Server) registerPassword(api huma.API) {
 			return nil, err
 		}
 		if err := s.limit(ctx, "reset:email:"+email, 3, time.Hour); err != nil {
+			return nil, err
+		}
+		// The usual 202, so a bot cannot tell it was caught.
+		if s.honeypotFilled(ctx, "password_reset", in.Body.Website) {
+			return nil, nil
+		}
+		if err := s.requireCaptcha(ctx, in.Body.TurnstileToken, captchaReset); err != nil {
 			return nil, err
 		}
 		user, err := s.q.GetUserByEmail(ctx, email)

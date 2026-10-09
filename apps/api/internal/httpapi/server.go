@@ -29,6 +29,7 @@ import (
 	"bridge/internal/secretbox"
 	"bridge/internal/status"
 	"bridge/internal/tools"
+	"bridge/internal/turnstile"
 	"bridge/internal/webhook"
 )
 
@@ -55,7 +56,10 @@ type Server struct {
 	billing *billing.Service
 	// mail sends account email (password resets, verification codes); nil
 	// without BRIDGE_SMTP_HOST.
-	mail    mail.Sender
+	mail mail.Sender
+	// captcha checks Cloudflare Turnstile tokens on the account forms; nil
+	// unless BRIDGE_TURNSTILE_SITE_KEY and BRIDGE_TURNSTILE_SECRET_KEY are set.
+	captcha *turnstile.Verifier
 	version string
 }
 
@@ -98,6 +102,9 @@ func New(o Options) *Server {
 	s.mail = o.Mail
 	if s.mail == nil {
 		s.mail = mail.NewSMTP(o.Config.SMTP)
+	}
+	if o.Config.Turnstile() {
+		s.captcha = turnstile.New(o.Config.TurnstileVerifyURL, &http.Client{Timeout: captchaTimeout})
 	}
 	if s.billing == nil && o.Pool != nil {
 		s.billing = billing.New(o.Pool, o.Config, o.Logger)

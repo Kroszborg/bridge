@@ -54,6 +54,8 @@ automatically. The settings that matter for a public deployment:
 | `BRIDGE_SMTP_*` | Optional. An SMTP server for password reset links, email verification codes and forwarding incoming SMS by email. See [Email](#email). |
 | `BRIDGE_ACCOUNT_VERIFY_API_KEY` | Optional. An API key of one of your projects; users then verify a phone number with a code Bridge sends through that project's Verify. See [Account verification](#account-verification). |
 | `BRIDGE_SITE_URL` | Optional. Your public website, e.g. `https://sms.example.com`. Sign-up then links to its `/terms` and `/privacy`. |
+| `BRIDGE_TURNSTILE_SITE_KEY`, `BRIDGE_TURNSTILE_SECRET_KEY` | Optional. Cloudflare Turnstile on sign-up, password reset and repeated failed sign-ins. See [Bot protection](#bot-protection). |
+| `BRIDGE_BLOCK_DISPOSABLE_EMAIL` | Optional. `true` refuses sign-ups from disposable email providers. Defaults to `BRIDGE_CLOUD`. |
 
 When `BRIDGE_DASHBOARD_URL` uses `https`, session cookies are automatically marked `Secure`.
 
@@ -153,6 +155,42 @@ account (`409 phone_in_use`); users can change or remove theirs. Codes follow th
 rules (expiry, attempts, one code per number every 30 seconds and 5 an hour, fraud protection),
 and each account can request at most 5 codes an hour.
 
+### Bot protection
+
+If anyone can sign up to your server, put Cloudflare Turnstile in front of the account forms. It is
+free, and usually invisible: most visitors never see a challenge.
+
+1. In the Cloudflare dashboard, open **Turnstile**, add a widget, and add your dashboard's hostname
+   (the host of `BRIDGE_DASHBOARD_URL`). Widget mode **Managed** works well.
+2. Set `BRIDGE_TURNSTILE_SITE_KEY` and `BRIDGE_TURNSTILE_SECRET_KEY` on the API and restart it.
+   Bridge refuses to start with only one of them.
+
+`GET /v1/auth/config` then returns `turnstile_site_key`, and the dashboard renders the widget:
+
+| Form | When Turnstile is checked | If Cloudflare cannot be reached |
+| --- | --- | --- |
+| Sign-up | Every request | Refused: `503 captcha_unavailable` |
+| Password reset request | Every request | Refused: `503 captcha_unavailable` |
+| Sign-in | After 3 failed attempts for the address, or 5 from the client's IP, in 15 minutes | Allowed (logged); the rate limits still apply |
+
+A request without a token answers `400 captcha_required`, and one Cloudflare rejects (expired,
+reused, from another hostname, or made for another form) `400 captcha_failed`. The API calls
+Cloudflare's siteverify with the secret and the client's IP, with a 5-second timeout. The
+dashboard's Content-Security-Policy allows `https://challenges.cloudflare.com` only on the
+sign-up, sign-in, password-reset and hosted Verify pages.
+
+Turnstile means Cloudflare processes each visitor's IP address and browser signals for the
+challenge; mention it in your privacy policy if you publish one. Without the two keys there is no
+CAPTCHA anywhere and nothing is sent to Cloudflare.
+
+Two checks need no setup: the sign-up and reset forms carry a hidden field that people never see,
+and requests that fill it are dropped (sign-up answers `400 invalid_request`, reset its usual
+`202`). And with `BRIDGE_BLOCK_DISPOSABLE_EMAIL=true` (the default with `BRIDGE_CLOUD`), sign-ups
+and email changes to about 275 well-known disposable providers (mailinator.com, yopmail.com,
+10minutemail.com, …) answer `422 email_not_allowed`. Invite sign-ups are exempt, and privacy relays
+that forward to a real inbox (Firefox Relay, DuckDuckGo, SimpleLogin, iCloud Hide My Email) are not
+on the list.
+
 ## Production checklist
 
 - [ ] TLS in front of both the API and the dashboard (Caddy, nginx, Traefik or a cloud load balancer).
@@ -161,7 +199,8 @@ and each account can request at most 5 codes an hour.
       or Telegram forwarding.
 - [ ] `BRIDGE_SMTP_*` set, if you want password reset, email verification or forwarding by email.
 - [ ] `BRIDGE_ACCOUNT_VERIFY_API_KEY` set to a live key, if users should verify phone numbers.
-- [ ] `BRIDGE_ALLOW_SIGNUP=false` after creating your account.
+- [ ] `BRIDGE_ALLOW_SIGNUP=false` after creating your account, or, if others may sign up,
+      `BRIDGE_TURNSTILE_*` set (see [Bot protection](#bot-protection)).
 - [ ] Your reverse proxy's address is covered by `BRIDGE_TRUSTED_PROXIES` (private networks are
       trusted by default), so rate limits see real client IPs.
 - [ ] PostgreSQL backups. The `pgdata` volume holds everything, including queued jobs.

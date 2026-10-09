@@ -157,3 +157,47 @@ func TestAccountVerify(t *testing.T) {
 		t.Fatalf("app without a key accepted: %v", err)
 	}
 }
+
+func TestTurnstile(t *testing.T) {
+	c, err := load(env(map[string]string{"BRIDGE_DATABASE_URL": "postgres://x"}))
+	if err != nil || c.Turnstile() || c.TurnstileSiteKey != "" {
+		t.Fatalf("Turnstile must be off by default: %+v %v", c, err)
+	}
+	c, err = load(env(map[string]string{
+		"BRIDGE_DATABASE_URL":         "postgres://x",
+		"BRIDGE_TURNSTILE_SITE_KEY":   " 0x4AAAAAAAsite ",
+		"BRIDGE_TURNSTILE_SECRET_KEY": "0x4AAAAAAAsecret",
+	}))
+	if err != nil || !c.Turnstile() || c.TurnstileSiteKey != "0x4AAAAAAAsite" || c.TurnstileSecretKey != "0x4AAAAAAAsecret" {
+		t.Fatalf("Turnstile keys: %q %q %v", c.TurnstileSiteKey, c.TurnstileSecretKey, err)
+	}
+	for _, bad := range []map[string]string{
+		{"BRIDGE_TURNSTILE_SITE_KEY": "0x4AAAAAAAsite"},
+		{"BRIDGE_TURNSTILE_SECRET_KEY": "0x4AAAAAAAsecret"},
+		{"BRIDGE_TURNSTILE_SITE_KEY": "0x4AAA site", "BRIDGE_TURNSTILE_SECRET_KEY": "0x4AAAAAAAsecret"},
+		{"BRIDGE_TURNSTILE_SITE_KEY": "0x4AAAAAAAsite", "BRIDGE_TURNSTILE_SECRET_KEY": strings.Repeat("x", 201)},
+	} {
+		bad["BRIDGE_DATABASE_URL"] = "postgres://x"
+		if _, err := load(env(bad)); err == nil || !strings.Contains(err.Error(), "BRIDGE_TURNSTILE_") {
+			t.Errorf("%v accepted: %v", bad, err)
+		}
+	}
+}
+
+func TestBlockDisposableEmail(t *testing.T) {
+	for _, tc := range []struct {
+		env  map[string]string
+		want bool
+	}{
+		{map[string]string{}, false},
+		{map[string]string{"BRIDGE_CLOUD": "true"}, true},
+		{map[string]string{"BRIDGE_CLOUD": "true", "BRIDGE_BLOCK_DISPOSABLE_EMAIL": "false"}, false},
+		{map[string]string{"BRIDGE_BLOCK_DISPOSABLE_EMAIL": "true"}, true},
+	} {
+		tc.env["BRIDGE_DATABASE_URL"] = "postgres://x"
+		c, err := load(env(tc.env))
+		if err != nil || c.BlockDisposableEmail != tc.want {
+			t.Errorf("%v: BlockDisposableEmail = %v, want %v (%v)", tc.env, c != nil && c.BlockDisposableEmail, tc.want, err)
+		}
+	}
+}

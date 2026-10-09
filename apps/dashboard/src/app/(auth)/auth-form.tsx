@@ -6,11 +6,13 @@ import { HugeiconsIcon } from '@hugeicons/react';
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useTheme } from 'next-themes';
 import { type FormEvent, type KeyboardEvent, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { api, BridgeApiError, unwrap } from '@/lib/api';
+import { useTurnstile } from '@/lib/turnstile';
 import { cn } from '@/lib/utils';
 
 type Mode = 'login' | 'signup';
@@ -35,7 +37,72 @@ export function useAuthConfig() {
 
 export function errorText(err: unknown): string {
   if (err instanceof BridgeApiError) return err.details?.[0]?.message ?? err.message;
+  if (err instanceof Error && err.message === 'turnstile_timeout')
+    return 'The security check did not finish. Try again.';
   return 'Bridge could not be reached. Check your connection and try again.';
+}
+
+/** Whether the server wants a (new) Turnstile token for this form. */
+export function isCaptchaError(err: unknown): boolean {
+  return (
+    err instanceof BridgeApiError &&
+    (err.code === 'captcha_required' || err.code === 'captcha_failed')
+  );
+}
+
+/**
+ * Cloudflare Turnstile for an account form, themed like the page. Off unless
+ * the server has a site key (and, for sign-in, until it asks for a check).
+ */
+export function useAuthTurnstile(
+  siteKey: string | null | undefined,
+  action: 'signup' | 'login' | 'reset',
+  active = true,
+) {
+  const { resolvedTheme } = useTheme();
+  const theme = resolvedTheme === 'dark' ? 'dark' : resolvedTheme === 'light' ? 'light' : 'auto';
+  return useTurnstile(active ? siteKey : null, { action, theme });
+}
+
+/** Where Turnstile renders; empty (and hidden) unless it needs a click. */
+export function CaptchaBox({ turnstile }: { turnstile: ReturnType<typeof useTurnstile> }) {
+  if (!turnstile.enabled) return null;
+  return (
+    <div className="flex flex-col gap-2">
+      <div ref={turnstile.container} className="empty:hidden" />
+      {turnstile.failed ? (
+        <p role="alert" className="text-xs/relaxed text-destructive">
+          The security check could not load. Check your connection, or turn off content blockers for
+          this page, then reload.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * A field people never see or reach. Bots that fill every input fill it, and
+ * the server then ignores the request. Its name avoids the words browsers
+ * autofill (company, organization, address).
+ */
+export function Honeypot({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none absolute -left-[10000px] size-px overflow-hidden"
+    >
+      <label htmlFor="website">Website</label>
+      <input
+        id="website"
+        name="website"
+        type="text"
+        tabIndex={-1}
+        autoComplete="off"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </div>
+  );
 }
 
 const MIN_PASSWORD = 10;
@@ -173,33 +240,58 @@ export function AuthForm({ mode }: { mode: Mode }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState(params.get('email') ?? '');
   const [password, setPassword] = useState('');
+  const [website, setWebsite] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  // Sign-in only asks for the security check after repeated failures.
+  const [loginCheck, setLoginCheck] = useState(false);
   const signup = mode === 'signup';
   const invite = signup ? params.get('invite') : null;
   const next = params.get('next');
+  const turnstile = useAuthTurnstile(
+    config.data?.turnstile_site_key,
+    signup ? 'signup' : 'login',
+    signup || loginCheck,
+  );
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setPending(true);
     setError(null);
     try {
+      const token = turnstile.enabled ? await turnstile.getToken() : '';
+      const turnstile_token = token || undefined;
       if (signup) {
         await unwrap(
           api.POST('/v1/auth/signup', {
-            body: { email, password, name: name || undefined, invite_token: invite ?? undefined },
+            body: {
+              email,
+              password,
+              name: name || undefined,
+              invite_token: invite ?? undefined,
+              turnstile_token,
+              ...(website ? { website } : {}),
+            },
           }),
         );
       } else {
-        await unwrap(api.POST('/v1/auth/login', { body: { email, password } }));
+        await unwrap(api.POST('/v1/auth/login', { body: { email, password, turnstile_token } }));
       }
       router.replace(safeNext(next));
       router.refresh();
     } catch (err) {
       setPending(false);
+      turnstile.next();
       if (err instanceof BridgeApiError && err.code === 'conflict' && signup) {
         setError(
           'An account with this email already exists. Sign in instead, or reset the password.',
+        );
+      } else if (!signup && isCaptchaError(err)) {
+        setLoginCheck(true);
+        setError(
+          err instanceof BridgeApiError && err.code === 'captcha_failed'
+            ? errorText(err)
+            : 'Too many failed attempts. Complete the security check, then sign in again.',
         );
       } else {
         setError(errorText(err));
@@ -239,7 +331,8 @@ export function AuthForm({ mode }: { mode: Mode }) {
             : 'Welcome back.'}
       </AuthHeading>
 
-      <form onSubmit={onSubmit} className="mt-8 flex flex-col gap-4">
+      <form onSubmit={onSubmit} className="relative mt-8 flex flex-col gap-4">
+        {signup ? <Honeypot value={website} onChange={setWebsite} /> : null}
         {signup ? (
           <div className="flex flex-col gap-2">
             <Label htmlFor="name">
@@ -286,6 +379,8 @@ export function AuthForm({ mode }: { mode: Mode }) {
             ) : undefined
           }
         />
+
+        <CaptchaBox turnstile={turnstile} />
 
         {error ? <FormError>{error}</FormError> : null}
 

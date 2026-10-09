@@ -34,12 +34,21 @@ function loadTurnstile(): Promise<TurnstileApi> {
   return loading;
 }
 
+export type TurnstileOptions = {
+  /** Checked by the server, so a token made for one form cannot be used on another. */
+  action?: string;
+  theme?: 'light' | 'dark' | 'auto';
+};
+
 /**
  * Cloudflare Turnstile, rendered explicitly into a container and shown only
  * when it needs the person to interact. Each token is used once: getToken
  * hands out the current token (waiting for one if needed) and starts the next.
  */
-export function useTurnstile(siteKey: string | null) {
+export function useTurnstile(
+  siteKey: string | null | undefined,
+  { action, theme = 'auto' }: TurnstileOptions = {},
+) {
   const container = useRef<HTMLDivElement>(null);
   const widget = useRef<string | null>(null);
   const token = useRef<string | null>(null);
@@ -55,8 +64,9 @@ export function useTurnstile(siteKey: string | null) {
         widget.current = ts.render(container.current, {
           sitekey: siteKey,
           appearance: 'interaction-only',
-          theme: 'auto',
+          theme,
           size: 'flexible',
+          ...(action ? { action } : {}),
           callback: (t: string) => {
             setFailed(false);
             const waiting = waiters.current.shift();
@@ -80,7 +90,7 @@ export function useTurnstile(siteKey: string | null) {
       if (widget.current) window.turnstile?.remove(widget.current);
       widget.current = null;
     };
-  }, [siteKey]);
+  }, [siteKey, action, theme]);
 
   const getToken = useCallback((): Promise<string> => {
     if (!siteKey) return Promise.resolve('');

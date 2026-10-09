@@ -11,9 +11,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { COUNTRIES, countryByCode, defaultCountry, splitE164, toE164 } from '@/lib/countries';
+import { useTurnstile } from '@/lib/turnstile';
 import { cn } from '@/lib/utils';
 import { errorText, WidgetError, waitText, widgetApi } from '@/lib/widget-api';
-import { useTurnstile } from './turnstile';
 
 type Phase =
   | { kind: 'loading' }

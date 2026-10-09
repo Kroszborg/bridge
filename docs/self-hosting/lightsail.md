@@ -63,7 +63,9 @@ BRIDGE_ALLOW_SIGNUP=true
 ```
 
 Back up `BRIDGE_SECRET_KEY`: saved provider credentials cannot be decrypted without it. Add
-`BRIDGE_SMTP_*` and other settings from the [self-hosting guide](README.md) as needed.
+`BRIDGE_SMTP_*` and other settings from the [self-hosting guide](README.md) as needed. With sign-up
+open, also set `BRIDGE_TURNSTILE_SITE_KEY` and `BRIDGE_TURNSTILE_SECRET_KEY` (see
+[Bot protection](README.md#bot-protection)).
 
 ## 5. Deploy
 

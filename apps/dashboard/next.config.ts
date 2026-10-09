@@ -7,7 +7,7 @@ const dev = process.env.NODE_ENV !== 'production';
 // API server-side), so the policy can stay tight. Next.js needs inline scripts
 // for hydration; 'unsafe-eval' is only added in development for fast refresh.
 function policy({ turnstile = false } = {}) {
-  // The hosted verification page may load Cloudflare Turnstile.
+  // Cloudflare Turnstile: its script, its challenge iframe and its requests.
   const cf = turnstile ? ' https://challenges.cloudflare.com' : '';
   return [
     "default-src 'self'",
@@ -49,10 +49,12 @@ const config: NextConfig = {
           },
         ],
       },
-      {
-        source: '/verify/:publishableKey',
+      // Pages that may load Cloudflare Turnstile: the hosted verification page,
+      // and the account forms when the API has BRIDGE_TURNSTILE_SITE_KEY.
+      ...['/verify/:publishableKey', '/signup', '/login', '/forgot-password'].map((source) => ({
+        source,
         headers: [{ key: 'Content-Security-Policy', value: policy({ turnstile: true }) }],
-      },
+      })),
       {
         // The drop-in widget is loaded as a module script by other sites,
         // which browsers fetch with CORS.

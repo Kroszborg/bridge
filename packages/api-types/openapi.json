@@ -289,6 +289,13 @@
               "string",
               "null"
             ]
+          },
+          "turnstile_site_key": {
+            "description": "When set, sign-up and password-reset requests need a Cloudflare Turnstile token, and so does sign-in after repeated failures. Render the widget with this site key.",
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -298,7 +305,8 @@
           "email_verification",
           "phone_verification",
           "terms_url",
-          "privacy_url"
+          "privacy_url",
+          "turnstile_site_key"
         ],
         "type": "object"
       },
@@ -3548,6 +3556,11 @@
             "maxLength": 512,
             "minLength": 1,
             "type": "string"
+          },
+          "turnstile_token": {
+            "description": "The Cloudflare Turnstile response. Required after repeated failed sign-ins, when the server answers captcha_required.",
+            "maxLength": 2048,
+            "type": "string"
           }
         },
         "required": [
@@ -5147,6 +5160,11 @@
             "format": "email",
             "maxLength": 254,
             "type": "string"
+          },
+          "turnstile_token": {
+            "description": "The Cloudflare Turnstile response. Required when GET /v1/auth/config has a turnstile_site_key.",
+            "maxLength": 2048,
+            "type": "string"
           }
         },
         "required": [
@@ -5969,6 +5987,11 @@
             "description": "At least 10 characters.",
             "maxLength": 128,
             "minLength": 10,
+            "type": "string"
+          },
+          "turnstile_token": {
+            "description": "The Cloudflare Turnstile response. Required when GET /v1/auth/config has a turnstile_site_key.",
+            "maxLength": 2048,
             "type": "string"
           }
         },
@@ -8096,6 +8119,7 @@
     },
     "/v1/auth/login": {
       "post": {
+        "description": "When the server uses Cloudflare Turnstile, repeated failed sign-ins for an address or from a client make the next attempts answer `captcha_required` until they carry a Turnstile token as `turnstile_token` (`captcha_failed` when it is rejected).",
         "operationId": "login",
         "requestBody": {
           "content": {
@@ -8124,6 +8148,16 @@
                 }
               }
             }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
           },
           "401": {
             "content": {
@@ -8210,7 +8244,7 @@
     },
     "/v1/auth/password-reset": {
       "post": {
-        "description": "Always answers 202, whether or not an account uses the address, so the endpoint cannot be used to find accounts. The link works once and expires after an hour.",
+        "description": "Always answers 202, whether or not an account uses the address, so the endpoint cannot be used to find accounts. The link works once and expires after an hour. When the server uses Cloudflare Turnstile (`turnstile_site_key` in `GET /v1/auth/config`), send the widget's token as `turnstile_token`.",
         "operationId": "requestPasswordReset",
         "requestBody": {
           "content": {
@@ -8225,6 +8259,16 @@
         "responses": {
           "202": {
             "description": "Accepted"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
           },
           "422": {
             "content": {
@@ -8354,7 +8398,7 @@
     },
     "/v1/auth/signup": {
       "post": {
-        "description": "Creates a user, a first organization and a default project, and starts a session.",
+        "description": "Creates a user, a first organization and a default project, and starts a session. When the server uses Cloudflare Turnstile (`turnstile_site_key` in `GET /v1/auth/config`), send the widget's token as `turnstile_token`: `captcha_required` without one, `captcha_failed` when it is rejected, and `captcha_unavailable` (503) while Turnstile cannot be reached. `email_not_allowed` refuses disposable email addresses on servers that block them.",
         "operationId": "signup",
         "requestBody": {
           "content": {
@@ -8383,6 +8427,16 @@
                 }
               }
             }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
           },
           "403": {
             "content": {
@@ -8433,6 +8487,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Create an account",

@@ -33,7 +33,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Sign in */
+        /**
+         * Sign in
+         * @description When the server uses Cloudflare Turnstile, repeated failed sign-ins for an address or from a client make the next attempts answer `captcha_required` until they carry a Turnstile token as `turnstile_token` (`captcha_failed` when it is rejected).
+         */
         post: operations["login"];
         delete?: never;
         options?: never;
@@ -69,7 +72,7 @@ export interface paths {
         put?: never;
         /**
          * Email a password reset link
-         * @description Always answers 202, whether or not an account uses the address, so the endpoint cannot be used to find accounts. The link works once and expires after an hour.
+         * @description Always answers 202, whether or not an account uses the address, so the endpoint cannot be used to find accounts. The link works once and expires after an hour. When the server uses Cloudflare Turnstile (`turnstile_site_key` in `GET /v1/auth/config`), send the widget's token as `turnstile_token`.
          */
         post: operations["requestPasswordReset"];
         delete?: never;
@@ -109,7 +112,7 @@ export interface paths {
         put?: never;
         /**
          * Create an account
-         * @description Creates a user, a first organization and a default project, and starts a session.
+         * @description Creates a user, a first organization and a default project, and starts a session. When the server uses Cloudflare Turnstile (`turnstile_site_key` in `GET /v1/auth/config`), send the widget's token as `turnstile_token`: `captcha_required` without one, `captcha_failed` when it is rejected, and `captcha_unavailable` (503) while Turnstile cannot be reached. `email_not_allowed` refuses disposable email addresses on servers that block them.
          */
         post: operations["signup"];
         delete?: never;
@@ -2513,6 +2516,8 @@ export interface components {
             /** @description Whether anyone can create an account. Invites always work. */
             signup_open: boolean;
             terms_url: string | null;
+            /** @description When set, sign-up and password-reset requests need a Cloudflare Turnstile token, and so does sign-in after repeated failures. Render the widget with this site key. */
+            turnstile_site_key: string | null;
         };
         AutoReplyRule: {
             /**
@@ -3730,6 +3735,8 @@ export interface components {
              */
             email: string;
             password: string;
+            /** @description The Cloudflare Turnstile response. Required after repeated failed sign-ins, when the server answers captcha_required. */
+            turnstile_token?: string;
         };
         MeResponse: {
             organizations: components["schemas"]["Organization"][];
@@ -4270,6 +4277,8 @@ export interface components {
              * @example ada@example.com
              */
             email: string;
+            /** @description The Cloudflare Turnstile response. Required when GET /v1/auth/config has a turnstile_site_key. */
+            turnstile_token?: string;
         };
         RevokedSessions: {
             /** Format: int64 */
@@ -4559,6 +4568,8 @@ export interface components {
             name?: string;
             /** @description At least 10 characters. */
             password: string;
+            /** @description The Cloudflare Turnstile response. Required when GET /v1/auth/config has a turnstile_site_key. */
+            turnstile_token?: string;
         };
         Status: {
             android_version?: string;
@@ -5516,6 +5527,15 @@ export interface operations {
                     "application/json": components["schemas"]["MeResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
             /** @description Unauthorized */
             401: {
                 headers: {
@@ -5601,6 +5621,15 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
             };
             /** @description Unprocessable Entity */
             422: {
@@ -5724,6 +5753,15 @@ export interface operations {
                     "application/json": components["schemas"]["MeResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
             /** @description Forbidden */
             403: {
                 headers: {
@@ -5762,6 +5800,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

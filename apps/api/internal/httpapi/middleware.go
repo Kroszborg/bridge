@@ -240,6 +240,8 @@ func securityHeaders(hsts bool) func(http.Handler) http.Handler {
 			h.Set("X-Frame-Options", "DENY")
 			h.Set("Referrer-Policy", "no-referrer")
 			h.Set("Cross-Origin-Opener-Policy", "same-origin")
+			// API responses and docs are not web pages: keep them out of search indexes.
+			h.Set("X-Robots-Tag", "noindex")
 			if hsts {
 				h.Set("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
 			}
