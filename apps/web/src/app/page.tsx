@@ -417,20 +417,21 @@ export default function Home() {
           bridge's canvas covers the whole hero, behind the copy, so a click anywhere but the
           buttons can throw it apart and the pieces have the full hero to fly through.
         */}
-        <section className="relative isolate flex flex-col items-center overflow-hidden px-4 pt-28 pb-16 sm:px-6 sm:pt-32 sm:pb-20">
+        <section className="relative isolate flex flex-col items-center overflow-hidden px-4 pt-20 pb-10 sm:px-6 sm:pt-24 sm:pb-14">
           <div className="hero-glow" aria-hidden />
           <Bridge3D />
           <div className="pointer-events-none relative z-10 flex flex-col items-center [&_a]:pointer-events-auto">
             <FadeUp>
-              <p className="text-sm font-medium text-primary">
-                Open-source SMS and phone verification
+              <p className="inline-flex items-center gap-2 rounded-full border bg-card/60 px-3 py-1 text-xs font-medium text-muted-foreground backdrop-blur-sm">
+                <span className="size-1.5 rounded-full bg-primary" aria-hidden />
+                Open source · SMS and phone verification
               </p>
             </FadeUp>
-            <h1 className="mt-4 text-center text-[2.4rem] font-bold leading-[1.06] tracking-[-0.035em] sm:text-6xl lg:text-[4.25rem]">
+            <h1 className="mt-6 text-balance text-center text-[2.4rem] font-bold leading-[1.06] tracking-[-0.035em] sm:text-6xl lg:text-[4.25rem]">
               <HeadlineReveal
                 lines={[
-                  { text: 'Send SMS through' },
-                  { text: 'phones you already own.', className: 'text-primary' },
+                  { text: 'Send SMS through phones' },
+                  { text: 'you already own.', className: 'text-primary' },
                 ]}
               />
             </h1>
@@ -440,21 +441,26 @@ export default function Home() {
                 delivery report.
               </p>
             </FadeUp>
-            <FadeUp delay={0.6} className="mt-7 flex flex-wrap justify-center gap-3">
+            <FadeUp delay={0.6} className="mt-8 flex flex-wrap justify-center gap-3">
               <PrimaryCta />
               <SecondaryCta />
+            </FadeUp>
+            <FadeUp delay={0.7}>
+              <p className="mt-4 text-center text-xs text-faint">
+                Free plan, no card needed · AGPL-3.0 to self-host
+              </p>
             </FadeUp>
           </div>
           {/* Where the bridge stands, right under the buttons; the canvas frames it into this box. */}
           <div
             data-bridge-stage
             aria-hidden
-            className="-mx-4 mt-4 aspect-3/2 w-[calc(100%+2rem)] sm:-mx-6 sm:mt-2 sm:aspect-[4/1] sm:w-[calc(100%+3rem)] xl:aspect-[5/1]"
+            className="-mx-4 mt-6 aspect-[5/2] w-[calc(100%+2rem)] sm:-mx-6 sm:mt-6 sm:aspect-[4/1] sm:w-[calc(100%+3rem)] xl:aspect-[5/1]"
           />
         </section>
 
         {/* What Bridge plugs into, as real logos. Each has a guide in the repository. */}
-        <section aria-labelledby="works-with" className="border-t">
+        <section aria-labelledby="works-with">
           <div className="mx-auto flex max-w-7xl flex-col items-center gap-6 px-4 py-14 sm:px-6 lg:flex-row lg:gap-10 lg:py-16">
             <p id="works-with" className="shrink-0 text-sm text-muted-foreground">
               Works with the tools you already use

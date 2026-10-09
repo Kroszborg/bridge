@@ -1,0 +1,3 @@
+# The Bridge dashboard is an application, not a website: nothing here should be crawled or indexed.
+User-agent: *
+Disallow: /

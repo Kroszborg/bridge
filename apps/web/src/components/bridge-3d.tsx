@@ -372,9 +372,9 @@ export function Bridge3D({ className }: { className?: string }) {
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(small ? 38 : 24, 1, 1, 2000);
         const target = new THREE.Vector3(0, TOWER_TOP * 0.45, 0);
-        // The resting view: nearly straight on and a little above the deck, so the
+        // The resting view: straight on and a little above the deck, so the
         // bridge reads level and symmetric, with just enough angle to feel 3D.
-        const AZ = -0.1;
+        const AZ = 0;
         const TILT = 0.2;
 
         // Particles: target positions, scattered starts, colours, sizes and a
@@ -646,7 +646,7 @@ export function Bridge3D({ className }: { className?: string }) {
           radius = fit();
           uniforms.uScale.value = radius / 128;
           // Lift the bridge so its towers stand just inside the top of the stage.
-          const lift = Math.max(0, ((1 - top) / 2) * sh - 28);
+          const lift = Math.max(0, ((1 - top) / 2) * sh - 12);
           camera.setViewOffset(sw, sh, own.left - box.left, own.top - box.top + lift, w, h);
           if (reduce) {
             place(0);
