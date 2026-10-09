@@ -16,32 +16,42 @@ export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://bridge.kro
 
 export const STATUS_URL = `${DASHBOARD_URL}/status`;
 
+/** Support, privacy and legal requests for hosted Bridge. */
+export const CONTACT_EMAIL = 'abhimanpanwar6@gmail.com';
+
 /** A file in the repository, as GitHub renders it. */
 export const repoFile = (path: string) => `${REPO_URL}/blob/main/${path}`;
 
+/** Documentation pages on this site (rendered from docs/ by Fumadocs, see src/lib/source.ts). */
 export const DOCS = {
-  messages: repoFile('docs/messages/README.md'),
-  webhooks: repoFile('docs/webhooks/README.md'),
-  otp: repoFile('docs/otp/README.md'),
-  cli: repoFile('docs/cli/README.md'),
-  android: repoFile('docs/android/README.md'),
-  selfHosting: repoFile('docs/self-hosting/README.md'),
-  security: repoFile('docs/security/README.md'),
-  providers: repoFile('docs/providers/README.md'),
-  integrations: repoFile('docs/integrations/README.md'),
-  supabase: repoFile('docs/integrations/supabase.md'),
-  betterAuth: repoFile('docs/integrations/better-auth.md'),
-  auth0: repoFile('docs/integrations/auth0.md'),
-  noCode: repoFile('docs/integrations/no-code.md'),
-  firebaseClerk: repoFile('docs/integrations/firebase-clerk.md'),
-  sdk: repoFile('packages/sdk/README.md'),
+  home: '/docs/',
+  messages: '/docs/messages/',
+  webhooks: '/docs/webhooks/',
+  otp: '/docs/otp/',
+  cli: '/docs/cli/',
+  mcp: '/docs/mcp/',
+  android: '/docs/android/',
+  selfHosting: '/docs/self-hosting/',
+  security: '/docs/security/',
+  providers: '/docs/providers/',
+  broadcasts: '/docs/broadcasts/',
+  schedules: '/docs/schedules/',
+  automation: '/docs/automation/',
+  integrations: '/docs/integrations/',
+  supabase: '/docs/integrations/supabase/',
+  betterAuth: '/docs/integrations/better-auth/',
+  auth0: '/docs/integrations/auth0/',
+  noCode: '/docs/integrations/no-code/',
+  firebaseClerk: '/docs/integrations/firebase-clerk/',
+  billing: '/docs/hosted/billing/',
+  sdk: '/docs/sdk/',
 } as const;
 
 export const SITE = {
   name: 'Bridge',
   title: 'Bridge: open-source SMS and phone verification',
   description:
-    'Self-hosted SMS API that sends through Android phones you own, with delivery reports, signed webhooks, a Verify API for one-time codes and fallback to MSG91, Twilio, Vonage or Plivo.',
+    'Open-source SMS API that sends through Android phones you own, hosted or self-hosted, with delivery reports, signed webhooks, a Verify API for one-time codes and fallback to MSG91, Twilio, Vonage or Plivo.',
 } as const;
 
 /** The maker, as described on beam.kroszborg.co and rune.kroszborg.co. */

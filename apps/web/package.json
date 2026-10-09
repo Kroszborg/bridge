@@ -1,6 +1,6 @@
 {
   "name": "@bridge/web",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "license": "AGPL-3.0-only",
   "type": "module",
@@ -8,22 +8,32 @@
     "dev": "node scripts/llms-full.mjs && next dev --port 3001",
     "build": "node scripts/llms-full.mjs && next build",
     "llms": "node scripts/llms-full.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "fumadocs-mdx && tsc --noEmit"
   },
   "dependencies": {
     "@hugeicons/core-free-icons": "4.3.5",
     "@hugeicons/react": "1.1.10",
     "@kroszborg/rune-react": "1.0.0",
+    "animejs": "4.5.0",
+    "fumadocs-core": "16.16.2",
+    "fumadocs-mdx": "15.4.6",
+    "fumadocs-ui": "16.16.2",
     "next": "16.3.8",
     "next-themes": "0.4.6",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "three": "0.186.1",
+    "unist-util-visit": "5.1.0",
+    "zod": "4.6.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4.3.3",
+    "@types/mdast": "4.0.4",
+    "@types/mdx": "2.0.14",
     "@types/node": "24.19.1",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
+    "@types/three": "0.186.0",
     "tailwindcss": "4.3.3",
     "typescript": "7.0.2"
   }

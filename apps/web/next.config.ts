@@ -1,3 +1,4 @@
+import { createMDX } from 'fumadocs-mdx/next';
 import type { NextConfig } from 'next';
 
 // A fully static site: `next build` writes plain HTML, CSS and JS to out/,
@@ -12,4 +13,7 @@ const config: NextConfig = {
   typescript: { ignoreBuildErrors: true },
 };
 
-export default config;
+// Compiles the Markdown guides (see source.config.ts) into the /docs pages.
+const withMDX = createMDX();
+
+export default withMDX(config);

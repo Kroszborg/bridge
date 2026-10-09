@@ -11,7 +11,7 @@ export function PairingQR({ size = 168 }: { size?: number }) {
       size={size}
       margin={2}
       background="#ffffff"
-      dots={{ style: 'rounded', color: '#0c0b0a' }}
+      dots={{ style: 'rounded', color: '#09090b' }}
       corners={{
         square: { style: 'extra-rounded', color: '#0b6b4f' },
         dot: { style: 'dot', color: '#0b6b4f' },

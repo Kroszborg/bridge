@@ -1,0 +1,70 @@
+/* Fumadocs UI for the /docs pages, drawn with the site's own tokens (see globals.css) so the
+   docs match the homepage in both themes. Imported once from globals.css. */
+@import "fumadocs-ui/css/preset.css";
+
+/* Fumadocs colours mapped onto the site palette. They resolve on <html>, where next-themes puts
+   the .dark class, so one set of mappings covers both themes. */
+@theme static {
+  --color-fd-background: var(--background);
+  --color-fd-foreground: var(--foreground);
+  --color-fd-muted: var(--muted);
+  --color-fd-muted-foreground: var(--muted-foreground);
+  --color-fd-popover: var(--card);
+  --color-fd-popover-foreground: var(--foreground);
+  --color-fd-card: var(--card);
+  --color-fd-card-foreground: var(--foreground);
+  --color-fd-border: var(--border);
+  --color-fd-primary: var(--primary);
+  --color-fd-primary-foreground: var(--primary-foreground);
+  --color-fd-secondary: var(--raised);
+  --color-fd-secondary-foreground: var(--foreground);
+  --color-fd-accent: color-mix(in srgb, var(--primary) 10%, transparent);
+  --color-fd-accent-foreground: var(--foreground);
+  --color-fd-ring: var(--primary);
+  --color-fd-overlay: rgb(0 0 0 / 0.45);
+
+  --color-fd-info: #3b82f6;
+  --color-fd-warning: var(--warning);
+  --color-fd-error: var(--destructive);
+  --color-fd-success: var(--success);
+  --color-fd-idea: var(--primary);
+  --color-fd-diff-remove: rgba(200, 10, 100, 0.12);
+  --color-fd-diff-remove-symbol: rgb(230, 10, 100);
+  --color-fd-diff-add: rgba(14, 180, 100, 0.1);
+  --color-fd-diff-add-symbol: rgb(10, 200, 100);
+}
+
+:root {
+  --fd-layout-width: 1440px;
+}
+
+/* One background for the whole page: the sidebar sits on the page colour, divided by its border.
+   It keeps the raised card colour only while it floats over the page (collapsed and hovered). */
+#nd-sidebar[data-collapsed="false"] {
+  background-color: var(--color-fd-background);
+}
+
+/* Blockquotes in the guides are notes, as GitHub renders them, not quotations. */
+.prose blockquote {
+  font-style: normal;
+  font-weight: inherit;
+  color: var(--color-fd-muted-foreground);
+}
+.prose blockquote p:first-of-type::before,
+.prose blockquote p:last-of-type::after {
+  content: none;
+}
+
+/* Inline code inside headings and the table of contents reads as type, not as a chip. */
+.prose :is(h2, h3, h4) code {
+  border: 0;
+  background: none;
+  padding: 0;
+  font-size: 0.9em;
+}
+#nd-toc code {
+  border: 0;
+  background: none;
+  padding: 0;
+  font-size: 0.92em;
+}
