@@ -316,6 +316,8 @@ jobs:
           fi
           # Workspace-only dev dependencies mean nothing outside this repository.
           npm pkg delete devDependencies
+          # Provenance requires repository.url to match GitHub's spelling of the repository.
+          npm pkg set repository.url="git+https://github.com/$GITHUB_REPOSITORY.git"
           tag=latest
           if [[ "$VERSION" == *-* ]]; then tag=next; fi
           flags=(--access public --tag "$tag")

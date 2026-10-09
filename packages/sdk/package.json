@@ -5,12 +5,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/kroszborg/bridge.git",
+    "url": "git+https://github.com/Kroszborg/bridge.git",
     "directory": "packages/sdk"
   },
-  "homepage": "https://github.com/kroszborg/bridge/tree/main/packages/sdk#readme",
+  "homepage": "https://github.com/Kroszborg/bridge/tree/main/packages/sdk#readme",
   "bugs": {
-    "url": "https://github.com/kroszborg/bridge/issues"
+    "url": "https://github.com/Kroszborg/bridge/issues"
   },
   "type": "module",
   "sideEffects": false,
