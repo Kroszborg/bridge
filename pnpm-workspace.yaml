@@ -4,3 +4,5 @@ packages:
   - packages/*
   - tools/*
   - examples/node
+allowBuilds:
+  esbuild: false

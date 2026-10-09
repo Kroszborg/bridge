@@ -163,16 +163,22 @@ to be sent at once, and creates more only as earlier ones finish:
 | --- | --- |
 | Test key (`bk_test_…`) | 500 |
 | No `device_id`, routing is not `phones`, and the project has an enabled SMS provider | 500 |
-| Otherwise | The sum of the send limits of the project's phones (or of the chosen phone), at least 10 and at most 500 |
+| Otherwise | The sum of the send limits of the project's online phones (or of the chosen phone), each no more than what is left of its daily cap; at least 10 and at most 500 |
 
 Messages are created in batches of up to 100. When the window is full, Bridge checks again every
 10 seconds. Phones then send at their own pace, under their **send limit** (30 per 30 minutes by
-default, see [Android's sending limit](../messages/README.md#androids-sending-limit)), so the window
-is roughly what your phones can send in one limit period and no message waits long enough to hit
-the one-hour queue timeout. How long a broadcast takes is set by your phones: one phone at the
-default limit sends about 1,440 messages a day, so 10,000 recipients take about a week. Add phones,
-raise their limits, or route to a provider to go faster. If no phone is online for an hour, waiting
-messages still fail with `no_device_available`.
+default, see [Android's sending limit](../messages/README.md#androids-sending-limit)) and their
+**daily cap** (100 in any 24 hours by default, see [Daily cap](../messages/README.md#daily-cap)).
+The window counts only what each online phone may still send today, so it is roughly what your
+phones can send in one limit period and no message waits long enough to hit the one-hour queue
+timeout.
+
+How long a broadcast takes is set by your phones. One phone at the default daily cap sends 100
+messages a day. While every phone is at its cap, Bridge still keeps a few messages waiting, and
+those that no phone can take within an hour fail with `daily_limit_reached`, so part of a broadcast
+larger than your phones' daily caps together fails. Size broadcasts to your phones, pair more
+phones, raise a cap only if the SIM plan allows it, or route to a provider. If no phone is online
+for an hour, waiting messages fail with `no_device_available`.
 
 | Limit | Value |
 | --- | --- |

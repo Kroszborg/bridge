@@ -35,9 +35,9 @@ times, a [schedule](../schedules/README.md). Their messages are ordinary message
 ## Lifecycle
 
 ```text
-queued ──► sending ──► sent ──► delivered
-   │          │          │
-   └──────────┴──────────┴──► failed
+queued --> sending --> sent --> delivered
+   |          |          |
+   +----------+----------+--> failed
 ```
 
 | Status | Meaning |
@@ -62,13 +62,13 @@ one, so `sent` can be final. `GET /v1/messages/{id}` returns the full timeline:
 
 ## How Bridge picks a phone
 
-Bridge considers phones in the project that are online and under their send limit. It prefers a
-phone that is charging and on Wi-Fi, then the one that has used the least of its allowance, then the
-one used least recently.
+Bridge considers phones in the project that are online, under their send limit and under their
+daily cap. It prefers a phone that is charging and on Wi-Fi, then the one that has used the least of
+its allowance, then the one used least recently.
 
 If no phone can take the message, it waits in the queue. Offline phones with a push registration are
-woken. The message fails with `no_device_available` after an hour, or straight away with `no_device`
-when the project has no phones.
+woken. The message fails with `no_device_available` after an hour (`daily_limit_reached` when every
+online phone is at its daily cap), or straight away with `no_device` when the project has no phones.
 
 A phone that does not accept a job within 2 minutes loses it, and the job goes to another phone or is
 retried. Failures the phone marks as retryable (no service, radio off) are retried up to 3 attempts.
@@ -107,8 +107,18 @@ adb shell settings put global sms_outgoing_check_max_count 1000
 adb shell settings put global sms_outgoing_check_interval_ms 1800000
 ```
 
-Then raise the limit in **Devices → ⋯ → Settings**. Carriers may still throttle or block bulk
+Then raise the limit in **Phones → ⋯ → Settings**. Carriers may still throttle or block bulk
 sending from a SIM; Bridge is not a way around carrier rules.
+
+### Daily cap
+
+Operators also limit how many SMS a SIM may send a day, about 100 on most Indian plans, and can
+block SIMs that send far more. Each phone therefore has a **daily cap** (`daily_send_limit`, 100 in
+any rolling 24 hours by default, 1 to 10,000), set by an admin or owner under **Phones → ⋯ →
+Settings → Messages per day**. A phone at its cap gets no more messages until its oldest send in the
+window is 24 hours old. `GET /v1/devices` returns each phone's `daily_send_limit` and `day_sends`.
+Keep the cap within your SIM plan's allowance; to send more, pair more phones or route to an
+[SMS provider](../providers/README.md).
 
 ## Test mode
 
@@ -129,6 +139,7 @@ sent and it costs nothing. These numbers produce specific outcomes:
 | --- | --- |
 | `no_device` | The project has no paired phones |
 | `no_device_available` | No phone could take the message within an hour |
+| `daily_limit_reached` | Every online phone had already sent its daily cap, and none had room within an hour |
 | `device_not_found` | The requested `device_id` was removed |
 | `device_unresponsive` | Phones did not accept the job after 3 attempts |
 | `permission_denied` | The Bridge app lacks the SMS permission |

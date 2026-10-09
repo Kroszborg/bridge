@@ -1,6 +1,6 @@
 name: Release
 
-# Push a tag like v0.3.0 (or v0.3.0-rc.1 for a pre-release). See docs/releasing.md.
+# Push a tag like v1.1.0 (or v1.1.0-rc.1 for a release candidate). See docs/releasing.md.
 on:
   push:
     tags: ["v*.*.*"]

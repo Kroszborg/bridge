@@ -30,7 +30,7 @@ pnpm --filter @bridge/dashboard dev
 
 Open http://localhost:3000 and create an account. The API reference is at http://localhost:8080/docs.
 
-No Android phone? Pair a simulated one. In the dashboard open **Devices → Pair device → Cannot
+No Android phone? Pair a simulated one. In the dashboard open **Phones → Pair device → Cannot
 scan?**, copy the pairing code, then:
 
 ```bash
@@ -42,8 +42,8 @@ The Android app lives in `android/gateway`; see [docs/android/README.md](docs/an
 
 ## Repository layout
 
-See [docs/architecture/era-0-plan.md](docs/architecture/era-0-plan.md) for the architecture and every
-technology decision. In short:
+The [design history](docs/architecture/era-0-plan.md) records the original architecture and the
+reasoning behind every technology decision. In short:
 
 * `apps/api` is a Go module. Handlers live in `internal/httpapi`, SQL in `internal/db/queries`
   (compiled to Go by sqlc), and migrations in `internal/db/migrations` (goose).

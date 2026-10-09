@@ -7,11 +7,11 @@ your phones or an [SMS provider](../providers/README.md). Your app keeps calling
 
 ```text
 supabase.auth.signInWithOtp({ phone })
-     │
-     ▼
-Supabase Auth ── Send SMS hook (signed) ──► Bridge ──► phone or provider ──► SMS
-     ▲
-     │
+     |
+     v
+Supabase Auth -- Send SMS hook (signed) --> Bridge --> phone or provider --> SMS
+     ^
+     |
 supabase.auth.verifyOtp({ phone, token, type: 'sms' })
 ```
 

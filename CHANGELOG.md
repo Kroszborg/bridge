@@ -2,12 +2,51 @@
 
 All notable changes to Bridge are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and Bridge uses
-[Semantic Versioning](https://semver.org/). Before 1.0, minor versions may contain breaking changes;
-they are always called out here with migration steps.
+[Semantic Versioning](https://semver.org/): from 1.0, breaking changes to the REST API, the SDK
+and the CLI come only with a new major version, and are called out here with migration steps.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-09
+
+Bridge 1.0, the first stable release. It brings together everything built since the first Android
+gateway: sending through your own phones or SMS providers, Verify, messaging tools, webhooks, the
+SDK, the CLI and the MCP server. New in this release:
+
+- **Hosted Bridge** at [bridge.kroszborg.co](https://bridge.kroszborg.co), running the same code as
+  self-hosted servers, with Free, Pro ($5/month) and Team ($15/month) plans paid through Dodo
+  Payments. Self-hosted servers have no plans or limits.
+- **The Android app** can sign in to your account to pair without a QR code, and shows Messages,
+  Send, Phones and Account tabs, a connection log and home-screen status widgets.
+- **A daily send cap per phone** keeps SIMs within their operator's daily allowance.
+- **Documentation site** at [bridge.kroszborg.co/docs](https://bridge.kroszborg.co/docs/), built from
+  `docs/`, plus a privacy policy and terms.
+- **Security hardening**: password reset by single-use, one-hour links that sign out every other
+  session; billing webhooks verified and applied from the subscription's state re-read from Dodo; and
+  a documented threat model in the [security model](docs/security/README.md).
+
 ### Added
+
+- Password reset by email: `POST /v1/auth/password-reset` (never reveals whether an account
+  exists) and `POST /v1/auth/password-reset/confirm`, which signs out every other session. Uses
+  the `BRIDGE_SMTP_*` server. `GET /v1/auth/config` tells the sign-in pages what the server
+  offers.
+- Sign-in and sign-up pages: "Forgot password?", a password strength hint, a Caps Lock warning,
+  a clear page when sign-ups are closed, and links to the terms and privacy policy when
+  `BRIDGE_SITE_URL` is set.
+- Hosted plans (`BRIDGE_CLOUD=true`): Free, Pro and Team with limits on phones, live SMS per
+  month, projects and members, paid through Dodo Payments. Limits answer
+  `402 plan_limit_reached`. Self-hosted installs are never limited. See
+  [docs/hosted/billing.md](docs/hosted/billing.md).
+- Dashboard: Send now has One message, Bulk (CSV) and Scheduled tabs; the sidebar is grouped
+  by job; Devices is called Phones; Team, Audit log and Billing moved to the account menu.
+- Android app: sign in with your Bridge account to pair without a QR code, see messages, send,
+  manage phones and see the workspace plan. F-Droid metadata.
+- Website: privacy policy and terms pages.
+- A daily send cap per phone (`daily_send_limit`, default 100 in any 24 hours) keeps SIMs within
+  their operator's daily SMS allowance. Dispatch skips full phones, broadcasts pace to what is left,
+  and a message that no phone can take fails with `daily_limit_reached`. Set it per phone under
+  Phones -> Settings.
 
 - `bridgectl mcp`: a Model Context Protocol server on stdio (official Go SDK) so AI assistants
   can send SMS, run verifications and read message status with an API key. See
@@ -17,7 +56,7 @@ they are always called out here with migration steps.
 - SDK: `bridge.events.stream()` (live events with reconnects), `bridge.requestLogs.list()` and
   `listAll()`, and `bridge.usageHistory()`. The SDK is published to npm as `@kroszborg/bridge`.
 - `bridgectl logs` with status, method and path filters.
-- SMS providers (v0.5): MSG91 (DLT templates through the Flow API, with separate OTP
+- SMS providers: MSG91 (DLT templates through the Flow API, with separate OTP
   and message templates and configurable variables), Twilio (From number or Messaging Service),
   Vonage (SMS API) and Plivo, one account of each per project, tried in priority order. Retryable
   errors (timeouts, `429`, `5xx`) are retried up to 6 attempts; others fail the message with a
@@ -45,7 +84,7 @@ they are always called out here with migration steps.
   Auth0, n8n, Zapier, Make, Firebase and Clerk.
 - Message timeline events `provider_fallback` (with a `reason`) and `provider_accepted`.
 - Docs: iPhones as recipients (code autofill) and why they cannot be gateways.
-- Verify apps (v0.6): up to 50 per project, each with its own name, message template,
+- Verify apps: up to 50 per project, each with its own name, message template,
   code settings, failover, fraud protection, widget, signing secret and statistics. The default app
   (slug `default`) holds the project's previous settings. `POST /v1/otp` takes `app` (ID or slug)
   and `client_ip` (the end user's IP address); `POST /v1/otp/verify` takes an optional `app`.
@@ -70,7 +109,7 @@ they are always called out here with migration steps.
   signature check, `aud`, `iss`, `exp` and `env`) and throws `BridgeTokenError` with the same
   reasons as the API; `bridge.otp.verifyToken()` calls `POST /v1/otp/tokens/verify`. The SDK's
   webhook types include `otp.blocked`, and `BridgeErrorCode` includes `otp_blocked`.
-- Broadcasts (v0.7): `POST /v1/broadcasts` sends one template with `{placeholders}`
+- Broadcasts: `POST /v1/broadcasts` sends one template with `{placeholders}`
   to up to 10,000 recipients, each with its own `vars`. Numbers are normalised, repeated numbers are
   sent once and opted-out numbers are skipped. `dry_run` previews unique recipients, opted-out and
   duplicate counts, total segments and the first 5 rendered messages without creating anything.

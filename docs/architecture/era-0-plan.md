@@ -1,20 +1,25 @@
-# Era 0 plan — Bridge Gateway
+# Design history: the original build plan
 
-Status: **Milestones 1–3 complete; v0.1 acceptance pending a real-phone run** · Last updated: 2026-10-04
+> **Historical document.** This is the plan Bridge was built from during development, before the
+> 1.0 release. It is kept for the reasoning behind each technology decision. It is not a list of
+> current plans or open work: the milestone checklists are a snapshot from development, and some
+> details (endpoint paths, heartbeat intervals, limits) changed before 1.0. For how Bridge works
+> today, read the [documentation](../README.md), the [security model](../security/README.md) and
+> the [changelog](../../CHANGELOG.md).
 
-This document is the working plan for Era 0 (the v0.1 release). The long-term product
-specification lives in the project brief; this file records what we are actually building
-now and every technology decision behind it.
+This was the working plan for the first development phase, called "Era 0" at the time, whose
+milestones (numbered 0.1 to 0.7) became Bridge 1.0. It recorded what was being built and every
+technology decision behind it.
 
 ## 1. Repository assessment
 
-`C:\coding\bridge` was empty at the start of Era 0. There is no prior code to preserve,
-so everything below is greenfield. Two sibling projects were used as reference only:
+The repository was empty at the start of Era 0. There was no prior code to preserve,
+so everything below was greenfield. Two sibling projects were used as reference only:
 
 | Reference | Used for |
 | --- | --- |
 | `paizy/paizy-admin` | Dashboard layout patterns: sidebar, top bar, page header, stat cards, tables, theme handling (Tailwind v4 + shadcn) |
-| `kroszkit/kroszkit-web` | Dodo Payments integration pattern, recorded in [`future-billing.md`](./future-billing.md) for Era 1. **Not implemented in Era 0.** |
+| `kroszkit/kroszkit-web` | Dodo Payments integration pattern, recorded in the [billing design](./future-billing.md). Billing was not part of Era 0; it shipped with hosted Bridge in 1.0. |
 
 ## 2. Decisions
 
@@ -41,22 +46,22 @@ Every choice below was confirmed with the maintainer before implementation.
 
 ```text
               Developer app / curl / SDK            Browser
-                         │  Bearer bk_live_…           │ cookie session
-                         ▼                             ▼
-                ┌───────────────────┐        ┌──────────────────┐
-                │   bridge serve    │◄───────│  Next.js dashboard│ (proxies /api/* → API)
-                │  REST /v1 (Huma)  │        └──────────────────┘
-                │  device WebSocket │◄─────────── Android gateway (milestone 2)
-                └─────────┬─────────┘
-                          │ SQL + River insert (same tx)
-                          ▼
-                ┌───────────────────┐        ┌──────────────────┐
-                │    PostgreSQL     │◄──────►│  bridge worker   │ River jobs: dispatch,
-                │ data + job queue  │        │                  │ retries, webhooks, cleanup
-                └───────────────────┘        └──────────────────┘
+                          |  Bearer bk_live_...         | cookie session
+                          v                             v
+                +-------------------+        +--------------------+
+                |   bridge serve    |<-------|  Next.js dashboard |  (proxies /api/* to the API)
+                |  REST /v1 (Huma)  |        +--------------------+
+                |  device WebSocket |<----------- Android gateway
+                +---------+---------+
+                          | SQL + River insert (same tx)
+                          v
+                +-------------------+        +--------------------+
+                |    PostgreSQL     |<------>|   bridge worker    |  River jobs: dispatch,
+                | data + job queue  |        |                    |  retries, webhooks, cleanup
+                +-------------------+        +--------------------+
 ```
 
-* **API (`bridge serve`)** handles REST, dashboard sessions and, from milestone 2, device WebSockets.
+* **API (`bridge serve`)** handles REST, dashboard sessions and (from milestone 2) device WebSockets.
 * **Worker (`bridge worker`)** runs River jobs. Periodic maintenance (expired sessions,
   rate-limit counters, pairing tokens) runs here from day one.
 * **Job → device routing** (milestone 2): the worker cannot hold the device socket, so
@@ -71,10 +76,10 @@ Every choice below was confirmed with the maintainer before implementation.
 
 ```text
 POST /v1/messages
-  → validate + normalize E.164 → rate limits (IP → key → project → destination)
-  → BEGIN; insert message(status=queued) + message_event; River insert dispatch job; COMMIT
-  → worker picks device → pg_notify → API pushes over WebSocket
-  → device ACKs → status sending → device reports sent/failed → delivery report → delivered
+  -> validate + normalize E.164 -> rate limits (IP -> key -> project -> destination)
+  -> BEGIN; insert message(status=queued) + message_event; River insert dispatch job; COMMIT
+  -> worker picks device -> pg_notify -> API pushes over WebSocket
+  -> device ACKs -> status sending -> device reports sent/failed -> delivery report -> delivered
 ```
 
 All status changes go through one state machine (`internal/message/state.go`); every
@@ -84,27 +89,27 @@ transition writes a `message_events` row, which is the timeline the dashboard sh
 
 ```text
 bridge/
-├── apps/
-│   ├── api/                  Go module: cmd/bridge + internal/*
-│   │   ├── cmd/bridge/       entrypoint and subcommands
-│   │   ├── internal/
-│   │   │   ├── config/       env parsing + validation
-│   │   │   ├── db/           pool, embedded goose migrations, sqlc queries + generated code
-│   │   │   ├── httpapi/      router, middleware, error model, route registration
-│   │   │   ├── auth/         passwords, sessions, API keys, principals
-│   │   │   ├── ratelimit/    limiter interface + Postgres implementation
-│   │   │   ├── worker/       River client + jobs
-│   │   │   ├── message/      message state machine
-│   │   │   └── id/           prefixed, sortable IDs
-│   │   └── sqlc.yaml
-│   └── dashboard/            Next.js app
-├── packages/
-│   └── api-types/            generated OpenAPI document + TypeScript types
-├── android/gateway/          Kotlin gateway (milestone 2)
-├── docker/                   Dockerfiles
-├── docs/                     architecture, security, self-hosting, providers
-├── examples/                 curl first; SDK examples arrive with the SDK
-└── docker-compose.yml        self-hosted stack
++-- apps/
+|   +-- api/                  Go module: cmd/bridge + internal/*
+|   |   +-- cmd/bridge/       entrypoint and subcommands
+|   |   +-- internal/
+|   |   |   +-- config/       env parsing + validation
+|   |   |   +-- db/           pool, embedded goose migrations, sqlc queries + generated code
+|   |   |   +-- httpapi/      router, middleware, error model, route registration
+|   |   |   +-- auth/         passwords, sessions, API keys, principals
+|   |   |   +-- ratelimit/    limiter interface + Postgres implementation
+|   |   |   +-- worker/       River client + jobs
+|   |   |   +-- message/      message state machine
+|   |   |   +-- id/           prefixed, sortable IDs
+|   |   +-- sqlc.yaml
+|   +-- dashboard/            Next.js app
++-- packages/
+|   +-- api-types/            generated OpenAPI document + TypeScript types
++-- android/gateway/          Kotlin gateway (milestone 2)
++-- docker/                   Dockerfiles
++-- docs/                     architecture, security, self-hosting, providers
++-- examples/                 curl first; SDK examples arrive with the SDK
++-- docker-compose.yml        self-hosted stack
 ```
 
 ## 5. Database schema (migration `00001_init.sql`)
@@ -152,11 +157,11 @@ test keys can never send a real SMS.
 
 ```text
 pair:     scan QR (contains API URL + 10-min single-use pairing token)
-          → POST /v1/devices/pair → long-lived device credential (stored in Android Keystore)
+          -> POST /v1/devices/pair -> long-lived device credential (stored in Android Keystore)
 connect:  WebSocket /v1/devices/connect, credential in the first frame (never in the URL)
-loop:     heartbeat every 30s (battery, network, signal) ⇄ server pushes `send_sms` jobs
-send:     device ACKs job id → SmsManager → sent PendingIntent → report `sent`/`failed`
-          → delivery PendingIntent → report `delivered`
+loop:     heartbeat every 30s (battery, network, signal) <-> server pushes `send_sms` jobs
+send:     device ACKs job id -> SmsManager -> sent PendingIntent -> report `sent`/`failed`
+          -> delivery PendingIntent -> report `delivered`
 recover:  exponential backoff reconnect; on reconnect the server replays unacknowledged
           jobs; jobs carry the message ID, so the device de-duplicates and never sends twice
 wake:     FCM high-priority data message when a job is queued for an offline device

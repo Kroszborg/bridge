@@ -1,6 +1,37 @@
 # Security model
 
-This describes what Bridge does today (v0.1 foundation). It is updated with each milestone.
+This page describes how Bridge 1.0 protects accounts, keys, phones and the data it stores, for both
+hosted Bridge and self-hosted servers (they run the same code). To report a vulnerability, see
+[SECURITY.md](../../SECURITY.md).
+
+## Threat model and trust boundaries
+
+Bridge sits between your applications, your team's browsers, Android phones that hold SIMs, SMS
+providers, and the services it forwards to. Each of those talks to the API with its own kind of
+credential, and none of them is trusted beyond what that credential allows.
+
+```text
+  Your servers ---- API key (bk_live_ / bk_test_) ----+
+  Browsers ---- session cookie, via the dashboard ----+
+  Android phones ---- device credential (bd_) --------+--> Bridge API --> PostgreSQL
+  Provider delivery reports ---- secret URL token ----+        |
+  Dodo Payments (hosted) ---- signed webhook ---------+        |
+                                                               v
+              outbound: webhooks, push, forwarding (untrusted URLs), SMS providers
+```
+
+| Boundary | What Bridge assumes | How it is enforced |
+| --- | --- | --- |
+| API keys | A key may leak. It must only reach its own project and environment. | Keys are scoped to one project and to `live` or `test`, stored only as SHA-256 hashes, rate limited, and can expire or be revoked. Test keys never send a real SMS. |
+| Dashboard sessions | Browsers visit hostile sites. | `HttpOnly`, `SameSite=Lax` cookie, origin check on every state-changing request, roles checked on every route. |
+| Android phones | A phone can be lost, rooted or paired to the wrong server. | Per-phone credential, revocable at once; the app confirms the server before pairing; the server only accepts reports for that phone's own messages. |
+| Outbound URLs | Webhook, push and forwarding URLs are chosen by users or phones. | Public addresses only (checked after DNS resolution), no redirects, timeouts. |
+| Inbound callbacks | Anyone can call a public URL. | Provider delivery reports need a secret token in the URL. The Supabase Send SMS hook and Dodo billing webhooks are verified with Standard Webhooks signatures and a 5-minute timestamp window. |
+| Operators | Whoever runs the server and database can read the data. | Message text is erased after 30 days, request logs after 14; provider credentials and other third-party secrets are encrypted with a key kept outside the database. |
+
+Out of scope: an attacker who controls the server, the database together with
+`BRIDGE_SECRET_KEY`, or an unlocked paired phone. Carrier and SMS provider behaviour is outside
+Bridge's control.
 
 ## Credentials
 
@@ -11,6 +42,8 @@ This describes what Bridge does today (v0.1 foundation). It is updated with each
 | API key | `bk_live_…` / `bk_test_…`, 40 random base62 chars + 6-char CRC32 checksum | SHA-256 | until revoked or expired |
 | Device credential | `bd_` + 43 base62 chars | SHA-256 | until the device is removed |
 | Pairing token | `bp_` + 43 base62 chars | SHA-256 | 10 minutes, single use |
+| Password reset link | `br_` + 32 base62 chars | SHA-256 | 1 hour, single use |
+| Team invite link | `bi_` + 32 base62 chars | SHA-256 | 7 days, single use |
 | Verify publishable key | `bpk_` + 32 chars | plaintext (it is public) | for the app's life |
 | Verify app signing secret | `bvs_` + 48 base62 chars | AES-256-GCM under `BRIDGE_SECRET_KEY`, bound to the app ID | until rotated |
 | Turnstile secret | from Cloudflare | AES-256-GCM under `BRIDGE_SECRET_KEY`, bound to the app ID | until changed |
@@ -38,6 +71,21 @@ This describes what Bridge does today (v0.1 foundation). It is updated with each
   (`Origin` check, plus `Sec-Fetch-Site` when `Origin` is absent).
 * Session routes and API-key routes are disjoint: a session cookie never authenticates a developer
   endpoint, and an API key never authenticates a dashboard endpoint.
+* The Android app signs in with the same session endpoints. It sends no `Origin` header, which the
+  check allows: browsers mark cross-site requests with `Origin` or `Sec-Fetch-Site`, and only a
+  browser can attach someone else's cookie.
+
+## Password reset
+
+* Reset links are sent only when the server has SMTP configured (`BRIDGE_SMTP_*`); otherwise the
+  endpoint answers `503` and the sign-in page hides "Forgot password?".
+* `POST /v1/auth/password-reset` always answers `202`, whether or not an account uses the address,
+  and the email is sent in the background so the response time is the same either way.
+* Requests are limited to 10 per IP and 3 per email address an hour; confirmations to 20 per IP an
+  hour.
+* A link carries a `br_` token stored only as a SHA-256 hash. It works once and expires after an
+  hour. Using it sets the new password, expires every other open reset link for the account, and
+  signs out **every** session, then starts a new one for the browser that reset it.
 
 ## Tenant isolation
 
@@ -74,10 +122,18 @@ This describes what Bridge does today (v0.1 foundation). It is updated with each
 | Pairing attempts per IP | 20 per hour |
 | Pairing codes per user | 30 per hour |
 | Verify widget, per IP: settings / sends / checks / redirect checks | 120 / 10 / 30 / 60 per minute |
+| Password reset requests | 10 per IP and 3 per email per hour |
+| Password changes / re-authentication per user | 10 per hour / 10 per 15 minutes |
+| Messages accepted per project | 1,000 per hour (broadcasts are admitted as a whole instead) |
+| Messages to one number, per project | 20 per hour |
+| Incoming SMS per phone | 1,000 per hour |
+| Sends per phone | its send limit (30 per 30 minutes by default) and its daily cap (`daily_send_limit`, 100 in any 24 hours by default) |
 
-Project, destination-number and device-capacity limits arrive with message sending. Rate-limited
-responses return `429` with `Retry-After`. Limits are enforced in PostgreSQL behind an interface,
-so a Redis backend can replace it later without changing callers.
+Rate-limited responses return `429` with `Retry-After`. Limits are enforced in PostgreSQL behind an
+interface, so a Redis backend can replace it later without changing callers. The per-phone limits
+are not request limits: dispatch simply does not give a phone more than it may send, so SIMs stay
+within Android's approval threshold and their operator's daily allowance. On hosted Bridge, plans
+also limit phones, live SMS a month, projects and members (see [plans](../hosted/billing.md)).
 
 Client IPs come from `X-Forwarded-For` only when the direct peer is in `BRIDGE_TRUSTED_PROXIES`,
 and the header is read right to left so clients cannot spoof their address.
@@ -122,7 +178,10 @@ when that is unset.
 * Pairing codes are single-use, expire after 10 minutes, and are claimed inside a locking
   transaction, so one code can never create two devices.
 * The app confirms the server's host before pairing, because a `bridge://pair` link can come from
-  anywhere. A paired phone refuses new pairings until it is disconnected.
+  anywhere. A phone that is already paired shows which pairing a new code would replace, and keeps
+  the old one until the server accepts the new code.
+* Pairing from the app after signing in creates the same single-use code on the user's behalf, so
+  it needs the admin or owner role, like pairing from the dashboard.
 * Device credentials, API keys and session cookies are separate: none of them works on the
   others' routes.
 * Removing a device revokes its credential and closes its live connection on whichever API instance
@@ -134,6 +193,31 @@ when that is unset.
 * Push endpoints are supplied by devices, so the server treats them as untrusted: it only connects
   to public addresses (checked after DNS resolution), never follows redirects, and encrypts every
   WebPush message (RFC 8291) with VAPID authentication (RFC 8292). A wake-up carries no data.
+* The server only accepts status reports from the phone a message is assigned to; reports about
+  other messages are ignored.
+
+### The Android app
+
+| Permission | Used for |
+| --- | --- |
+| Send SMS | Required: sending the messages the server queues for this phone. |
+| Receive SMS | Optional, asked for only when forwarding of incoming SMS is turned on for the phone. |
+| Phone | Optional: listing SIM slots on dual-SIM phones. The phone number is never read. |
+| Camera | Only to scan the pairing QR code. |
+| Notifications | The foreground-service notification that keeps the gateway running. |
+
+* **What leaves the phone.** Delivery reports for the messages it sends; battery level, charging
+  state, network type, carrier name and SIM slots for the dashboard; and incoming SMS, but only
+  while the server has forwarding turned on for that phone (off by default). While it is off,
+  incoming SMS are ignored: nothing is stored or sent. The app never reads the SMS inbox, contacts
+  or the IMEI, and contains no analytics or ads. Only the `gms` build includes Firebase Cloud
+  Messaging, for wake-ups; the `foss` build uses UnifiedPush.
+* **Credential storage.** The device credential is encrypted with an AES-256-GCM key that never
+  leaves the Android Keystore. Signing in stores the session cookie encrypted with a second
+  Keystore key; the password is never stored. Signing out deletes the session on the server and the
+  cookie and key on the phone. App backups and device-to-device transfers are disabled.
+* **Use a SIM dedicated to Bridge** if you turn on forwarding, because incoming SMS include
+  verification codes and personal messages.
 
 ## Webhooks
 
@@ -296,8 +380,55 @@ when that is unset.
   Forwarding delivery logs are deleted after the message retention period, and a forward that has
   not gone out by the time the text is removed is not sent.
 
+## Data retention
+
+The worker's maintenance job removes data on a schedule. The periods below are the defaults, which
+hosted Bridge uses; self-hosted servers can change the first two.
+
+| Data | Kept for |
+| --- | --- |
+| Message text (and template variables) | 30 days (`BRIDGE_MESSAGE_RETENTION`), then erased. Numbers, statuses and timelines stay for your history. |
+| Webhook events, stored event-stream payloads, forwarding delivery logs | The message retention period |
+| Request logs (metadata only) | 14 days (`BRIDGE_REQUEST_LOG_RETENTION`) |
+| Verify code SMS text | Until the verification finishes and the SMS has left the phone, at most 1 hour |
+| Blocked verification attempts | 30 days |
+| Status samples | 90 days |
+| Accounts, projects, phones, settings | Until you delete them. Deleting your account removes workspaces where you are the only member. |
+
+## Hosted Bridge
+
+Hosted Bridge (`bridge.kroszborg.co`) runs this repository's code with `BRIDGE_CLOUD=true`, on AWS
+Lightsail in the Mumbai region, as described in [Deploying to AWS Lightsail](../self-hosting/lightsail.md).
+
+* **TLS everywhere.** Caddy is the only service listening publicly (ports 80 and 443). It obtains
+  and renews certificates automatically and redirects HTTP to HTTPS. The API, dashboard, website
+  and PostgreSQL publish no ports of their own.
+* **Database.** PostgreSQL is reachable only on the Compose network, never from the internet.
+  Automatic Lightsail snapshots of the instance are the backup. `BRIDGE_SECRET_KEY` lives in the
+  server's environment file, never in the database, so a database dump alone does not reveal
+  provider credentials or bot tokens.
+* **Payments.** Dodo Payments is the merchant of record. Card details go to Dodo's checkout and
+  never reach Bridge; Bridge stores only the plan, subscription status, and Dodo's customer and
+  subscription IDs.
+* **Billing webhooks.** `POST /v1/billing/dodo/webhook` reads at most 1 MiB, verifies the Standard
+  Webhooks signature over the raw body with `BRIDGE_DODO_WEBHOOK_SECRET` (constant-time compare,
+  5-minute timestamp window) and answers `401` if it does not match. Each delivery is claimed
+  atomically by its `webhook-id`, so a retry is applied at most once.
+* **Authoritative state.** A webhook is only a signal. Bridge reads the subscription's current
+  state back from Dodo's API and stores that, so a forged, late or out-of-order event cannot grant
+  a plan or undo a newer change. A subscription is tied to a workspace by checkout metadata, then
+  by its stored subscription or customer ID; one that matches no workspace is refused, and the
+  return-from-checkout sync refuses a subscription that belongs to another workspace.
+* **Who can pay.** Only owners can start a checkout, change plan, open the customer portal or
+  withdraw a cancellation.
+* **Limits are checked server-side**, never only in the dashboard. Live SMS are counted in the
+  transaction that creates each message, so concurrent sends cannot overshoot the allowance;
+  phones, projects and members are checked in the transaction that adds them.
+
 ## Containers
 
 * The API image is a static binary on `distroless/static` running as a non-root user, with no shell.
 * The dashboard image runs as a dedicated non-root user.
 * PostgreSQL is not published to the host in the default Compose file.
+* `docker-compose.prod.yml` removes the API, dashboard and website ports and puts Caddy in front,
+  so only 80 and 443 are open.

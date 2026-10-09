@@ -183,7 +183,7 @@ Typical uses are replies such as `STOP`, two-way conversations, and reading veri
 to a number you own.
 
 Forwarding is **off by default for every phone**, because it sends everything the SIM receives,
-including bank codes and personal messages. Turn it on per phone under **Devices → ⋯ → Settings →
+including bank codes and personal messages. Turn it on per phone under **Phones → ⋯ → Settings →
 Forward incoming SMS**. Use a SIM dedicated to Bridge. The app then asks for permission to receive
 SMS. Turning forwarding off takes effect on the phone immediately, and messages it had queued are
 dropped by the server.

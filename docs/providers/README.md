@@ -6,8 +6,8 @@ altogether. Your application keeps calling the same API; only what delivers the 
 
 Typical reasons to add one:
 
-- **Fallback.** A phone is offline, out of signal or out of its send limit, and a sign-in code must
-  still go out within a minute.
+- **Fallback.** A phone is offline, out of signal, or at its send limit or daily cap, and a sign-in
+  code must still go out within a minute.
 - **No phone at all.** You want Bridge's API, Verify, webhooks and logs, with a provider doing the
   sending.
 - **Rules a SIM cannot meet.** In India, application-to-person SMS must use DLT-registered templates
@@ -41,7 +41,7 @@ a `provider_fallback` event with the `reason`:
 | `reason` | When |
 | --- | --- |
 | `no_paired_phone` | The project has no paired phones. |
-| `no_phone_available` | Phones are paired, but none could take the message (offline, or at its send limit) within `fallback_after_seconds`. |
+| `no_phone_available` | Phones are paired, but none could take the message (offline, or at its send limit or daily cap, `daily_send_limit`) within `fallback_after_seconds`. |
 | `no_phone_in_time` | The message has waited longer than the queue timeout (1 hour). |
 | `phone_failed` | A phone reported a failure that will not be retried, or retries ran out (3 attempts). Not used for `invalid_destination`, which a provider would refuse too. |
 | `phone_unresponsive` | Phones did not accept the job after 3 assignments. |

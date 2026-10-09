@@ -17,11 +17,11 @@ and use `docker compose pull && docker compose up -d`:
 
 ```bash
 BRIDGE_IMAGE_PREFIX=ghcr.io/kroszborg/   # or kroszborg/ for Docker Hub
-BRIDGE_VERSION=0.3.0
+BRIDGE_VERSION=1.0.0
 ```
 
 Release images are multi-architecture (amd64 and arm64) and carry signed build provenance:
-`gh attestation verify oci://ghcr.io/kroszborg/bridge-api:0.3.0 --repo kroszborg/bridge`.
+`gh attestation verify oci://ghcr.io/kroszborg/bridge-api:1.0.0 --repo kroszborg/bridge`.
 
 Open http://localhost:3000, create your account, and create an API key.
 
@@ -51,7 +51,8 @@ automatically. The settings that matter for a public deployment:
 | `BRIDGE_ALLOW_SIGNUP` | `false` once you have created your own account. Invite teammates from **Team**; invite links work with sign-up off. |
 | `BRIDGE_OPERATOR_EMAILS` | Your email. Operators see **System health**. When unset, the first account is the operator. |
 | `BRIDGE_SECRET_KEY` | 32 random bytes as base64 or hex: `openssl rand -base64 32`. Needed to store [SMS provider](../providers/README.md) credentials, [integration](../integrations/README.md) secrets, Verify apps' token signing and Turnstile secrets, and Telegram bot tokens for [forwarding](../automation/README.md#telegram). |
-| `BRIDGE_SMTP_*` | Optional. An SMTP server for forwarding incoming SMS by email. See [Email for forwarding](#email-for-forwarding). |
+| `BRIDGE_SMTP_*` | Optional. An SMTP server for password reset links and for forwarding incoming SMS by email. See [Email](#email). |
+| `BRIDGE_SITE_URL` | Optional. Your public website, e.g. `https://sms.example.com`. Sign-up then links to its `/terms` and `/privacy`. |
 
 When `BRIDGE_DASHBOARD_URL` uses `https`, session cookies are automatically marked `Secure`.
 
@@ -90,11 +91,12 @@ put Bridge behind a reverse proxy, make sure it forwards WebSocket upgrades and 
 `X-Accel-Buffering: no` for nginx. Optional push settings for waking phones are described in
 [docs/android/README.md](../android/README.md).
 
-### Email for forwarding
+### Email
 
-[Forwarding rules](../automation/README.md#forwarding-rules) can send incoming SMS by email through
-your SMTP server. Without these settings, email destinations are unavailable and everything else
-works.
+Bridge sends two kinds of email through your SMTP server: password reset links, and incoming SMS
+for [forwarding rules](../automation/README.md#forwarding-rules) with email destinations. Without
+these settings, the sign-in page hides "Forgot password?", email destinations are unavailable, and
+everything else works.
 
 | Variable | Default | Notes |
 | --- | --- | --- |
@@ -126,6 +128,8 @@ account you log in with.
 - [ ] Logs collected from the containers (JSON in production).
 
 ### Example: Caddy
+
+For a complete single-server setup with Caddy included, see [Deploying to AWS Lightsail](lightsail.md).
 
 ```caddyfile
 sms.example.com {

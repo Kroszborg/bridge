@@ -14,8 +14,8 @@ npm install @kroszborg/bridge
 * Typed from Bridge's OpenAPI document. Field names match the REST API exactly.
 * Safe retries. Sends always carry an idempotency key, so a retried request never sends twice.
 
-> Pre-releases are published under the `next` tag: `npm install @kroszborg/bridge@next`.
-> Inside this repository, depend on it with `"@kroszborg/bridge": "workspace:*"`.
+Works with [hosted Bridge](https://bridge.kroszborg.co) (`https://api.bridge.kroszborg.co`) and
+with your own server. Inside this repository, depend on it with `"@kroszborg/bridge": "workspace:*"`.
 
 ## Send a message
 
@@ -24,7 +24,7 @@ import { Bridge } from '@kroszborg/bridge';
 
 const bridge = new Bridge({
   apiKey: process.env.BRIDGE_API_KEY, // bk_test_… simulates everything, bk_live_… sends real SMS
-  baseUrl: 'https://api.sms.example.com', // your Bridge server
+  baseUrl: 'https://api.bridge.kroszborg.co', // hosted Bridge, or your own server
 });
 
 const msg = await bridge.messages.send(
@@ -35,7 +35,8 @@ console.log(msg.id, msg.status); // msg_… queued
 ```
 
 `apiKey`, `baseUrl` and `webhookSecret` default to the `BRIDGE_API_KEY`, `BRIDGE_URL` and
-`BRIDGE_WEBHOOK_SECRET` environment variables.
+`BRIDGE_WEBHOOK_SECRET` environment variables. Without either, `baseUrl` is `http://localhost:8080`,
+a local self-hosted server.
 
 Optional fields: `device_id` sends through one phone, `sim_slot` (1 or 2) picks a SIM, and `metadata`
 holds up to 32 keys of your own data. Pass your own `idempotencyKey`, such as an order ID, to make
