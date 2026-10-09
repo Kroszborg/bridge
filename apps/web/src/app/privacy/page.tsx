@@ -72,6 +72,13 @@ export default function PrivacyPage() {
           Bridge itself, from a phone we operate.
         </li>
         <li>
+          <strong>Cloudflare Turnstile</strong>, when switched on, checks that sign-ups, password
+          reset requests and repeated sign-in attempts come from a person rather than a bot. While
+          the check runs on those pages, Cloudflare processes your IP address and signals from your
+          browser and device; Bridge sends Cloudflare your IP address with the check and keeps only
+          the result. Cloudflare uses this data only to provide the check.
+        </li>
+        <li>
           <strong>SMS providers you connect</strong> (MSG91, Twilio, Vonage or Plivo) receive the
           messages you route through them, under their own policies.
         </li>
@@ -81,7 +88,10 @@ export default function PrivacyPage() {
           build uses UnifiedPush or a persistent connection instead.
         </li>
       </ul>
-      <p>We do not sell personal data, show ads, or use analytics or tracking scripts.</p>
+      <p>
+        We do not sell personal data, show ads, or use analytics or tracking scripts. The only
+        third-party script is the Turnstile check on those account pages, used for security.
+      </p>
 
       <h2>Cookies</h2>
       <p>
