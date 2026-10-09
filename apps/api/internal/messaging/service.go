@@ -72,6 +72,13 @@ type JobInserter interface {
 // Publisher delivers a frame to a device wherever it is connected.
 type Publisher func(ctx context.Context, deviceID string, frame gateway.Outbound) error
 
+// Quota counts live messages against an organization's plan (hosted Bridge).
+// ReserveLive runs in the transaction that creates the message and returns an
+// error, such as *billing.LimitError, when the allowance is used up.
+type Quota interface {
+	ReserveLive(ctx context.Context, q *dbq.Queries, projectID string) error
+}
+
 // Waker wakes an offline device through push.
 type Waker interface {
 	Wake(ctx context.Context, t push.Target, reason string) error
@@ -88,6 +95,7 @@ type Service struct {
 	limiter ratelimit.Limiter
 	// providers is nil when the server cannot use SMS providers.
 	providers Providers
+	quota     Quota // nil: unlimited
 	cfg       Config
 	now       func() time.Time
 }
@@ -100,6 +108,7 @@ type Options struct {
 	Emitter   Emitter // optional: webhook events
 	Limiter   ratelimit.Limiter
 	Providers Providers // optional: SMS providers as a fallback for phones
+	Quota     Quota     // optional: plan limits on live messages
 	Config    Config
 }
 
@@ -110,7 +119,7 @@ func New(o Options) *Service {
 		limiter = ratelimit.NewPostgres(q)
 	}
 	return &Service{
-		pool: o.Pool, q: q, log: o.Logger, publish: o.Publisher, waker: o.Waker, emitter: o.Emitter, providers: o.Providers,
+		pool: o.Pool, q: q, log: o.Logger, publish: o.Publisher, waker: o.Waker, emitter: o.Emitter, providers: o.Providers, quota: o.Quota,
 		limiter: limiter, cfg: o.Config.withDefaults(), now: time.Now,
 	}
 }
@@ -298,6 +307,11 @@ func (s *Service) Send(ctx context.Context, r SendRequest) (msg dbq.Message, rep
 	}
 	defer tx.Rollback(ctx)
 	q := s.q.WithTx(tx)
+	if r.Environment == dbq.ApiEnvironmentLive && s.quota != nil {
+		if err := s.quota.ReserveLive(ctx, q, r.ProjectID); err != nil {
+			return msg, false, err
+		}
+	}
 	msg, err = q.InsertMessage(ctx, params)
 	if db.IsUniqueViolation(err, "") && r.IdempotencyKey != "" {
 		// A concurrent request with the same key won; return its message.

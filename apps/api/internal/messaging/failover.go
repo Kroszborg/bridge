@@ -107,14 +107,7 @@ func (s *Service) PlanFailover(ctx context.Context, m dbq.Message) (FailoverRout
 		if tried[r.Device.ID] {
 			continue // a phone that already had this message
 		}
-		c := candidate{Device: r.Device, RecentSends: int(r.RecentSends)}
-		if r.OldestInWindow.Unix() > 0 {
-			c.OldestInWindow = r.OldestInWindow
-		}
-		if r.LastAssigned.Unix() > 0 {
-			c.LastAssigned = r.LastAssigned
-		}
-		cands = append(cands, c)
+		cands = append(cands, candidateFrom(r))
 	}
 	if sel := choose(cands, nil, s.now()); sel.Device != nil {
 		return FailoverRoute{DeviceID: sel.Device.ID}, true, nil

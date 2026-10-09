@@ -255,6 +255,43 @@
         ],
         "type": "object"
       },
+      "AuthConfig": {
+        "additionalProperties": false,
+        "properties": {
+          "hosted": {
+            "description": "Whether this is hosted Bridge (plans and billing apply).",
+            "type": "boolean"
+          },
+          "password_reset": {
+            "description": "Whether forgotten passwords can be reset by email.",
+            "type": "boolean"
+          },
+          "privacy_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "signup_open": {
+            "description": "Whether anyone can create an account. Invites always work.",
+            "type": "boolean"
+          },
+          "terms_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "signup_open",
+          "password_reset",
+          "hosted",
+          "terms_url",
+          "privacy_url"
+        ],
+        "type": "object"
+      },
       "AutoReplyRule": {
         "additionalProperties": false,
         "properties": {
@@ -456,6 +493,157 @@
             "type": "string"
           }
         },
+        "type": "object"
+      },
+      "Billing": {
+        "additionalProperties": false,
+        "properties": {
+          "cancel_at_period_end": {
+            "type": "boolean"
+          },
+          "current_period_end": {
+            "description": "When the paid period ends or renews.",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "enabled": {
+            "description": "False on self-hosted servers, which have no limits.",
+            "type": "boolean"
+          },
+          "manage_billing": {
+            "description": "Whether a customer portal is available for invoices, payment methods and cancelling.",
+            "type": "boolean"
+          },
+          "payments": {
+            "description": "Whether the workspace can change plans here.",
+            "type": "boolean"
+          },
+          "period_end": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "period_start": {
+            "description": "Start of the live SMS usage period (the 1st, UTC).",
+            "format": "date-time",
+            "type": "string"
+          },
+          "plan": {
+            "$ref": "#/components/schemas/BillingPlan"
+          },
+          "status": {
+            "description": "The subscription's status; none on the free plan.",
+            "enum": [
+              "none",
+              "active",
+              "past_due",
+              "cancelled",
+              "expired",
+              "incomplete"
+            ],
+            "type": "string"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/BillingUsage"
+          }
+        },
+        "required": [
+          "enabled",
+          "payments",
+          "plan",
+          "status",
+          "current_period_end",
+          "cancel_at_period_end",
+          "usage",
+          "period_start",
+          "period_end",
+          "manage_billing"
+        ],
+        "type": "object"
+      },
+      "BillingPlan": {
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "examples": [
+              "USD"
+            ],
+            "type": "string"
+          },
+          "id": {
+            "examples": [
+              "pro"
+            ],
+            "type": "string"
+          },
+          "interval": {
+            "enum": [
+              "month"
+            ],
+            "type": "string"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/PlanLimits"
+          },
+          "name": {
+            "examples": [
+              "Pro"
+            ],
+            "type": "string"
+          },
+          "price_cents": {
+            "description": "Monthly price in the currency's smallest unit.",
+            "examples": [
+              900
+            ],
+            "format": "int32",
+            "type": "integer"
+          },
+          "purchasable": {
+            "description": "Whether the plan can be bought on this server.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "price_cents",
+          "currency",
+          "interval",
+          "limits",
+          "purchasable"
+        ],
+        "type": "object"
+      },
+      "BillingUsage": {
+        "additionalProperties": false,
+        "properties": {
+          "live_messages": {
+            "description": "Live SMS accepted this period.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "members": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "phones": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "projects": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "phones",
+          "live_messages",
+          "projects",
+          "members"
+        ],
         "type": "object"
       },
       "Block": {
@@ -965,6 +1153,27 @@
         "required": [
           "verification_id",
           "code"
+        ],
+        "type": "object"
+      },
+      "ConfirmPasswordResetRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "password": {
+            "description": "At least 10 characters.",
+            "maxLength": 128,
+            "minLength": 10,
+            "type": "string"
+          },
+          "token": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "password"
         ],
         "type": "object"
       },
@@ -1628,7 +1837,7 @@
           },
           "app_version": {
             "examples": [
-              "0.1.0"
+              "1.0.0"
             ],
             "type": [
               "string",
@@ -1663,6 +1872,16 @@
           "created_at": {
             "format": "date-time",
             "type": "string"
+          },
+          "daily_send_limit": {
+            "description": "Most messages this phone sends in any 24 hours. Operators cap SIMs (about 100 a day on most Indian plans) and may block SIMs that send more.",
+            "format": "int32",
+            "type": "integer"
+          },
+          "day_sends": {
+            "description": "Messages assigned to this phone in the last 24 hours.",
+            "format": "int64",
+            "type": "integer"
           },
           "device_model": {
             "examples": [
@@ -1821,6 +2040,8 @@
           "sims",
           "send_limit_count",
           "send_limit_window_seconds",
+          "daily_send_limit",
+          "day_sends",
           "forward_inbound",
           "recent_sends",
           "total_sent",
@@ -2589,6 +2810,21 @@
           "data": {
             "items": {
               "$ref": "#/components/schemas/APIKey"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "ListResponseBillingPlan": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/BillingPlan"
             },
             "type": "array"
           }
@@ -3690,6 +3926,67 @@
         ],
         "type": "object"
       },
+      "PlanBody": {
+        "additionalProperties": false,
+        "properties": {
+          "plan": {
+            "description": "The plan to move to. Downgrade to Free by cancelling in the customer portal.",
+            "enum": [
+              "pro",
+              "business"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "plan"
+        ],
+        "type": "object"
+      },
+      "PlanLimits": {
+        "additionalProperties": false,
+        "properties": {
+          "live_messages": {
+            "description": "Live SMS accepted per calendar month (UTC). Null is unlimited.",
+            "format": "int32",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "members": {
+            "description": "Members plus open invitations. Null is unlimited.",
+            "format": "int32",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "phones": {
+            "description": "Paired phones across the workspace. Null is unlimited.",
+            "format": "int32",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "projects": {
+            "description": "Null is unlimited.",
+            "format": "int32",
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "phones",
+          "live_messages",
+          "projects",
+          "members"
+        ],
+        "type": "object"
+      },
       "Project": {
         "additionalProperties": false,
         "properties": {
@@ -4086,6 +4383,23 @@
         "required": [
           "data",
           "has_more"
+        ],
+        "type": "object"
+      },
+      "RequestPasswordResetRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "email": {
+            "examples": [
+              "ada@example.com"
+            ],
+            "format": "email",
+            "maxLength": 254,
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
         ],
         "type": "object"
       },
@@ -4546,7 +4860,7 @@
           },
           "app_version": {
             "examples": [
-              "0.1.0"
+              "1.0.0"
             ],
             "type": [
               "string",
@@ -4581,6 +4895,16 @@
           "created_at": {
             "format": "date-time",
             "type": "string"
+          },
+          "daily_send_limit": {
+            "description": "Most messages this phone sends in any 24 hours. Operators cap SIMs (about 100 a day on most Indian plans) and may block SIMs that send more.",
+            "format": "int32",
+            "type": "integer"
+          },
+          "day_sends": {
+            "description": "Messages assigned to this phone in the last 24 hours.",
+            "format": "int64",
+            "type": "integer"
           },
           "device_model": {
             "examples": [
@@ -4743,6 +5067,8 @@
           "sims",
           "send_limit_count",
           "send_limit_window_seconds",
+          "daily_send_limit",
+          "day_sends",
           "forward_inbound",
           "recent_sends",
           "total_sent",
@@ -5056,6 +5382,20 @@
           "status",
           "updated_at",
           "components"
+        ],
+        "type": "object"
+      },
+      "SyncBillingRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "subscription_id": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "subscription_id"
         ],
         "type": "object"
       },
@@ -5405,6 +5745,13 @@
       "UpdateDeviceRequest": {
         "additionalProperties": false,
         "properties": {
+          "daily_send_limit": {
+            "description": "Most messages in any 24 hours. Keep it within your SIM plan's daily SMS allowance.",
+            "format": "int32",
+            "maximum": 10000,
+            "minimum": 1,
+            "type": "integer"
+          },
           "forward_inbound": {
             "description": "Forward every SMS this phone receives to Bridge. Off by default; the phone also needs the Receive SMS permission.",
             "type": "boolean"
@@ -5516,6 +5863,19 @@
             "type": "string"
           }
         },
+        "type": "object"
+      },
+      "UrlBody": {
+        "additionalProperties": false,
+        "properties": {
+          "url": {
+            "description": "Open this URL in the browser.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
         "type": "object"
       },
       "Usage": {
@@ -6866,10 +7226,42 @@
       "name": "AGPL-3.0-only"
     },
     "title": "Bridge API",
-    "version": "dev"
+    "version": "1.0.0"
   },
   "openapi": "3.1.0",
   "paths": {
+    "/v1/auth/config": {
+      "get": {
+        "description": "Public, no authentication. What the sign-in and sign-up pages should offer on this server.",
+        "operationId": "getAuthConfig",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthConfig"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get sign-in options",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
     "/v1/auth/login": {
       "post": {
         "operationId": "login",
@@ -6979,6 +7371,150 @@
           }
         ],
         "summary": "Sign out",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/v1/auth/password-reset": {
+      "post": {
+        "description": "Always answers 202, whether or not an account uses the address, so the endpoint cannot be used to find accounts. The link works once and expires after an hour.",
+        "operationId": "requestPasswordReset",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestPasswordResetRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Email a password reset link",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/v1/auth/password-reset/confirm": {
+      "post": {
+        "description": "Sets the password, signs out every other session and starts a new one.",
+        "operationId": "confirmPasswordReset",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmPasswordResetRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeResponse"
+                }
+              }
+            },
+            "description": "OK",
+            "headers": {
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Gone"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Set a new password with a reset link",
         "tags": [
           "Auth"
         ]
@@ -7621,6 +8157,16 @@
             },
             "description": "Unauthorized"
           },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Payment Required"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -7900,6 +8446,16 @@
             },
             "description": "Unauthorized"
           },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Payment Required"
+          },
           "404": {
             "content": {
               "application/json": {
@@ -8049,6 +8605,16 @@
               }
             },
             "description": "OK"
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Payment Required"
           },
           "404": {
             "content": {
@@ -8662,6 +9228,16 @@
               }
             },
             "description": "Unauthorized"
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Payment Required"
           },
           "409": {
             "content": {
@@ -9480,6 +10056,490 @@
         ]
       }
     },
+    "/v1/organizations/{organizationId}/billing": {
+      "get": {
+        "operationId": "getBilling",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "organizationId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "org_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^org_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Billing"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Get the workspace's plan and usage",
+        "tags": [
+          "Billing"
+        ]
+      }
+    },
+    "/v1/organizations/{organizationId}/billing/checkout": {
+      "post": {
+        "description": "Returns a checkout URL for a workspace without a paid plan. For a workspace that already pays, Dodo is asked to move the subscription to the new plan (prorated; refused if the charge fails), and the URL leads back to the billing page, which updates once Dodo confirms.",
+        "operationId": "createBillingCheckout",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "organizationId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "org_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^org_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UrlBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Gateway"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Upgrade or change the plan",
+        "tags": [
+          "Billing"
+        ]
+      }
+    },
+    "/v1/organizations/{organizationId}/billing/portal": {
+      "post": {
+        "description": "Returns a link to Dodo's customer portal: invoices, payment methods and cancelling.",
+        "operationId": "createBillingPortal",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "organizationId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "org_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^org_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UrlBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Open the customer portal",
+        "tags": [
+          "Billing"
+        ]
+      }
+    },
+    "/v1/organizations/{organizationId}/billing/resume": {
+      "post": {
+        "description": "Withdraws a scheduled cancellation, so the plan renews as usual.",
+        "operationId": "resumeBilling",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "organizationId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "org_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^org_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Billing"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Gateway"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Keep a subscription that is set to cancel",
+        "tags": [
+          "Billing"
+        ]
+      }
+    },
+    "/v1/organizations/{organizationId}/billing/sync": {
+      "post": {
+        "description": "Called on the return from checkout with the subscription_id Dodo appends, so the plan updates without waiting for the webhook.",
+        "operationId": "syncBilling",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "organizationId",
+            "required": true,
+            "schema": {
+              "examples": [
+                "org_01j9tq4m2xk3v8c7e5r2n0w6yb"
+              ],
+              "pattern": "^org_[0-9a-z]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SyncBillingRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Billing"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Gateway"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Refresh a subscription from Dodo",
+        "tags": [
+          "Billing"
+        ]
+      }
+    },
     "/v1/organizations/{organizationId}/invites": {
       "get": {
         "operationId": "listInvites",
@@ -9599,6 +10659,16 @@
               }
             },
             "description": "Created"
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Payment Required"
           },
           "403": {
             "content": {
@@ -10124,6 +11194,16 @@
             },
             "description": "Created"
           },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Payment Required"
+          },
           "403": {
             "content": {
               "application/json": {
@@ -10210,6 +11290,16 @@
               }
             },
             "description": "Unauthorized"
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Payment Required"
           },
           "403": {
             "content": {
@@ -10494,6 +11584,38 @@
         "summary": "Get a verification",
         "tags": [
           "Developer API"
+        ]
+      }
+    },
+    "/v1/plans": {
+      "get": {
+        "description": "Public, no authentication. The hosted plans and their limits. Self-hosted servers return an empty list.",
+        "operationId": "listPlans",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponseBillingPlan"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "List plans",
+        "tags": [
+          "Billing"
         ]
       }
     },
@@ -12170,6 +13292,16 @@
               }
             }
           },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Payment Required"
+          },
           "404": {
             "content": {
               "application/json": {
@@ -13458,6 +14590,16 @@
               }
             }
           },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Payment Required"
+          },
           "404": {
             "content": {
               "application/json": {
@@ -14134,6 +15276,16 @@
               }
             },
             "description": "Created"
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Payment Required"
           },
           "403": {
             "content": {
@@ -19459,6 +20611,10 @@
     {
       "description": "The opt-out list, keyword auto-replies (STOP, START, HELP) and forwarding of incoming SMS.",
       "name": "Automation"
+    },
+    {
+      "description": "Plans, usage and subscriptions on hosted Bridge. Self-hosted servers have no limits.",
+      "name": "Billing"
     }
   ]
 }

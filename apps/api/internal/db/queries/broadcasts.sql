@@ -89,8 +89,12 @@ WHERE r.broadcast_id = $1 AND m.status = 'queued' AND m.device_id IS NULL
   AND m.provider IN ('android', 'simulator');
 
 -- name: ProjectSendCapacity :one
--- Messages the project's online phones may send per send-limit window, together.
--- Offline phones are left out so queued messages do not wait long enough to time out.
-SELECT COALESCE(sum(send_limit_count), 0)::int FROM devices
-WHERE project_id = @project_id AND revoked_at IS NULL AND status = 'online'
-  AND (sqlc.narg(device_id)::text IS NULL OR id = sqlc.narg(device_id));
+-- Messages the project's online phones may send per send-limit window, together,
+-- never more than what is left of each phone's daily cap. Offline phones are left
+-- out so queued messages do not wait long enough to time out.
+SELECT COALESCE(sum(GREATEST(0, LEAST(d.send_limit_count, d.daily_send_limit - (
+    SELECT count(*) FROM messages m WHERE m.device_id = d.id AND m.assigned_at > now() - interval '24 hours'
+)))), 0)::int
+FROM devices d
+WHERE d.project_id = @project_id AND d.revoked_at IS NULL AND d.status = 'online'
+  AND (sqlc.narg(device_id)::text IS NULL OR d.id = sqlc.narg(device_id));

@@ -18,11 +18,14 @@ import (
 )
 
 type Config struct {
-	Env            string   // "development" or "production"
-	HTTPAddr       string   // listen address for `bridge serve`
-	DatabaseURL    string   // PostgreSQL connection string
-	PublicURL      *url.URL // externally reachable API base URL
-	DashboardURL   *url.URL // dashboard origin, the only origin allowed to use session cookies
+	Env          string   // "development" or "production"
+	HTTPAddr     string   // listen address for `bridge serve`
+	DatabaseURL  string   // PostgreSQL connection string
+	PublicURL    *url.URL // externally reachable API base URL
+	DashboardURL *url.URL // dashboard origin, the only origin allowed to use session cookies
+	// SiteURL is the public website (BRIDGE_SITE_URL), linked from sign-up for
+	// the terms and privacy policy. Nil: no links.
+	SiteURL        *url.URL
 	LogLevel       slog.Level
 	LogFormat      string         // "json" or "text"
 	TrustedProxies []netip.Prefix // peers whose X-Forwarded-For header is trusted
@@ -55,6 +58,29 @@ type Config struct {
 	// TelegramAPIURL replaces https://api.telegram.org for forwarding. Tests
 	// point it at a fake; empty uses Telegram.
 	TelegramAPIURL string
+	// Cloud turns on hosted Bridge: plans, limits and billing (BRIDGE_CLOUD).
+	// Off for self-hosted installs, which are never limited.
+	Cloud bool
+	// Dodo takes payments for paid plans. Nil: plans are enforced but nobody
+	// can upgrade (or Cloud is off).
+	Dodo *DodoConfig
+}
+
+// Dodo Payments environments.
+const (
+	DodoTestMode = "test_mode"
+	DodoLiveMode = "live_mode"
+)
+
+// DodoConfig connects hosted Bridge to Dodo Payments.
+type DodoConfig struct {
+	APIKey        string
+	WebhookSecret string // Standard Webhooks secret, whsec_…
+	Environment   string // DodoTestMode or DodoLiveMode
+	// Products maps a plan ID to its Dodo product ID, e.g. pro → pdt_….
+	Products map[string]string
+	// BaseURL replaces Dodo's API URL. Tests point it at a fake.
+	BaseURL string
 }
 
 // SMTP connection security.
@@ -253,6 +279,44 @@ func load(get func(string) string) (*Config, error) {
 			errs = append(errs, errors.New("BRIDGE_SMTP_FROM must be an email address, e.g. Bridge <sms@example.com>, when BRIDGE_SMTP_HOST is set"))
 		}
 		c.SMTP = smtp
+	}
+
+	if str("BRIDGE_SITE_URL", "") != "" {
+		c.SiteURL = parseURL("BRIDGE_SITE_URL", "")
+	}
+
+	c.Cloud = parseBool("BRIDGE_CLOUD", false)
+	if key := str("BRIDGE_DODO_API_KEY", ""); key != "" {
+		dodo := &DodoConfig{
+			APIKey: key, WebhookSecret: str("BRIDGE_DODO_WEBHOOK_SECRET", ""),
+			Environment: str("BRIDGE_DODO_ENVIRONMENT", DodoTestMode), Products: map[string]string{},
+			BaseURL: str("BRIDGE_DODO_BASE_URL", ""),
+		}
+		if dodo.WebhookSecret == "" {
+			errs = append(errs, errors.New("BRIDGE_DODO_WEBHOOK_SECRET is required with BRIDGE_DODO_API_KEY"))
+		}
+		if dodo.Environment != DodoTestMode && dodo.Environment != DodoLiveMode {
+			errs = append(errs, fmt.Errorf("BRIDGE_DODO_ENVIRONMENT must be test_mode or live_mode, got %q", dodo.Environment))
+		}
+		for pair := range strings.SplitSeq(str("BRIDGE_DODO_PRODUCTS", ""), ",") {
+			if pair = strings.TrimSpace(pair); pair == "" {
+				continue
+			}
+			plan, product, ok := strings.Cut(pair, "=")
+			plan, product = strings.TrimSpace(plan), strings.TrimSpace(product)
+			if !ok || plan == "" || product == "" {
+				errs = append(errs, fmt.Errorf("BRIDGE_DODO_PRODUCTS: use plan=product pairs, e.g. pro=pdt_123,business=pdt_456; got %q", pair))
+				continue
+			}
+			dodo.Products[plan] = product
+		}
+		if len(dodo.Products) == 0 {
+			errs = append(errs, errors.New("BRIDGE_DODO_PRODUCTS is required with BRIDGE_DODO_API_KEY, e.g. pro=pdt_123,business=pdt_456"))
+		}
+		if !c.Cloud {
+			errs = append(errs, errors.New("BRIDGE_DODO_API_KEY is set but BRIDGE_CLOUD is not true; billing only runs on hosted Bridge"))
+		}
+		c.Dodo = dodo
 	}
 
 	// Secure cookies are required whenever the dashboard is served over HTTPS.

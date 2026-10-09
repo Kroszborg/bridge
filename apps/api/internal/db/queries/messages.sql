@@ -80,7 +80,12 @@ SELECT sqlc.embed(devices),
        COALESCE((SELECT min(m.assigned_at) FROM messages m
          WHERE m.device_id = devices.id
            AND m.assigned_at > now() - make_interval(secs => devices.send_limit_window_seconds)), to_timestamp(0))::timestamptz AS oldest_in_window,
-       COALESCE((SELECT max(m.assigned_at) FROM messages m WHERE m.device_id = devices.id), to_timestamp(0))::timestamptz AS last_assigned
+       COALESCE((SELECT max(m.assigned_at) FROM messages m WHERE m.device_id = devices.id), to_timestamp(0))::timestamptz AS last_assigned,
+       -- Sends in the last 24 hours, for the daily cap.
+       (SELECT count(*) FROM messages m
+         WHERE m.device_id = devices.id AND m.assigned_at > now() - interval '24 hours')::int AS day_sends,
+       COALESCE((SELECT min(m.assigned_at) FROM messages m
+         WHERE m.device_id = devices.id AND m.assigned_at > now() - interval '24 hours'), to_timestamp(0))::timestamptz AS oldest_in_day
 FROM devices
 WHERE devices.project_id = $1 AND devices.revoked_at IS NULL;
 
@@ -112,6 +117,8 @@ SELECT d.id,
        (SELECT count(*) FROM messages m
          WHERE m.device_id = d.id
            AND m.assigned_at > now() - make_interval(secs => d.send_limit_window_seconds))::int AS recent_sends,
+       (SELECT count(*) FROM messages m
+         WHERE m.device_id = d.id AND m.assigned_at > now() - interval '24 hours')::int AS day_sends,
        (SELECT count(*) FROM messages m WHERE m.device_id = d.id AND m.status IN ('sent', 'delivered'))::int AS total_sent,
        (SELECT count(*) FROM messages m WHERE m.device_id = d.id AND m.status = 'failed')::int AS total_failed
 FROM devices d
@@ -133,6 +140,7 @@ UPDATE devices SET
     name = COALESCE(sqlc.narg(name)::text, name),
     preferred_sim_slot = CASE WHEN @set_sim::bool THEN sqlc.narg(preferred_sim_slot)::smallint ELSE preferred_sim_slot END,
     send_limit_count = COALESCE(sqlc.narg(send_limit_count)::int, send_limit_count),
+    daily_send_limit = COALESCE(sqlc.narg(daily_send_limit)::int, daily_send_limit),
     forward_inbound = COALESCE(sqlc.narg(forward_inbound)::bool, forward_inbound),
     updated_at = now()
 WHERE id = @id AND project_id = @project_id

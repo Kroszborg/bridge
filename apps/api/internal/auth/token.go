@@ -19,6 +19,7 @@ const (
 	DevicePrefix       = "bd_"
 	PairingPrefix      = "bp_"
 	InvitePrefix       = "bi_"
+	ResetPrefix        = "br_"
 )
 
 const (

@@ -85,7 +85,7 @@ func (s *Server) registerOTP(api huma.API) {
 			"429 for the hourly IP, number-range and country limits). " +
 			"Test keys send nothing and return the code in `code`.",
 		Security: apiKeyAuth, DefaultStatus: http.StatusCreated,
-		Errors: []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusTooManyRequests},
+		Errors: []int{http.StatusPaymentRequired, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusTooManyRequests},
 	}, func(ctx context.Context, in *struct{ Body otpSendBody }) (*struct{ Body Verification }, error) {
 		k := principalFrom(ctx).APIKey
 		project, err := s.q.GetProjectByID(ctx, k.ProjectID)
@@ -226,7 +226,7 @@ func (s *Server) registerOTP(api huma.API) {
 		OperationID: "sendProjectVerification", Method: http.MethodPost, Path: "/v1/projects/{projectId}/otp", Tags: []string{"Verify"},
 		Summary:     "Send a verification code from the dashboard",
 		Description: "Same as `POST /v1/otp`, authenticated by the session, with the environment chosen per request.",
-		Security:    sessionAuth, DefaultStatus: http.StatusCreated, Errors: []int{http.StatusForbidden, http.StatusNotFound, http.StatusTooManyRequests},
+		Security:    sessionAuth, DefaultStatus: http.StatusCreated, Errors: []int{http.StatusPaymentRequired, http.StatusForbidden, http.StatusNotFound, http.StatusTooManyRequests},
 	}, func(ctx context.Context, in *struct {
 		ProjectPath
 		Environment string `query:"environment" enum:"live,test" default:"test"`

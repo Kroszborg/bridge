@@ -14,16 +14,19 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"bridge/internal/auth"
+	"bridge/internal/billing"
 	"bridge/internal/config"
 	"bridge/internal/db/dbq"
 	"bridge/internal/events"
 	"bridge/internal/gateway"
 	"bridge/internal/httpapi"
+	"bridge/internal/mail"
 	"bridge/internal/messaging"
 	"bridge/internal/provider"
 	"bridge/internal/push"
@@ -101,9 +104,10 @@ func newServer(t *testing.T, mutate ...func(*config.Config)) *httptest.Server {
 		t.Fatal(err)
 	}
 	providers := provider.NewRouter(dbq.New(testDB.Pool), box, provider.RouterOptions{PublicURL: cfg.PublicURL.String(), BaseURLs: fakeProviders})
+	bill := billing.New(testDB.Pool, cfg, logger)
 	msgs := messaging.New(messaging.Options{
 		Pool: testDB.Pool, Logger: logger, Publisher: hub.Send, Waker: pushService, Emitter: hooks, Providers: providers,
-		Config: messaging.Config{AssignTimeout: testAssignTimeout},
+		Quota: bill, Config: messaging.Config{AssignTimeout: testAssignTimeout},
 	})
 	hub.SetHandler(msgs)
 	// A real River worker processes dispatch and simulation jobs.
@@ -128,7 +132,7 @@ func newServer(t *testing.T, mutate ...func(*config.Config)) *httptest.Server {
 	go func() { _ = broker.Run(ctx) }()
 	srv := httptest.NewServer(httpapi.New(httpapi.Options{
 		Config: cfg, Pool: testDB.Pool, Logger: logger, Version: "test", Hub: hub, Push: pushService, Messaging: msgs, Webhooks: hooks,
-		RequestLog: requests, Events: broker, Status: health, Providers: providers, Tools: kit,
+		RequestLog: requests, Events: broker, Status: health, Providers: providers, Tools: kit, Billing: bill, Mail: sentMail,
 	}).Handler())
 	t.Cleanup(func() {
 		stopCtx, stop := context.WithTimeout(context.Background(), 5*time.Second)
@@ -139,6 +143,40 @@ func newServer(t *testing.T, mutate ...func(*config.Config)) *httptest.Server {
 	})
 	return srv
 }
+
+// captureMail records account email instead of sending it.
+type captureMail struct {
+	mu   sync.Mutex
+	sent []mail.Message
+}
+
+func (c *captureMail) Send(_ context.Context, m mail.Message) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.sent = append(c.sent, m)
+	return nil
+}
+
+// waitFor returns the latest email to the address, waiting briefly for background sends.
+func (c *captureMail) waitFor(t *testing.T, to string) mail.Message {
+	t.Helper()
+	for range 100 {
+		c.mu.Lock()
+		for i := len(c.sent) - 1; i >= 0; i-- {
+			if c.sent[i].To == to {
+				m := c.sent[i]
+				c.mu.Unlock()
+				return m
+			}
+		}
+		c.mu.Unlock()
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatalf("no email to %s", to)
+	return mail.Message{}
+}
+
+var sentMail = &captureMail{}
 
 var ipCounter atomic.Uint32
 

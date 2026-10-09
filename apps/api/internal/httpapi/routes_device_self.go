@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"bridge/internal/auth"
+	"bridge/internal/billing"
 	"bridge/internal/db/dbq"
 	"bridge/internal/gateway"
 	"bridge/internal/id"
@@ -96,7 +97,7 @@ func (s *Server) registerDeviceSelf(api huma.API) {
 		OperationID: "pairDevice", Method: http.MethodPost, Path: "/v1/device/pair", Tags: []string{"Gateway"},
 		Summary:     "Pair a device",
 		Description: "Exchanges a pairing token from the dashboard for a device credential. Pairing the same installation again rotates its credential.",
-		Errors:      []int{http.StatusUnauthorized, http.StatusTooManyRequests},
+		Errors:      []int{http.StatusUnauthorized, http.StatusPaymentRequired, http.StatusTooManyRequests},
 	}, s.pairDevice)
 
 	huma.Register(api, huma.Operation{
@@ -202,6 +203,9 @@ func (s *Server) pairDevice(ctx context.Context, in *pairInput) (*struct{ Body P
 	existing, err := q.GetDeviceByInstallation(ctx, dbq.GetDeviceByInstallationParams{ProjectID: tok.ProjectID, InstallationID: b.InstallationID})
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
+		if err := s.billing.CheckAdd(ctx, q, project.OrganizationID, billing.Phones); err != nil {
+			return nil, billingError(err)
+		}
 		device, err = q.CreateDevice(ctx, dbq.CreateDeviceParams{
 			ID: id.New(id.Device), ProjectID: tok.ProjectID, Name: name, InstallationID: b.InstallationID,
 			CredentialHash: auth.HashToken(credential), DeviceModel: opt(b.DeviceModel),

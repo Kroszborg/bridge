@@ -36,7 +36,7 @@ func (q *Queries) ClaimPairingToken(ctx context.Context, tokenHash []byte) (Devi
 const createDevice = `-- name: CreateDevice :one
 INSERT INTO devices (id, project_id, name, installation_id, credential_hash, device_model, android_version, app_version, app_flavor)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, project_id, name, installation_id, credential_hash, status, last_heartbeat_at, last_seen_at, battery_level, is_charging, network_type, carrier_name, sim_count, device_model, android_version, app_version, created_at, updated_at, revoked_at, push_provider, push_endpoint, push_p256dh, push_auth, push_updated_at, connection_id, connected_at, heartbeat_interval, app_flavor, preferred_sim_slot, send_limit_count, send_limit_window_seconds, sims, forward_inbound, notified_presence
+RETURNING id, project_id, name, installation_id, credential_hash, status, last_heartbeat_at, last_seen_at, battery_level, is_charging, network_type, carrier_name, sim_count, device_model, android_version, app_version, created_at, updated_at, revoked_at, push_provider, push_endpoint, push_p256dh, push_auth, push_updated_at, connection_id, connected_at, heartbeat_interval, app_flavor, preferred_sim_slot, send_limit_count, send_limit_window_seconds, sims, forward_inbound, notified_presence, daily_send_limit
 `
 
 type CreateDeviceParams struct {
@@ -99,6 +99,7 @@ func (q *Queries) CreateDevice(ctx context.Context, arg CreateDeviceParams) (Dev
 		&i.Sims,
 		&i.ForwardInbound,
 		&i.NotifiedPresence,
+		&i.DailySendLimit,
 	)
 	return i, err
 }
@@ -140,7 +141,7 @@ func (q *Queries) CreatePairingToken(ctx context.Context, arg CreatePairingToken
 }
 
 const getDevice = `-- name: GetDevice :one
-SELECT id, project_id, name, installation_id, credential_hash, status, last_heartbeat_at, last_seen_at, battery_level, is_charging, network_type, carrier_name, sim_count, device_model, android_version, app_version, created_at, updated_at, revoked_at, push_provider, push_endpoint, push_p256dh, push_auth, push_updated_at, connection_id, connected_at, heartbeat_interval, app_flavor, preferred_sim_slot, send_limit_count, send_limit_window_seconds, sims, forward_inbound, notified_presence FROM devices WHERE id = $1 AND project_id = $2
+SELECT id, project_id, name, installation_id, credential_hash, status, last_heartbeat_at, last_seen_at, battery_level, is_charging, network_type, carrier_name, sim_count, device_model, android_version, app_version, created_at, updated_at, revoked_at, push_provider, push_endpoint, push_p256dh, push_auth, push_updated_at, connection_id, connected_at, heartbeat_interval, app_flavor, preferred_sim_slot, send_limit_count, send_limit_window_seconds, sims, forward_inbound, notified_presence, daily_send_limit FROM devices WHERE id = $1 AND project_id = $2
 `
 
 type GetDeviceParams struct {
@@ -186,12 +187,13 @@ func (q *Queries) GetDevice(ctx context.Context, arg GetDeviceParams) (Device, e
 		&i.Sims,
 		&i.ForwardInbound,
 		&i.NotifiedPresence,
+		&i.DailySendLimit,
 	)
 	return i, err
 }
 
 const getDeviceByID = `-- name: GetDeviceByID :one
-SELECT id, project_id, name, installation_id, credential_hash, status, last_heartbeat_at, last_seen_at, battery_level, is_charging, network_type, carrier_name, sim_count, device_model, android_version, app_version, created_at, updated_at, revoked_at, push_provider, push_endpoint, push_p256dh, push_auth, push_updated_at, connection_id, connected_at, heartbeat_interval, app_flavor, preferred_sim_slot, send_limit_count, send_limit_window_seconds, sims, forward_inbound, notified_presence FROM devices WHERE id = $1
+SELECT id, project_id, name, installation_id, credential_hash, status, last_heartbeat_at, last_seen_at, battery_level, is_charging, network_type, carrier_name, sim_count, device_model, android_version, app_version, created_at, updated_at, revoked_at, push_provider, push_endpoint, push_p256dh, push_auth, push_updated_at, connection_id, connected_at, heartbeat_interval, app_flavor, preferred_sim_slot, send_limit_count, send_limit_window_seconds, sims, forward_inbound, notified_presence, daily_send_limit FROM devices WHERE id = $1
 `
 
 func (q *Queries) GetDeviceByID(ctx context.Context, id string) (Device, error) {
@@ -232,12 +234,13 @@ func (q *Queries) GetDeviceByID(ctx context.Context, id string) (Device, error) 
 		&i.Sims,
 		&i.ForwardInbound,
 		&i.NotifiedPresence,
+		&i.DailySendLimit,
 	)
 	return i, err
 }
 
 const getDeviceByInstallation = `-- name: GetDeviceByInstallation :one
-SELECT id, project_id, name, installation_id, credential_hash, status, last_heartbeat_at, last_seen_at, battery_level, is_charging, network_type, carrier_name, sim_count, device_model, android_version, app_version, created_at, updated_at, revoked_at, push_provider, push_endpoint, push_p256dh, push_auth, push_updated_at, connection_id, connected_at, heartbeat_interval, app_flavor, preferred_sim_slot, send_limit_count, send_limit_window_seconds, sims, forward_inbound, notified_presence FROM devices WHERE project_id = $1 AND installation_id = $2
+SELECT id, project_id, name, installation_id, credential_hash, status, last_heartbeat_at, last_seen_at, battery_level, is_charging, network_type, carrier_name, sim_count, device_model, android_version, app_version, created_at, updated_at, revoked_at, push_provider, push_endpoint, push_p256dh, push_auth, push_updated_at, connection_id, connected_at, heartbeat_interval, app_flavor, preferred_sim_slot, send_limit_count, send_limit_window_seconds, sims, forward_inbound, notified_presence, daily_send_limit FROM devices WHERE project_id = $1 AND installation_id = $2
 `
 
 type GetDeviceByInstallationParams struct {
@@ -283,12 +286,13 @@ func (q *Queries) GetDeviceByInstallation(ctx context.Context, arg GetDeviceByIn
 		&i.Sims,
 		&i.ForwardInbound,
 		&i.NotifiedPresence,
+		&i.DailySendLimit,
 	)
 	return i, err
 }
 
 const getDeviceForAuth = `-- name: GetDeviceForAuth :one
-SELECT devices.id, devices.project_id, devices.name, devices.installation_id, devices.credential_hash, devices.status, devices.last_heartbeat_at, devices.last_seen_at, devices.battery_level, devices.is_charging, devices.network_type, devices.carrier_name, devices.sim_count, devices.device_model, devices.android_version, devices.app_version, devices.created_at, devices.updated_at, devices.revoked_at, devices.push_provider, devices.push_endpoint, devices.push_p256dh, devices.push_auth, devices.push_updated_at, devices.connection_id, devices.connected_at, devices.heartbeat_interval, devices.app_flavor, devices.preferred_sim_slot, devices.send_limit_count, devices.send_limit_window_seconds, devices.sims, devices.forward_inbound, devices.notified_presence, projects.organization_id, projects.name AS project_name
+SELECT devices.id, devices.project_id, devices.name, devices.installation_id, devices.credential_hash, devices.status, devices.last_heartbeat_at, devices.last_seen_at, devices.battery_level, devices.is_charging, devices.network_type, devices.carrier_name, devices.sim_count, devices.device_model, devices.android_version, devices.app_version, devices.created_at, devices.updated_at, devices.revoked_at, devices.push_provider, devices.push_endpoint, devices.push_p256dh, devices.push_auth, devices.push_updated_at, devices.connection_id, devices.connected_at, devices.heartbeat_interval, devices.app_flavor, devices.preferred_sim_slot, devices.send_limit_count, devices.send_limit_window_seconds, devices.sims, devices.forward_inbound, devices.notified_presence, devices.daily_send_limit, projects.organization_id, projects.name AS project_name
 FROM devices
 JOIN projects ON projects.id = devices.project_id
 WHERE devices.credential_hash = $1
@@ -338,6 +342,7 @@ func (q *Queries) GetDeviceForAuth(ctx context.Context, credentialHash []byte) (
 		&i.Device.Sims,
 		&i.Device.ForwardInbound,
 		&i.Device.NotifiedPresence,
+		&i.Device.DailySendLimit,
 		&i.OrganizationID,
 		&i.ProjectName,
 	)
@@ -370,7 +375,7 @@ func (q *Queries) InsertServerKey(ctx context.Context, arg InsertServerKeyParams
 }
 
 const listDevices = `-- name: ListDevices :many
-SELECT id, project_id, name, installation_id, credential_hash, status, last_heartbeat_at, last_seen_at, battery_level, is_charging, network_type, carrier_name, sim_count, device_model, android_version, app_version, created_at, updated_at, revoked_at, push_provider, push_endpoint, push_p256dh, push_auth, push_updated_at, connection_id, connected_at, heartbeat_interval, app_flavor, preferred_sim_slot, send_limit_count, send_limit_window_seconds, sims, forward_inbound, notified_presence FROM devices
+SELECT id, project_id, name, installation_id, credential_hash, status, last_heartbeat_at, last_seen_at, battery_level, is_charging, network_type, carrier_name, sim_count, device_model, android_version, app_version, created_at, updated_at, revoked_at, push_provider, push_endpoint, push_p256dh, push_auth, push_updated_at, connection_id, connected_at, heartbeat_interval, app_flavor, preferred_sim_slot, send_limit_count, send_limit_window_seconds, sims, forward_inbound, notified_presence, daily_send_limit FROM devices
 WHERE project_id = $1
 ORDER BY (revoked_at IS NOT NULL), created_at DESC, id DESC
 `
@@ -419,6 +424,7 @@ func (q *Queries) ListDevices(ctx context.Context, projectID string) ([]Device, 
 			&i.Sims,
 			&i.ForwardInbound,
 			&i.NotifiedPresence,
+			&i.DailySendLimit,
 		); err != nil {
 			return nil, err
 		}
@@ -531,7 +537,7 @@ func (q *Queries) RecordHeartbeat(ctx context.Context, arg RecordHeartbeatParams
 const renameDevice = `-- name: RenameDevice :one
 UPDATE devices SET name = $1, updated_at = now()
 WHERE id = $2 AND project_id = $3
-RETURNING id, project_id, name, installation_id, credential_hash, status, last_heartbeat_at, last_seen_at, battery_level, is_charging, network_type, carrier_name, sim_count, device_model, android_version, app_version, created_at, updated_at, revoked_at, push_provider, push_endpoint, push_p256dh, push_auth, push_updated_at, connection_id, connected_at, heartbeat_interval, app_flavor, preferred_sim_slot, send_limit_count, send_limit_window_seconds, sims, forward_inbound, notified_presence
+RETURNING id, project_id, name, installation_id, credential_hash, status, last_heartbeat_at, last_seen_at, battery_level, is_charging, network_type, carrier_name, sim_count, device_model, android_version, app_version, created_at, updated_at, revoked_at, push_provider, push_endpoint, push_p256dh, push_auth, push_updated_at, connection_id, connected_at, heartbeat_interval, app_flavor, preferred_sim_slot, send_limit_count, send_limit_window_seconds, sims, forward_inbound, notified_presence, daily_send_limit
 `
 
 type RenameDeviceParams struct {
@@ -578,6 +584,7 @@ func (q *Queries) RenameDevice(ctx context.Context, arg RenameDeviceParams) (Dev
 		&i.Sims,
 		&i.ForwardInbound,
 		&i.NotifiedPresence,
+		&i.DailySendLimit,
 	)
 	return i, err
 }
@@ -595,7 +602,7 @@ UPDATE devices SET
     connection_id = NULL,
     updated_at = now()
 WHERE id = $7
-RETURNING id, project_id, name, installation_id, credential_hash, status, last_heartbeat_at, last_seen_at, battery_level, is_charging, network_type, carrier_name, sim_count, device_model, android_version, app_version, created_at, updated_at, revoked_at, push_provider, push_endpoint, push_p256dh, push_auth, push_updated_at, connection_id, connected_at, heartbeat_interval, app_flavor, preferred_sim_slot, send_limit_count, send_limit_window_seconds, sims, forward_inbound, notified_presence
+RETURNING id, project_id, name, installation_id, credential_hash, status, last_heartbeat_at, last_seen_at, battery_level, is_charging, network_type, carrier_name, sim_count, device_model, android_version, app_version, created_at, updated_at, revoked_at, push_provider, push_endpoint, push_p256dh, push_auth, push_updated_at, connection_id, connected_at, heartbeat_interval, app_flavor, preferred_sim_slot, send_limit_count, send_limit_window_seconds, sims, forward_inbound, notified_presence, daily_send_limit
 `
 
 type RepairDeviceParams struct {
@@ -655,6 +662,7 @@ func (q *Queries) RepairDevice(ctx context.Context, arg RepairDeviceParams) (Dev
 		&i.Sims,
 		&i.ForwardInbound,
 		&i.NotifiedPresence,
+		&i.DailySendLimit,
 	)
 	return i, err
 }
@@ -662,7 +670,7 @@ func (q *Queries) RepairDevice(ctx context.Context, arg RepairDeviceParams) (Dev
 const revokeDevice = `-- name: RevokeDevice :one
 UPDATE devices SET revoked_at = now(), status = 'disabled', connection_id = NULL, updated_at = now()
 WHERE id = $1 AND project_id = $2 AND revoked_at IS NULL
-RETURNING id, project_id, name, installation_id, credential_hash, status, last_heartbeat_at, last_seen_at, battery_level, is_charging, network_type, carrier_name, sim_count, device_model, android_version, app_version, created_at, updated_at, revoked_at, push_provider, push_endpoint, push_p256dh, push_auth, push_updated_at, connection_id, connected_at, heartbeat_interval, app_flavor, preferred_sim_slot, send_limit_count, send_limit_window_seconds, sims, forward_inbound, notified_presence
+RETURNING id, project_id, name, installation_id, credential_hash, status, last_heartbeat_at, last_seen_at, battery_level, is_charging, network_type, carrier_name, sim_count, device_model, android_version, app_version, created_at, updated_at, revoked_at, push_provider, push_endpoint, push_p256dh, push_auth, push_updated_at, connection_id, connected_at, heartbeat_interval, app_flavor, preferred_sim_slot, send_limit_count, send_limit_window_seconds, sims, forward_inbound, notified_presence, daily_send_limit
 `
 
 type RevokeDeviceParams struct {
@@ -708,6 +716,7 @@ func (q *Queries) RevokeDevice(ctx context.Context, arg RevokeDeviceParams) (Dev
 		&i.Sims,
 		&i.ForwardInbound,
 		&i.NotifiedPresence,
+		&i.DailySendLimit,
 	)
 	return i, err
 }

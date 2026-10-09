@@ -198,6 +198,8 @@ SELECT d.id,
        (SELECT count(*) FROM messages m
          WHERE m.device_id = d.id
            AND m.assigned_at > now() - make_interval(secs => d.send_limit_window_seconds))::int AS recent_sends,
+       (SELECT count(*) FROM messages m
+         WHERE m.device_id = d.id AND m.assigned_at > now() - interval '24 hours')::int AS day_sends,
        (SELECT count(*) FROM messages m WHERE m.device_id = d.id AND m.status IN ('sent', 'delivered'))::int AS total_sent,
        (SELECT count(*) FROM messages m WHERE m.device_id = d.id AND m.status = 'failed')::int AS total_failed
 FROM devices d
@@ -207,6 +209,7 @@ WHERE d.project_id = $1
 type DeviceWindowCountsRow struct {
 	ID          string
 	RecentSends int32
+	DaySends    int32
 	TotalSent   int32
 	TotalFailed int32
 }
@@ -223,6 +226,7 @@ func (q *Queries) DeviceWindowCounts(ctx context.Context, projectID string) ([]D
 		if err := rows.Scan(
 			&i.ID,
 			&i.RecentSends,
+			&i.DaySends,
 			&i.TotalSent,
 			&i.TotalFailed,
 		); err != nil {
@@ -237,7 +241,7 @@ func (q *Queries) DeviceWindowCounts(ctx context.Context, projectID string) ([]D
 }
 
 const dispatchCandidates = `-- name: DispatchCandidates :many
-SELECT devices.id, devices.project_id, devices.name, devices.installation_id, devices.credential_hash, devices.status, devices.last_heartbeat_at, devices.last_seen_at, devices.battery_level, devices.is_charging, devices.network_type, devices.carrier_name, devices.sim_count, devices.device_model, devices.android_version, devices.app_version, devices.created_at, devices.updated_at, devices.revoked_at, devices.push_provider, devices.push_endpoint, devices.push_p256dh, devices.push_auth, devices.push_updated_at, devices.connection_id, devices.connected_at, devices.heartbeat_interval, devices.app_flavor, devices.preferred_sim_slot, devices.send_limit_count, devices.send_limit_window_seconds, devices.sims, devices.forward_inbound, devices.notified_presence,
+SELECT devices.id, devices.project_id, devices.name, devices.installation_id, devices.credential_hash, devices.status, devices.last_heartbeat_at, devices.last_seen_at, devices.battery_level, devices.is_charging, devices.network_type, devices.carrier_name, devices.sim_count, devices.device_model, devices.android_version, devices.app_version, devices.created_at, devices.updated_at, devices.revoked_at, devices.push_provider, devices.push_endpoint, devices.push_p256dh, devices.push_auth, devices.push_updated_at, devices.connection_id, devices.connected_at, devices.heartbeat_interval, devices.app_flavor, devices.preferred_sim_slot, devices.send_limit_count, devices.send_limit_window_seconds, devices.sims, devices.forward_inbound, devices.notified_presence, devices.daily_send_limit,
        (SELECT count(*) FROM messages m
          WHERE m.device_id = devices.id
            AND m.assigned_at > now() - make_interval(secs => devices.send_limit_window_seconds))::int AS recent_sends,
@@ -245,7 +249,12 @@ SELECT devices.id, devices.project_id, devices.name, devices.installation_id, de
        COALESCE((SELECT min(m.assigned_at) FROM messages m
          WHERE m.device_id = devices.id
            AND m.assigned_at > now() - make_interval(secs => devices.send_limit_window_seconds)), to_timestamp(0))::timestamptz AS oldest_in_window,
-       COALESCE((SELECT max(m.assigned_at) FROM messages m WHERE m.device_id = devices.id), to_timestamp(0))::timestamptz AS last_assigned
+       COALESCE((SELECT max(m.assigned_at) FROM messages m WHERE m.device_id = devices.id), to_timestamp(0))::timestamptz AS last_assigned,
+       -- Sends in the last 24 hours, for the daily cap.
+       (SELECT count(*) FROM messages m
+         WHERE m.device_id = devices.id AND m.assigned_at > now() - interval '24 hours')::int AS day_sends,
+       COALESCE((SELECT min(m.assigned_at) FROM messages m
+         WHERE m.device_id = devices.id AND m.assigned_at > now() - interval '24 hours'), to_timestamp(0))::timestamptz AS oldest_in_day
 FROM devices
 WHERE devices.project_id = $1 AND devices.revoked_at IS NULL
 `
@@ -255,6 +264,8 @@ type DispatchCandidatesRow struct {
 	RecentSends    int32
 	OldestInWindow time.Time
 	LastAssigned   time.Time
+	DaySends       int32
+	OldestInDay    time.Time
 }
 
 func (q *Queries) DispatchCandidates(ctx context.Context, projectID string) ([]DispatchCandidatesRow, error) {
@@ -301,9 +312,12 @@ func (q *Queries) DispatchCandidates(ctx context.Context, projectID string) ([]D
 			&i.Device.Sims,
 			&i.Device.ForwardInbound,
 			&i.Device.NotifiedPresence,
+			&i.Device.DailySendLimit,
 			&i.RecentSends,
 			&i.OldestInWindow,
 			&i.LastAssigned,
+			&i.DaySends,
+			&i.OldestInDay,
 		); err != nil {
 			return nil, err
 		}
@@ -1120,10 +1134,11 @@ UPDATE devices SET
     name = COALESCE($1::text, name),
     preferred_sim_slot = CASE WHEN $2::bool THEN $3::smallint ELSE preferred_sim_slot END,
     send_limit_count = COALESCE($4::int, send_limit_count),
-    forward_inbound = COALESCE($5::bool, forward_inbound),
+    daily_send_limit = COALESCE($5::int, daily_send_limit),
+    forward_inbound = COALESCE($6::bool, forward_inbound),
     updated_at = now()
-WHERE id = $6 AND project_id = $7
-RETURNING id, project_id, name, installation_id, credential_hash, status, last_heartbeat_at, last_seen_at, battery_level, is_charging, network_type, carrier_name, sim_count, device_model, android_version, app_version, created_at, updated_at, revoked_at, push_provider, push_endpoint, push_p256dh, push_auth, push_updated_at, connection_id, connected_at, heartbeat_interval, app_flavor, preferred_sim_slot, send_limit_count, send_limit_window_seconds, sims, forward_inbound, notified_presence
+WHERE id = $7 AND project_id = $8
+RETURNING id, project_id, name, installation_id, credential_hash, status, last_heartbeat_at, last_seen_at, battery_level, is_charging, network_type, carrier_name, sim_count, device_model, android_version, app_version, created_at, updated_at, revoked_at, push_provider, push_endpoint, push_p256dh, push_auth, push_updated_at, connection_id, connected_at, heartbeat_interval, app_flavor, preferred_sim_slot, send_limit_count, send_limit_window_seconds, sims, forward_inbound, notified_presence, daily_send_limit
 `
 
 type UpdateDeviceSettingsParams struct {
@@ -1131,6 +1146,7 @@ type UpdateDeviceSettingsParams struct {
 	SetSim           bool
 	PreferredSimSlot *int16
 	SendLimitCount   *int32
+	DailySendLimit   *int32
 	ForwardInbound   *bool
 	ID               string
 	ProjectID        string
@@ -1142,6 +1158,7 @@ func (q *Queries) UpdateDeviceSettings(ctx context.Context, arg UpdateDeviceSett
 		arg.SetSim,
 		arg.PreferredSimSlot,
 		arg.SendLimitCount,
+		arg.DailySendLimit,
 		arg.ForwardInbound,
 		arg.ID,
 		arg.ProjectID,
@@ -1182,6 +1199,7 @@ func (q *Queries) UpdateDeviceSettings(ctx context.Context, arg UpdateDeviceSett
 		&i.Sims,
 		&i.ForwardInbound,
 		&i.NotifiedPresence,
+		&i.DailySendLimit,
 	)
 	return i, err
 }

@@ -25,6 +25,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/sync/errgroup"
 
+	"bridge/internal/billing"
 	"bridge/internal/config"
 	"bridge/internal/db"
 	"bridge/internal/db/dbq"
@@ -142,9 +143,10 @@ func serve(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
+	bill := billing.New(pool, cfg, logger)
 	msgs := messaging.New(messaging.Options{
 		Pool: pool, Logger: logger, Publisher: hub.Send, Waker: pushService, Emitter: hooks,
-		Providers: providers, Config: messaging.Config{Retention: cfg.MessageRetention},
+		Providers: providers, Quota: bill, Config: messaging.Config{Retention: cfg.MessageRetention},
 	})
 	msgs.SetJobInserter(jobs)
 	hub.SetHandler(msgs)
@@ -161,7 +163,7 @@ func serve(ctx context.Context, args []string) error {
 		Addr: cfg.HTTPAddr,
 		Handler: httpapi.New(httpapi.Options{
 			Config: cfg, Pool: pool, Logger: logger, Version: version, Hub: hub, Push: pushService, Messaging: msgs, Webhooks: hooks, Providers: providers,
-			RequestLog: requests, Events: broker, Status: health, Tools: kit,
+			RequestLog: requests, Events: broker, Status: health, Tools: kit, Billing: bill,
 		}).Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
@@ -219,6 +221,7 @@ func runWorker(ctx context.Context) error {
 	}
 	msgs := messaging.New(messaging.Options{
 		Pool: pool, Logger: logger, Waker: pushService, Emitter: hooks, Providers: providers,
+		Quota: billing.New(pool, cfg, logger),
 		// The worker holds no device connections; frames go through NOTIFY.
 		Publisher: func(ctx context.Context, deviceID string, f gateway.Outbound) error {
 			return gateway.Publish(ctx, pool, deviceID, f)

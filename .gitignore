@@ -13,6 +13,8 @@ next-env.d.ts
 /apps/api/bin/
 # Generated from README.md and docs/ by apps/web/scripts/llms-full.mjs
 /apps/web/public/llms-full.txt
+# Generated from source.config.ts by fumadocs-mdx
+/apps/web/.source/
 
 # Env and secrets — never commit real credentials
 .env

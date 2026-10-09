@@ -12,7 +12,7 @@ func device(id string, online, charging bool, network string, limit int32) dbq.D
 	conn := "conn_" + id
 	d := dbq.Device{
 		ID: id, Status: dbq.DeviceStatusOffline, HeartbeatInterval: 60, IsCharging: &charging, NetworkType: &network,
-		SendLimitCount: limit, SendLimitWindowSeconds: 1800,
+		SendLimitCount: limit, SendLimitWindowSeconds: 1800, DailySendLimit: 100,
 	}
 	if online {
 		d.Status, d.ConnectionID, d.LastSeenAt = dbq.DeviceStatusOnline, &conn, &now
@@ -95,5 +95,34 @@ func TestNormalizeE164(t *testing.T) {
 		if _, err := NormalizeE164(bad); err == nil {
 			t.Errorf("accepted %q", bad)
 		}
+	}
+}
+
+func TestChooseRespectsDailyCap(t *testing.T) {
+	now := time.Now()
+	// A phone with room in its 30-minute window is still skipped once it has sent
+	// its daily allowance; the other phone takes the message.
+	cands := []candidate{
+		{Device: device("full_today", true, true, "wifi", 30), RecentSends: 1, DaySends: 100, OldestInDay: now.Add(-23 * time.Hour)},
+		{Device: device("has_room", true, false, "cellular", 30), RecentSends: 5, DaySends: 40},
+	}
+	sel := choose(cands, nil, now)
+	if sel.Device == nil || sel.Device.ID != "has_room" {
+		t.Fatalf("picked %+v, want has_room", sel)
+	}
+
+	// Every online phone full for the day: wait, and say why.
+	sel = choose(cands[:1], nil, now)
+	if sel.Device != nil || sel.Reason != "devices_at_daily_limit" {
+		t.Fatalf("all full: %+v", sel)
+	}
+	if sel.RetryIn != time.Minute {
+		t.Fatalf("retry = %v, want the one-minute cap", sel.RetryIn)
+	}
+
+	// A phone full only for the burst window is not a daily-limit stop.
+	sel = choose([]candidate{{Device: device("busy", true, true, "wifi", 30), RecentSends: 30, DaySends: 30, OldestInWindow: now.Add(-10 * time.Minute)}}, nil, now)
+	if sel.Reason != "devices_at_limit" {
+		t.Fatalf("window full: %+v", sel)
 	}
 }

@@ -27,6 +27,7 @@ const (
 	CodeRateLimited             = "rate_limited"
 	CodeOTPBlocked              = "otp_blocked"
 	CodeOptedOut                = "opted_out"
+	CodePlanLimitReached        = "plan_limit_reached"
 	CodeInternal                = "internal_error"
 	CodeUnavailable             = "service_unavailable"
 )

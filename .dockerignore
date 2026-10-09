@@ -8,6 +8,5 @@
 .env.*
 !.env.example
 android
-docs
 examples
 apps/api/bin

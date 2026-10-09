@@ -1,0 +1,36 @@
+# Production on one server: Caddy terminates HTTPS and is the only public entry point.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# See docs/self-hosting/lightsail.md for the .env this expects.
+services:
+  api:
+    ports: !reset []
+  dashboard:
+    ports: !reset []
+  web:
+    ports: !reset []
+
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    environment:
+      BRIDGE_SITE_HOST: ${BRIDGE_SITE_HOST:?set BRIDGE_SITE_HOST in .env}
+      BRIDGE_APP_HOST: ${BRIDGE_APP_HOST:?set BRIDGE_APP_HOST in .env}
+      BRIDGE_API_HOST: ${BRIDGE_API_HOST:?set BRIDGE_API_HOST in .env}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+      - dashboard
+      - web
+
+volumes:
+  caddy_data:
+  caddy_config:

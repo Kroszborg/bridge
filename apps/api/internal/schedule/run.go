@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
 
+	"bridge/internal/billing"
 	"bridge/internal/db/dbq"
 	"bridge/internal/messaging"
 )
@@ -131,7 +132,8 @@ func (s *Service) Send(ctx context.Context, a SendArgs, lastAttempt bool) error 
 	}
 	var ve *messaging.ValidationError
 	var oe *messaging.OptedOutError
-	if errors.As(err, &ve) || errors.As(err, &oe) || errors.As(err, &rl) {
+	var le *billing.LimitError
+	if errors.As(err, &ve) || errors.As(err, &oe) || errors.As(err, &rl) || errors.As(err, &le) {
 		return nil
 	}
 	return err
@@ -141,7 +143,10 @@ func describe(err error) string {
 	var ve *messaging.ValidationError
 	var oe *messaging.OptedOutError
 	var rl *messaging.RateLimitError
+	var le *billing.LimitError
 	switch {
+	case errors.As(err, &le):
+		return "Not sent: " + le.Error()
 	case errors.As(err, &oe):
 		return "Not sent: " + oe.Number + " opted out of messages from this project."
 	case errors.As(err, &ve):

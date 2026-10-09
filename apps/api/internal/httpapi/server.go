@@ -14,10 +14,12 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"bridge/internal/billing"
 	"bridge/internal/config"
 	"bridge/internal/db/dbq"
 	"bridge/internal/events"
 	"bridge/internal/gateway"
+	"bridge/internal/mail"
 	"bridge/internal/messaging"
 	"bridge/internal/otp"
 	"bridge/internal/provider"
@@ -48,7 +50,11 @@ type Server struct {
 	events    *events.Broker
 	status    *status.Service
 	// tools serves broadcasts, schedules, opt-outs, auto-replies and forwarding.
-	tools   *tools.Services
+	tools *tools.Services
+	// billing applies hosted plans; it allows everything unless BRIDGE_CLOUD is on.
+	billing *billing.Service
+	// mail sends account email (password resets); nil without BRIDGE_SMTP_HOST.
+	mail    mail.Sender
 	version string
 }
 
@@ -72,6 +78,10 @@ type Options struct {
 	Limiter ratelimit.Limiter // defaults to the Postgres limiter
 	// Tools are the messaging tools' services; built from Config when nil.
 	Tools *tools.Services
+	// Billing applies hosted plans; built from Config when nil.
+	Billing *billing.Service
+	// Mail sends account email; built from the SMTP settings when nil.
+	Mail mail.Sender
 }
 
 func New(o Options) *Server {
@@ -83,6 +93,14 @@ func New(o Options) *Server {
 	s := &Server{cfg: o.Config, pool: o.Pool, q: q, log: o.Logger, limiter: limiter, hub: o.Hub, push: o.Push, msgs: o.Messaging, hooks: o.Webhooks, reqlog: o.RequestLog, events: o.Events, status: o.Status, version: o.Version}
 	s.providers = o.Providers
 	s.tools = o.Tools
+	s.billing = o.Billing
+	s.mail = o.Mail
+	if s.mail == nil {
+		s.mail = mail.NewSMTP(o.Config.SMTP)
+	}
+	if s.billing == nil && o.Pool != nil {
+		s.billing = billing.New(o.Pool, o.Config, o.Logger)
+	}
 	if s.tools == nil && o.Messaging != nil {
 		s.tools, _ = tools.New(tools.Options{Config: o.Config, Pool: o.Pool, Logger: o.Logger, Messaging: o.Messaging})
 	}
@@ -128,6 +146,8 @@ func (s *Server) Handler() http.Handler {
 	r.Get("/v1/provider-callbacks/{providerId}/{token}", s.providerCallback)
 	// Supabase Auth's Send SMS hook, signed with the integration's secret.
 	r.Post("/v1/hooks/supabase/{integrationId}", s.supabaseSendSMS)
+	// Dodo Payments subscription events (hosted Bridge), signed with Standard Webhooks.
+	r.Post("/v1/billing/dodo/webhook", s.dodoWebhook)
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
 		writeRawError(w, r, http.StatusNotFound, CodeNotFound, "No route matches "+r.Method+" "+r.URL.Path+". See /docs for the API reference.")
 	})
@@ -143,6 +163,7 @@ func (s *Server) Handler() http.Handler {
 
 func (s *Server) register(api huma.API) {
 	s.registerAuth(api)
+	s.registerPassword(api)
 	s.registerOrganizations(api)
 	s.registerProjects(api)
 	s.registerAPIKeys(api)
@@ -164,6 +185,7 @@ func (s *Server) register(api huma.API) {
 	s.registerBroadcasts(api)
 	s.registerSchedules(api)
 	s.registerAutomation(api)
+	s.registerBilling(api)
 }
 
 func (s *Server) ready(w http.ResponseWriter, r *http.Request) {
@@ -227,6 +249,7 @@ func newAPI(r chi.Router, version, serverURL string, logger *slog.Logger) huma.A
 		{Name: "Broadcasts", Description: "One templated message sent to many recipients, now or at a set time."},
 		{Name: "Schedules", Description: "Messages sent at a set time, once or repeating daily, weekly or monthly."},
 		{Name: "Automation", Description: "The opt-out list, keyword auto-replies (STOP, START, HELP) and forwarding of incoming SMS."},
+		{Name: "Billing", Description: "Plans, usage and subscriptions on hosted Bridge. Self-hosted servers have no limits."},
 	}
 	cfg.Transformers = append(cfg.Transformers, requestIDTransformer)
 	return humachi.New(r, cfg)

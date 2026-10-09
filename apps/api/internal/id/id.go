@@ -20,6 +20,7 @@ import (
 const (
 	User            = "usr"
 	Session         = "ses"
+	PasswordReset   = "pwr"
 	Organization    = "org"
 	Member          = "mem"
 	Project         = "prj"

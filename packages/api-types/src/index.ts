@@ -110,3 +110,7 @@ export type ForwardingDestinationType = ForwardingDestination['type'];
 export type ForwardingDelivery = Schemas['ForwardingDelivery'];
 export type ForwardingDeliveryList = Schemas['ForwardingDeliveryList'];
 export type ForwardingSecret = Schemas['ForwardingSecret'];
+export type Billing = Schemas['Billing'];
+export type BillingPlan = Schemas['BillingPlan'];
+export type BillingUsage = Schemas['BillingUsage'];
+export type AuthConfig = Schemas['AuthConfig'];

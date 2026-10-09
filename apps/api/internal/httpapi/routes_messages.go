@@ -11,6 +11,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/jackc/pgx/v5"
 
+	"bridge/internal/billing"
 	"bridge/internal/db/dbq"
 	"bridge/internal/messaging"
 )
@@ -119,7 +120,7 @@ func (s *Server) registerMessages(api huma.API) {
 		Description: "Queues a message and returns immediately with status `queued`. Bridge picks an online phone " +
 			"(or the `device_id` you name) and reports every status change. Test keys simulate the whole lifecycle without sending.",
 		Security: apiKeyAuth, DefaultStatus: http.StatusAccepted,
-		Errors: []int{http.StatusUnauthorized, http.StatusConflict, http.StatusTooManyRequests},
+		Errors: []int{http.StatusPaymentRequired, http.StatusUnauthorized, http.StatusConflict, http.StatusTooManyRequests},
 	}, func(ctx context.Context, in *sendMessageInput) (*messageOutput, error) {
 		k := principalFrom(ctx).APIKey
 		return s.send(ctx, messaging.SendRequest{
@@ -150,7 +151,7 @@ func (s *Server) registerMessages(api huma.API) {
 	huma.Register(api, huma.Operation{
 		OperationID: "testDevice", Method: http.MethodPost, Path: "/v1/devices/{deviceId}/test", Tags: []string{"Developer API"},
 		Summary: "Send a test SMS through a device", Security: apiKeyAuth, DefaultStatus: http.StatusAccepted,
-		Errors: []int{http.StatusUnauthorized, http.StatusNotFound, http.StatusTooManyRequests},
+		Errors: []int{http.StatusPaymentRequired, http.StatusUnauthorized, http.StatusNotFound, http.StatusTooManyRequests},
 	}, func(ctx context.Context, in *struct {
 		DevicePath
 		TestSendInput
@@ -194,7 +195,7 @@ func (s *Server) registerMessages(api huma.API) {
 		Summary:     "Send an SMS from the dashboard",
 		Description: "The playground's send: same as `POST /v1/messages`, but authenticated by the session and with the environment chosen per request.",
 		Security:    sessionAuth, DefaultStatus: http.StatusAccepted,
-		Errors: []int{http.StatusNotFound, http.StatusConflict, http.StatusTooManyRequests},
+		Errors: []int{http.StatusPaymentRequired, http.StatusNotFound, http.StatusConflict, http.StatusTooManyRequests},
 	}, func(ctx context.Context, in *struct {
 		ProjectPath
 		Environment    string `query:"environment" enum:"live,test" default:"test"`
@@ -236,7 +237,7 @@ func (s *Server) registerMessages(api huma.API) {
 	huma.Register(api, huma.Operation{
 		OperationID: "testProjectDevice", Metadata: adminOnly, Method: http.MethodPost, Path: "/v1/projects/{projectId}/devices/{deviceId}/test", Tags: []string{"Devices"},
 		Summary: "Send a test SMS through a device", Description: "Sends a real (live) SMS through this phone.",
-		Security: sessionAuth, DefaultStatus: http.StatusAccepted, Errors: []int{http.StatusNotFound, http.StatusTooManyRequests},
+		Security: sessionAuth, DefaultStatus: http.StatusAccepted, Errors: []int{http.StatusPaymentRequired, http.StatusNotFound, http.StatusTooManyRequests},
 	}, func(ctx context.Context, in *struct {
 		ProjectDevicePath
 		TestSendInput
@@ -284,7 +285,10 @@ func messagingError(err error) error {
 	var ve *messaging.ValidationError
 	var rl *messaging.RateLimitError
 	var oe *messaging.OptedOutError
+	var le *billing.LimitError
 	switch {
+	case errors.As(err, &le):
+		return planLimitError(le)
 	case errors.As(err, &oe):
 		return Errorf(http.StatusConflict, CodeOptedOut, oe.Number+" opted out of messages from this project (for example by replying STOP). "+
 			"Only one-time passwords can still be sent to it. Remove it from the opt-out list if the person asked to receive messages again.")

@@ -38,13 +38,15 @@ type Device struct {
 	SimCount                 *int16      `json:"sim_count" nullable:"true"`
 	DeviceModel              *string     `json:"device_model" nullable:"true" example:"Google Pixel 7"`
 	AndroidVersion           *string     `json:"android_version" nullable:"true" example:"15"`
-	AppVersion               *string     `json:"app_version" nullable:"true" example:"0.1.0"`
+	AppVersion               *string     `json:"app_version" nullable:"true" example:"1.0.0"`
 	AppFlavor                *string     `json:"app_flavor" nullable:"true" enum:"foss,gms"`
 	PushProvider             *string     `json:"push_provider" nullable:"true" enum:"unifiedpush,fcm" doc:"How Bridge wakes the app when its connection is down."`
 	PreferredSimSlot         *int16      `json:"preferred_sim_slot" nullable:"true" doc:"SIM used for sending. Null means the phone's default SMS SIM."`
 	Sims                     []DeviceSIM `json:"sims" doc:"SIMs the phone reports. Phone numbers are never collected."`
 	SendLimitCount           int32       `json:"send_limit_count" doc:"Messages this phone may send per window. Android asks for approval above about 30 per 30 minutes."`
 	SendLimitWindowSeconds   int32       `json:"send_limit_window_seconds"`
+	DailySendLimit           int32       `json:"daily_send_limit" doc:"Most messages this phone sends in any 24 hours. Operators cap SIMs (about 100 a day on most Indian plans) and may block SIMs that send more."`
+	DaySends                 int         `json:"day_sends" doc:"Messages assigned to this phone in the last 24 hours."`
 	ForwardInbound           bool        `json:"forward_inbound" doc:"Whether the phone forwards the SMS it receives to Bridge (message.received webhooks)."`
 	RecentSends              int         `json:"recent_sends" doc:"Messages assigned to this phone in the current window."`
 	TotalSent                int         `json:"total_sent"`
@@ -59,7 +61,7 @@ type DeviceSIM struct {
 	DisplayName string `json:"display_name,omitempty"`
 }
 
-type deviceCounts struct{ recent, sent, failed int }
+type deviceCounts struct{ recent, day, sent, failed int }
 
 func toDevice(d dbq.Device, counts ...deviceCounts) Device {
 	push := d.PushProvider
@@ -74,7 +76,8 @@ func toDevice(d dbq.Device, counts ...deviceCounts) Device {
 	}
 	return Device{
 		PreferredSimSlot: d.PreferredSimSlot, Sims: sims, SendLimitCount: d.SendLimitCount,
-		SendLimitWindowSeconds: d.SendLimitWindowSeconds, ForwardInbound: d.ForwardInbound, RecentSends: c.recent, TotalSent: c.sent, TotalFailed: c.failed,
+		SendLimitWindowSeconds: d.SendLimitWindowSeconds, DailySendLimit: d.DailySendLimit, DaySends: c.day,
+		ForwardInbound: d.ForwardInbound, RecentSends: c.recent, TotalSent: c.sent, TotalFailed: c.failed,
 		ID: d.ID, ProjectID: d.ProjectID, Name: d.Name, Status: string(d.Status),
 		LastSeenAt: d.LastSeenAt, LastHeartbeatAt: d.LastHeartbeatAt, ConnectedAt: d.ConnectedAt,
 		HeartbeatIntervalSeconds: int(d.HeartbeatInterval),
@@ -169,6 +172,7 @@ func (s *Server) registerDevices(api huma.API) {
 			Name             *string `json:"name,omitempty" minLength:"1" maxLength:"80"`
 			PreferredSimSlot *int16  `json:"preferred_sim_slot,omitempty" minimum:"0" maximum:"2" doc:"1 or 2. 0 uses the phone's default SMS SIM."`
 			SendLimitCount   *int32  `json:"send_limit_count,omitempty" minimum:"1" maximum:"10000" doc:"Raise only after lifting Android's limit on the phone (see the Android guide)."`
+			DailySendLimit   *int32  `json:"daily_send_limit,omitempty" minimum:"1" maximum:"10000" doc:"Most messages in any 24 hours. Keep it within your SIM plan's daily SMS allowance."`
 			ForwardInbound   *bool   `json:"forward_inbound,omitempty" doc:"Forward every SMS this phone receives to Bridge. Off by default; the phone also needs the Receive SMS permission."`
 		}
 	}) (*struct{ Body Device }, error) {
@@ -182,6 +186,7 @@ func (s *Server) registerDevices(api huma.API) {
 		}
 		params := dbq.UpdateDeviceSettingsParams{
 			ID: in.DeviceID, ProjectID: in.ProjectID, SendLimitCount: in.Body.SendLimitCount, ForwardInbound: in.Body.ForwardInbound,
+			DailySendLimit: in.Body.DailySendLimit,
 		}
 		if in.Body.Name != nil {
 			name := strings.TrimSpace(*in.Body.Name)
@@ -203,7 +208,7 @@ func (s *Server) registerDevices(api huma.API) {
 		if err != nil {
 			return nil, err
 		}
-		if in.Body.SendLimitCount != nil || in.Body.PreferredSimSlot != nil {
+		if in.Body.SendLimitCount != nil || in.Body.DailySendLimit != nil || in.Body.PreferredSimSlot != nil {
 			s.msgs.KickProject(ctx, in.ProjectID)
 		}
 		if d.ForwardInbound != before.ForwardInbound {
@@ -302,7 +307,7 @@ func (s *Server) deviceCounts(ctx context.Context, projectID string) (map[string
 	}
 	out := make(map[string]deviceCounts, len(rows))
 	for _, r := range rows {
-		out[r.ID] = deviceCounts{recent: int(r.RecentSends), sent: int(r.TotalSent), failed: int(r.TotalFailed)}
+		out[r.ID] = deviceCounts{recent: int(r.RecentSends), day: int(r.DaySends), sent: int(r.TotalSent), failed: int(r.TotalFailed)}
 	}
 	return out, nil
 }

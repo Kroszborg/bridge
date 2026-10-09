@@ -1,0 +1,18 @@
+# Bridge behind Caddy: automatic HTTPS for the website, dashboard and API.
+# Hostnames come from .env (BRIDGE_SITE_HOST, BRIDGE_APP_HOST, BRIDGE_API_HOST).
+{$BRIDGE_SITE_HOST} {
+	encode zstd gzip
+	reverse_proxy web:80
+}
+
+# Next.js compresses its own responses; the dashboard also proxies the live
+# event stream, which must not be buffered.
+{$BRIDGE_APP_HOST} {
+	reverse_proxy dashboard:3000
+}
+
+# The API serves the phones' WebSocket and Server-Sent Events; Caddy streams
+# both without buffering, so no extra settings are needed.
+{$BRIDGE_API_HOST} {
+	reverse_proxy api:8080
+}

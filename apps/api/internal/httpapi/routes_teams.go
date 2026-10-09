@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"bridge/internal/auth"
+	"bridge/internal/billing"
 	"bridge/internal/db"
 	"bridge/internal/db/dbq"
 	"bridge/internal/gateway"
@@ -255,7 +256,7 @@ func (s *Server) registerTeams(api huma.API) {
 		OperationID: "createInvite", Metadata: adminOnly, Method: http.MethodPost, Path: "/v1/organizations/{organizationId}/invites", Tags: []string{"Organizations"},
 		Summary:     "Create an invite link",
 		Description: "Returns a single-use link, valid for 7 days. Bridge does not send email: share the link yourself.",
-		Security:    sessionAuth, DefaultStatus: http.StatusCreated, Errors: []int{http.StatusNotFound, http.StatusForbidden, http.StatusTooManyRequests},
+		Security:    sessionAuth, DefaultStatus: http.StatusCreated, Errors: []int{http.StatusPaymentRequired, http.StatusNotFound, http.StatusForbidden, http.StatusTooManyRequests},
 	}, func(ctx context.Context, in *struct {
 		OrgPath
 		Body struct {
@@ -276,6 +277,9 @@ func (s *Server) registerTeams(api huma.API) {
 		}
 		if err := s.limit(ctx, "invite:org:"+org.ID, 50, 24*time.Hour); err != nil {
 			return nil, err
+		}
+		if err := s.billing.CheckAdd(ctx, s.q, org.ID, billing.Members); err != nil {
+			return nil, billingError(err)
 		}
 		me := principalFrom(ctx).User
 		token := auth.InvitePrefix + auth.RandomString(32)
@@ -338,7 +342,7 @@ func (s *Server) registerTeams(api huma.API) {
 
 	huma.Register(api, huma.Operation{
 		OperationID: "acceptInvite", Method: http.MethodPost, Path: "/v1/invites/{token}/accept", Tags: []string{"Organizations"},
-		Summary: "Accept an invite", Security: sessionAuth, Errors: []int{http.StatusNotFound, http.StatusConflict, http.StatusGone},
+		Summary: "Accept an invite", Security: sessionAuth, Errors: []int{http.StatusPaymentRequired, http.StatusNotFound, http.StatusConflict, http.StatusGone},
 	}, func(ctx context.Context, in *InviteTokenPath) (*orgOutput, error) {
 		user := principalFrom(ctx).User
 		tx, err := s.pool.Begin(ctx)
@@ -512,6 +516,9 @@ func (s *Server) acceptInvite(ctx context.Context, q *dbq.Queries, token string,
 	}
 	if err != nil {
 		return Organization{}, err
+	}
+	if err := s.billing.CheckJoin(ctx, q, inv.OrganizationID); err != nil {
+		return Organization{}, billingError(err)
 	}
 	m, err := q.AddOrganizationMember(ctx, dbq.AddOrganizationMemberParams{
 		ID: id.New(id.Member), OrganizationID: inv.OrganizationID, UserID: user.ID, Role: inv.Role,

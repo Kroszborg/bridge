@@ -453,7 +453,7 @@ func (q *Queries) MarkWebhookSuccess(ctx context.Context, id string) error {
 }
 
 const presenceChanges = `-- name: PresenceChanges :many
-SELECT id, project_id, name, installation_id, credential_hash, status, last_heartbeat_at, last_seen_at, battery_level, is_charging, network_type, carrier_name, sim_count, device_model, android_version, app_version, created_at, updated_at, revoked_at, push_provider, push_endpoint, push_p256dh, push_auth, push_updated_at, connection_id, connected_at, heartbeat_interval, app_flavor, preferred_sim_slot, send_limit_count, send_limit_window_seconds, sims, forward_inbound, notified_presence FROM devices
+SELECT id, project_id, name, installation_id, credential_hash, status, last_heartbeat_at, last_seen_at, battery_level, is_charging, network_type, carrier_name, sim_count, device_model, android_version, app_version, created_at, updated_at, revoked_at, push_provider, push_endpoint, push_p256dh, push_auth, push_updated_at, connection_id, connected_at, heartbeat_interval, app_flavor, preferred_sim_slot, send_limit_count, send_limit_window_seconds, sims, forward_inbound, notified_presence, daily_send_limit FROM devices
 WHERE revoked_at IS NULL
   AND ((status = 'online' AND notified_presence IS DISTINCT FROM 'online')
     OR (status <> 'online' AND notified_presence = 'online' AND last_seen_at < $1))
@@ -506,6 +506,7 @@ func (q *Queries) PresenceChanges(ctx context.Context, offlineBefore *time.Time)
 			&i.Sims,
 			&i.ForwardInbound,
 			&i.NotifiedPresence,
+			&i.DailySendLimit,
 		); err != nil {
 			return nil, err
 		}

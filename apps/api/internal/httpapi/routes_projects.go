@@ -9,6 +9,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/jackc/pgx/v5"
 
+	"bridge/internal/billing"
 	"bridge/internal/db/dbq"
 )
 
@@ -106,7 +107,7 @@ func (s *Server) registerProjects(api huma.API) {
 	huma.Register(api, huma.Operation{
 		OperationID: "createProject", Metadata: adminOnly, Method: http.MethodPost, Path: "/v1/organizations/{organizationId}/projects", Tags: []string{"Projects"},
 		Summary: "Create a project", Security: sessionAuth, DefaultStatus: http.StatusCreated,
-		Errors: []int{http.StatusForbidden, http.StatusNotFound},
+		Errors: []int{http.StatusPaymentRequired, http.StatusForbidden, http.StatusNotFound},
 	}, func(ctx context.Context, in *struct {
 		OrgPath
 		Body nameBody
@@ -128,6 +129,9 @@ func (s *Server) registerProjects(api huma.API) {
 		}
 		defer tx.Rollback(ctx)
 		q := s.q.WithTx(tx)
+		if err := s.billing.CheckAdd(ctx, q, org.ID, billing.Projects); err != nil {
+			return nil, billingError(err)
+		}
 		p, err := createProject(ctx, q, org.ID, name)
 		if err != nil {
 			return nil, err

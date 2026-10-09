@@ -11,6 +11,7 @@ x-api-env: &api-env
   BRIDGE_DATABASE_URL: postgres://bridge:${POSTGRES_PASSWORD:-bridge}@postgres:5432/bridge?sslmode=disable
   BRIDGE_PUBLIC_URL: ${BRIDGE_PUBLIC_URL:-http://localhost:8080}
   BRIDGE_DASHBOARD_URL: ${BRIDGE_DASHBOARD_URL:-http://localhost:3000}
+  BRIDGE_SITE_URL: ${BRIDGE_SITE_URL:-}
   BRIDGE_ALLOW_SIGNUP: ${BRIDGE_ALLOW_SIGNUP:-true}
   BRIDGE_OPERATOR_EMAILS: ${BRIDGE_OPERATOR_EMAILS:-}
   BRIDGE_LOG_LEVEL: ${BRIDGE_LOG_LEVEL:-info}
@@ -32,6 +33,12 @@ x-api-env: &api-env
   BRIDGE_FCM_APP_ID: ${BRIDGE_FCM_APP_ID:-}
   BRIDGE_FCM_API_KEY: ${BRIDGE_FCM_API_KEY:-}
   BRIDGE_FCM_SENDER_ID: ${BRIDGE_FCM_SENDER_ID:-}
+  # Hosted Bridge only: plans, limits and Dodo Payments. Self-hosters leave these empty.
+  BRIDGE_CLOUD: ${BRIDGE_CLOUD:-false}
+  BRIDGE_DODO_API_KEY: ${BRIDGE_DODO_API_KEY:-}
+  BRIDGE_DODO_WEBHOOK_SECRET: ${BRIDGE_DODO_WEBHOOK_SECRET:-}
+  BRIDGE_DODO_ENVIRONMENT: ${BRIDGE_DODO_ENVIRONMENT:-test_mode}
+  BRIDGE_DODO_PRODUCTS: ${BRIDGE_DODO_PRODUCTS:-}
 
 x-api-image: &api-image
   image: ${BRIDGE_IMAGE_PREFIX:-}bridge-api:${BRIDGE_VERSION:-local}
@@ -105,6 +112,18 @@ services:
     depends_on:
       api:
         condition: service_healthy
+
+  web:
+    image: ${BRIDGE_IMAGE_PREFIX:-}bridge-web:${BRIDGE_VERSION:-local}
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+      args:
+        NEXT_PUBLIC_DASHBOARD_URL: ${BRIDGE_DASHBOARD_URL:-http://localhost:3000}
+        NEXT_PUBLIC_SITE_URL: ${BRIDGE_SITE_URL:-http://localhost:3001}
+    restart: unless-stopped
+    ports:
+      - "${BRIDGE_WEB_PORT:-3001}:80"
 
 volumes:
   pgdata:

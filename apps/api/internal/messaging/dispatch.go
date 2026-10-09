@@ -49,32 +49,31 @@ func (s *Service) Dispatch(ctx context.Context, messageID string) (time.Duration
 	if rt.only {
 		return 0, s.handoff(ctx, m, "providers_only")
 	}
-	if now.Sub(m.CreatedAt) > s.cfg.QueueTimeout {
-		if rt.fallback {
-			return 0, s.handoff(ctx, m, "no_phone_in_time")
-		}
-		_, _, err := s.transition(ctx, s.q, m, message.Failed, "failed", nil, "no_device_available",
-			"No phone could send this message within "+s.cfg.QueueTimeout.String()+". Check that a paired phone is online.", nil)
-		return 0, err
-	}
-
 	rows, err := s.q.DispatchCandidates(ctx, m.ProjectID)
 	if err != nil {
 		return 0, err
 	}
 	cands := make([]candidate, 0, len(rows))
 	for _, r := range rows {
-		c := candidate{Device: r.Device, RecentSends: int(r.RecentSends)}
-		if r.OldestInWindow.Unix() > 0 {
-			c.OldestInWindow = r.OldestInWindow
+		cands = append(cands, candidateFrom(r))
+	}
+	sel := choose(cands, m.RequestedDeviceID, now)
+
+	if now.Sub(m.CreatedAt) > s.cfg.QueueTimeout {
+		if rt.fallback {
+			return 0, s.handoff(ctx, m, "no_phone_in_time")
 		}
-		if r.LastAssigned.Unix() > 0 {
-			c.LastAssigned = r.LastAssigned
+		code, msg := "no_device_available",
+			"No phone could send this message within "+s.cfg.QueueTimeout.String()+". Check that a paired phone is online."
+		if sel.Reason == "devices_at_daily_limit" {
+			code, msg = "daily_limit_reached",
+				"Every online phone already sent its daily SMS limit, which keeps SIMs within their operator's allowance. "+
+					"Send it again later, pair another phone, or raise the phone's daily limit if its SIM plan allows more."
 		}
-		cands = append(cands, c)
+		_, _, err := s.transition(ctx, s.q, m, message.Failed, "failed", nil, code, msg, nil)
+		return 0, err
 	}
 
-	sel := choose(cands, m.RequestedDeviceID, now)
 	switch sel.Reason {
 	case "no_device":
 		if rt.fallback {

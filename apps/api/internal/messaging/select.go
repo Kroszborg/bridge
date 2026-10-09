@@ -13,6 +13,24 @@ type candidate struct {
 	RecentSends    int
 	OldestInWindow time.Time // zero if nothing was sent in the window
 	LastAssigned   time.Time // zero if never used
+	DaySends       int       // sends in the last 24 hours, for the daily cap
+	OldestInDay    time.Time // zero if nothing was sent in the last 24 hours
+}
+
+// candidateFrom reads a DispatchCandidates row. The query returns the epoch
+// for "none", which becomes the zero time.
+func candidateFrom(r dbq.DispatchCandidatesRow) candidate {
+	c := candidate{Device: r.Device, RecentSends: int(r.RecentSends), DaySends: int(r.DaySends)}
+	if r.OldestInWindow.Unix() > 0 {
+		c.OldestInWindow = r.OldestInWindow
+	}
+	if r.LastAssigned.Unix() > 0 {
+		c.LastAssigned = r.LastAssigned
+	}
+	if r.OldestInDay.Unix() > 0 {
+		c.OldestInDay = r.OldestInDay
+	}
+	return c
 }
 
 // selection is the dispatch decision for one message.
@@ -32,8 +50,8 @@ func isOnline(d dbq.Device, now time.Time) bool {
 	return now.Sub(*d.LastSeenAt) <= allowance
 }
 
-// choose picks the device for a message: online, under its send limit,
-// preferring phones on a charger and Wi-Fi, then the one that has sent the
+// choose picks the device for a message: online, under its send limit and
+// its daily cap (carriers block SIMs that send too much in a day), preferring phones on a charger and Wi-Fi, then the one that has sent the
 // least of its allowance (spreading carrier limits), then the least recently used.
 func choose(cands []candidate, pinned *string, now time.Time) selection {
 	if pinned != nil {
@@ -49,18 +67,27 @@ func choose(cands []candidate, pinned *string, now time.Time) selection {
 	var available []candidate
 	var offline []dbq.Device
 	retry := time.Duration(0)
+	dailyOnly := true // every online phone that is full is full for the day
 	for _, c := range cands {
 		if !isOnline(c.Device, now) {
 			offline = append(offline, c.Device)
 			continue
 		}
-		if c.RecentSends < int(c.Device.SendLimitCount) {
+		underWindow := c.RecentSends < int(c.Device.SendLimitCount)
+		underDay := c.DaySends < int(c.Device.DailySendLimit)
+		if underWindow && underDay {
 			available = append(available, c)
 			continue
 		}
-		// At its limit: capacity frees up when the oldest send leaves the window.
-		window := time.Duration(c.Device.SendLimitWindowSeconds) * time.Second
-		wait := c.OldestInWindow.Add(window).Sub(now)
+		// At a limit: capacity frees up when the oldest send leaves its window.
+		var wait time.Duration
+		dailyOnly = dailyOnly && !underDay
+		if !underDay {
+			wait = c.OldestInDay.Add(24 * time.Hour).Sub(now)
+		} else {
+			window := time.Duration(c.Device.SendLimitWindowSeconds) * time.Second
+			wait = c.OldestInWindow.Add(window).Sub(now)
+		}
 		if retry == 0 || wait < retry {
 			retry = wait
 		}
@@ -70,6 +97,9 @@ func choose(cands []candidate, pinned *string, now time.Time) selection {
 		reason := "devices_offline"
 		if retry > 0 {
 			reason = "devices_at_limit"
+			if dailyOnly {
+				reason = "devices_at_daily_limit"
+			}
 		} else {
 			retry = 30 * time.Second
 		}

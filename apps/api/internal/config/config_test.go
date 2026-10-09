@@ -95,3 +95,29 @@ func TestSMTP(t *testing.T) {
 		}
 	}
 }
+
+func TestDodo(t *testing.T) {
+	c, err := load(env(map[string]string{"BRIDGE_DATABASE_URL": "postgres://x"}))
+	if err != nil || c.Cloud || c.Dodo != nil {
+		t.Fatalf("billing must be off by default: cloud=%v dodo=%+v err=%v", c.Cloud, c.Dodo, err)
+	}
+	c, err = load(env(map[string]string{
+		"BRIDGE_DATABASE_URL": "postgres://x", "BRIDGE_CLOUD": "true", "BRIDGE_DODO_API_KEY": "k",
+		"BRIDGE_DODO_WEBHOOK_SECRET": "whsec_x", "BRIDGE_DODO_PRODUCTS": " pro=pdt_1 , business=pdt_2",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d := c.Dodo; d.Environment != DodoTestMode || d.Products["pro"] != "pdt_1" || d.Products["business"] != "pdt_2" {
+		t.Fatalf("Dodo: %+v", d)
+	}
+	_, err = load(env(map[string]string{
+		"BRIDGE_DATABASE_URL": "postgres://x", "BRIDGE_DODO_API_KEY": "k", "BRIDGE_DODO_ENVIRONMENT": "prod",
+		"BRIDGE_DODO_PRODUCTS": "pro",
+	}))
+	for _, want := range []string{"BRIDGE_DODO_WEBHOOK_SECRET", "BRIDGE_DODO_ENVIRONMENT", "BRIDGE_DODO_PRODUCTS", "BRIDGE_CLOUD"} {
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("error does not mention %s: %v", want, err)
+		}
+	}
+}

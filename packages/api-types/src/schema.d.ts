@@ -4,6 +4,26 @@
  */
 
 export interface paths {
+    "/v1/auth/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get sign-in options
+         * @description Public, no authentication. What the sign-in and sign-up pages should offer on this server.
+         */
+        get: operations["getAuthConfig"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/auth/login": {
         parameters: {
             query?: never;
@@ -32,6 +52,46 @@ export interface paths {
         put?: never;
         /** Sign out */
         post: operations["logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/password-reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Email a password reset link
+         * @description Always answers 202, whether or not an account uses the address, so the endpoint cannot be used to find accounts. The link works once and expires after an hour.
+         */
+        post: operations["requestPasswordReset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/password-reset/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set a new password with a reset link
+         * @description Sets the password, signs out every other session and starts a new one.
+         */
+        post: operations["confirmPasswordReset"];
         delete?: never;
         options?: never;
         head?: never;
@@ -538,6 +598,103 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/organizations/{organizationId}/billing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get the workspace's plan and usage */
+        get: operations["getBilling"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/organizations/{organizationId}/billing/checkout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upgrade or change the plan
+         * @description Returns a checkout URL for a workspace without a paid plan. For a workspace that already pays, Dodo is asked to move the subscription to the new plan (prorated; refused if the charge fails), and the URL leads back to the billing page, which updates once Dodo confirms.
+         */
+        post: operations["createBillingCheckout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/organizations/{organizationId}/billing/portal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Open the customer portal
+         * @description Returns a link to Dodo's customer portal: invoices, payment methods and cancelling.
+         */
+        post: operations["createBillingPortal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/organizations/{organizationId}/billing/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Keep a subscription that is set to cancel
+         * @description Withdraws a scheduled cancellation, so the plan renews as usual.
+         */
+        post: operations["resumeBilling"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/organizations/{organizationId}/billing/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh a subscription from Dodo
+         * @description Called on the return from checkout with the subscription_id Dodo appends, so the plan updates without waiting for the webhook.
+         */
+        post: operations["syncBilling"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/organizations/{organizationId}/invites": {
         parameters: {
             query?: never;
@@ -704,6 +861,26 @@ export interface paths {
         };
         /** Get a verification */
         get: operations["getVerification"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List plans
+         * @description Public, no authentication. The hosted plans and their limits. Self-hosted servers return an empty list.
+         */
+        get: operations["listPlans"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2163,6 +2340,16 @@ export interface components {
             data: components["schemas"]["AuditEntry"][];
             has_more: boolean;
         };
+        AuthConfig: {
+            /** @description Whether this is hosted Bridge (plans and billing apply). */
+            hosted: boolean;
+            /** @description Whether forgotten passwords can be reset by email. */
+            password_reset: boolean;
+            privacy_url: string | null;
+            /** @description Whether anyone can create an account. Invites always work. */
+            signup_open: boolean;
+            terms_url: string | null;
+        };
         AutoReplyRule: {
             /**
              * @description opt_out adds the sender to the opt-out list; opt_in removes them.
@@ -2236,6 +2423,66 @@ export interface components {
             priority?: number;
             /** @description An empty string removes the reply. */
             reply?: string;
+        };
+        Billing: {
+            cancel_at_period_end: boolean;
+            /**
+             * Format: date-time
+             * @description When the paid period ends or renews.
+             */
+            current_period_end: string | null;
+            /** @description False on self-hosted servers, which have no limits. */
+            enabled: boolean;
+            /** @description Whether a customer portal is available for invoices, payment methods and cancelling. */
+            manage_billing: boolean;
+            /** @description Whether the workspace can change plans here. */
+            payments: boolean;
+            /** Format: date-time */
+            period_end: string;
+            /**
+             * Format: date-time
+             * @description Start of the live SMS usage period (the 1st, UTC).
+             */
+            period_start: string;
+            plan: components["schemas"]["BillingPlan"];
+            /**
+             * @description The subscription's status; none on the free plan.
+             * @enum {string}
+             */
+            status: "none" | "active" | "past_due" | "cancelled" | "expired" | "incomplete";
+            usage: components["schemas"]["BillingUsage"];
+        };
+        BillingPlan: {
+            /** @example USD */
+            currency: string;
+            /** @example pro */
+            id: string;
+            /** @enum {string} */
+            interval: "month";
+            limits: components["schemas"]["PlanLimits"];
+            /** @example Pro */
+            name: string;
+            /**
+             * Format: int32
+             * @description Monthly price in the currency's smallest unit.
+             * @example 900
+             */
+            price_cents: number;
+            /** @description Whether the plan can be bought on this server. */
+            purchasable: boolean;
+        };
+        BillingUsage: {
+            /**
+             * Format: int64
+             * @description Live SMS accepted this period.
+             */
+            live_messages: number;
+            /** Format: int64 */
+            members: number;
+            /** Format: int64 */
+            phones: number;
+            /** Format: int64 */
+            projects: number;
         };
         Block: {
             /** @example vap_01ja8z3k5wq2v7c9e4r2n0w6yb */
@@ -2422,6 +2669,11 @@ export interface components {
             /** @example 482913 */
             code: string;
             verification_id: string;
+        };
+        ConfirmPasswordResetRequest: {
+            /** @description At least 10 characters. */
+            password: string;
+            token: string;
         };
         CreateAPIKeyInputBody: {
             /**
@@ -2648,7 +2900,7 @@ export interface components {
             android_version: string | null;
             /** @enum {string|null} */
             app_flavor: "foss" | "gms" | null;
-            /** @example 0.1.0 */
+            /** @example 1.0.0 */
             app_version: string | null;
             /** Format: int32 */
             battery_level: number | null;
@@ -2658,6 +2910,16 @@ export interface components {
             connected_at: string | null;
             /** Format: date-time */
             created_at: string;
+            /**
+             * Format: int32
+             * @description Most messages this phone sends in any 24 hours. Operators cap SIMs (about 100 a day on most Indian plans) and may block SIMs that send more.
+             */
+            daily_send_limit: number;
+            /**
+             * Format: int64
+             * @description Messages assigned to this phone in the last 24 hours.
+             */
+            day_sends: number;
             /** @example Google Pixel 7 */
             device_model: string | null;
             /** @description Whether the phone forwards the SMS it receives to Bridge (message.received webhooks). */
@@ -2966,6 +3228,9 @@ export interface components {
         };
         ListResponseAPIKey: {
             data: components["schemas"]["APIKey"][];
+        };
+        ListResponseBillingPlan: {
+            data: components["schemas"]["BillingPlan"][];
         };
         ListResponseDevice: {
             data: components["schemas"]["Device"][];
@@ -3320,6 +3585,35 @@ export interface components {
             /** @description Single-use pairing token. Shown once. */
             token: string;
         };
+        PlanBody: {
+            /**
+             * @description The plan to move to. Downgrade to Free by cancelling in the customer portal.
+             * @enum {string}
+             */
+            plan: "pro" | "business";
+        };
+        PlanLimits: {
+            /**
+             * Format: int32
+             * @description Live SMS accepted per calendar month (UTC). Null is unlimited.
+             */
+            live_messages: number | null;
+            /**
+             * Format: int32
+             * @description Members plus open invitations. Null is unlimited.
+             */
+            members: number | null;
+            /**
+             * Format: int32
+             * @description Paired phones across the workspace. Null is unlimited.
+             */
+            phones: number | null;
+            /**
+             * Format: int32
+             * @description Null is unlimited.
+             */
+            projects: number | null;
+        };
         Project: {
             /** Format: date-time */
             created_at: string;
@@ -3439,6 +3733,13 @@ export interface components {
             data: components["schemas"]["RequestLog"][];
             /** @description Pass the last entry's ID as starting_after to fetch the next page. */
             has_more: boolean;
+        };
+        RequestPasswordResetRequest: {
+            /**
+             * Format: email
+             * @example ada@example.com
+             */
+            email: string;
         };
         RevokedSessions: {
             /** Format: int64 */
@@ -3593,7 +3894,7 @@ export interface components {
             android_version: string | null;
             /** @enum {string|null} */
             app_flavor: "foss" | "gms" | null;
-            /** @example 0.1.0 */
+            /** @example 1.0.0 */
             app_version: string | null;
             /** Format: int32 */
             battery_level: number | null;
@@ -3603,6 +3904,16 @@ export interface components {
             connected_at: string | null;
             /** Format: date-time */
             created_at: string;
+            /**
+             * Format: int32
+             * @description Most messages this phone sends in any 24 hours. Operators cap SIMs (about 100 a day on most Indian plans) and may block SIMs that send more.
+             */
+            daily_send_limit: number;
+            /**
+             * Format: int64
+             * @description Messages assigned to this phone in the last 24 hours.
+             */
+            day_sends: number;
             /** @example Google Pixel 7 */
             device_model: string | null;
             /** @description Whether the phone forwards the SMS it receives to Bridge (message.received webhooks). */
@@ -3765,6 +4076,9 @@ export interface components {
             /** Format: date-time */
             updated_at: string;
         };
+        SyncBillingRequest: {
+            subscription_id: string;
+        };
         SystemHealth: {
             backlog: components["schemas"]["SystemHealthBacklogStruct"];
             components: components["schemas"]["StatusComponent"][];
@@ -3866,6 +4180,11 @@ export interface components {
             vapid_public_key: string;
         };
         UpdateDeviceRequest: {
+            /**
+             * Format: int32
+             * @description Most messages in any 24 hours. Keep it within your SIM plan's daily SMS allowance.
+             */
+            daily_send_limit?: number;
             /** @description Forward every SMS this phone receives to Bridge. Off by default; the phone also needs the Receive SMS permission. */
             forward_inbound?: boolean;
             name?: string;
@@ -3899,6 +4218,10 @@ export interface components {
             /** @description Replaces the subscription. An empty list subscribes to every event. */
             events?: ("message.sent" | "message.delivered" | "message.failed" | "message.received" | "message.auto_replied" | "device.online" | "device.offline" | "otp.verified" | "otp.failed" | "otp.expired" | "otp.blocked" | "broadcast.completed")[];
             url?: string;
+        };
+        UrlBody: {
+            /** @description Open this URL in the browser. */
+            url: string;
         };
         Usage: {
             /** Format: int64 */
@@ -4406,10 +4729,14 @@ export type AddProviderRequest = components['schemas']['AddProviderRequest'];
 export type AuditActor = components['schemas']['AuditActor'];
 export type AuditEntry = components['schemas']['AuditEntry'];
 export type AuditList = components['schemas']['AuditList'];
+export type AuthConfig = components['schemas']['AuthConfig'];
 export type AutoReplyRule = components['schemas']['AutoReplyRule'];
 export type AutoReplyRuleCreateInput = components['schemas']['AutoReplyRuleCreateInput'];
 export type AutoReplyRuleList = components['schemas']['AutoReplyRuleList'];
 export type AutoReplyRuleUpdateInput = components['schemas']['AutoReplyRuleUpdateInput'];
+export type Billing = components['schemas']['Billing'];
+export type BillingPlan = components['schemas']['BillingPlan'];
+export type BillingUsage = components['schemas']['BillingUsage'];
 export type Block = components['schemas']['Block'];
 export type BlockList = components['schemas']['BlockList'];
 export type BlockStats = components['schemas']['BlockStats'];
@@ -4423,6 +4750,7 @@ export type BroadcastSample = components['schemas']['BroadcastSample'];
 export type ChangePasswordRequest = components['schemas']['ChangePasswordRequest'];
 export type CheckProviderResponse = components['schemas']['CheckProviderResponse'];
 export type CheckWidgetCodeRequest = components['schemas']['CheckWidgetCodeRequest'];
+export type ConfirmPasswordResetRequest = components['schemas']['ConfirmPasswordResetRequest'];
 export type CreateApiKeyInputBody = components['schemas']['CreateAPIKeyInputBody'];
 export type CreateIntegrationRequest = components['schemas']['CreateIntegrationRequest'];
 export type CreateInviteRequest = components['schemas']['CreateInviteRequest'];
@@ -4458,6 +4786,7 @@ export type Integration = components['schemas']['Integration'];
 export type Invite = components['schemas']['Invite'];
 export type InvitePreview = components['schemas']['InvitePreview'];
 export type ListResponseApiKey = components['schemas']['ListResponseAPIKey'];
+export type ListResponseBillingPlan = components['schemas']['ListResponseBillingPlan'];
 export type ListResponseDevice = components['schemas']['ListResponseDevice'];
 export type ListResponseOrganization = components['schemas']['ListResponseOrganization'];
 export type ListResponseProject = components['schemas']['ListResponseProject'];
@@ -4480,6 +4809,8 @@ export type OtpVerifyBody = components['schemas']['OtpVerifyBody'];
 export type PairInputBody = components['schemas']['PairInputBody'];
 export type PairResponse = components['schemas']['PairResponse'];
 export type PairingToken = components['schemas']['PairingToken'];
+export type PlanBody = components['schemas']['PlanBody'];
+export type PlanLimits = components['schemas']['PlanLimits'];
 export type Project = components['schemas']['Project'];
 export type ProviderAccount = components['schemas']['ProviderAccount'];
 export type ProviderField = components['schemas']['ProviderField'];
@@ -4489,6 +4820,7 @@ export type PushConfig = components['schemas']['PushConfig'];
 export type RegisterPushInputBody = components['schemas']['RegisterPushInputBody'];
 export type RequestLog = components['schemas']['RequestLog'];
 export type RequestLogList = components['schemas']['RequestLogList'];
+export type RequestPasswordResetRequest = components['schemas']['RequestPasswordResetRequest'];
 export type RevokedSessions = components['schemas']['RevokedSessions'];
 export type Routing = components['schemas']['Routing'];
 export type Sim = components['schemas']['SIM'];
@@ -4507,6 +4839,7 @@ export type Status = components['schemas']['Status'];
 export type StatusComponent = components['schemas']['StatusComponent'];
 export type StatusDay = components['schemas']['StatusDay'];
 export type StatusPage = components['schemas']['StatusPage'];
+export type SyncBillingRequest = components['schemas']['SyncBillingRequest'];
 export type SystemHealth = components['schemas']['SystemHealth'];
 export type SystemHealthBacklogStruct = components['schemas']['SystemHealthBacklogStruct'];
 export type SystemHealthDatabaseStruct = components['schemas']['SystemHealthDatabaseStruct'];
@@ -4523,6 +4856,7 @@ export type UpdateIntegrationRequest = components['schemas']['UpdateIntegrationR
 export type UpdateMeRequest = components['schemas']['UpdateMeRequest'];
 export type UpdateMemberRequest = components['schemas']['UpdateMemberRequest'];
 export type UpdateWebhookRequest = components['schemas']['UpdateWebhookRequest'];
+export type UrlBody = components['schemas']['UrlBody'];
 export type Usage = components['schemas']['Usage'];
 export type UsageDay = components['schemas']['UsageDay'];
 export type UsageHistory = components['schemas']['UsageHistory'];
@@ -4550,6 +4884,35 @@ export type WidgetSendResult = components['schemas']['WidgetSendResult'];
 export type WidgetVerifyResult = components['schemas']['WidgetVerifyResult'];
 export type $defs = Record<string, never>;
 export interface operations {
+    getAuthConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthConfig"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
     login: {
         parameters: {
             query?: never;
@@ -4630,6 +4993,125 @@ export interface operations {
             };
             /** @description Error */
             default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    requestPasswordReset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RequestPasswordResetRequest"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    confirmPasswordReset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmPasswordResetRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeResponse"];
+                };
+            };
+            /** @description Gone */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5120,6 +5602,15 @@ export interface operations {
                     "application/json": components["schemas"]["APIError"];
                 };
             };
+            /** @description Payment Required */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
             /** @description Unprocessable Entity */
             422: {
                 headers: {
@@ -5328,6 +5819,15 @@ export interface operations {
                     "application/json": components["schemas"]["APIError"];
                 };
             };
+            /** @description Payment Required */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
             /** @description Not Found */
             404: {
                 headers: {
@@ -5442,6 +5942,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Organization"];
+                };
+            };
+            /** @description Payment Required */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
                 };
             };
             /** @description Not Found */
@@ -5861,6 +6370,15 @@ export interface operations {
             };
             /** @description Unauthorized */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Payment Required */
+            402: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6421,6 +6939,358 @@ export interface operations {
             };
         };
     };
+    getBilling: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Billing"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    createBillingCheckout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UrlBody"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    createBillingPortal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UrlBody"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    resumeBilling: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Billing"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    syncBilling: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SyncBillingRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Billing"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
     listInvites: {
         parameters: {
             query?: never;
@@ -6501,6 +7371,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CreatedInvite"];
+                };
+            };
+            /** @description Payment Required */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
                 };
             };
             /** @description Forbidden */
@@ -6867,6 +7746,15 @@ export interface operations {
                     "application/json": components["schemas"]["Project"];
                 };
             };
+            /** @description Payment Required */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
             /** @description Forbidden */
             403: {
                 headers: {
@@ -6929,6 +7817,15 @@ export interface operations {
             };
             /** @description Unauthorized */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Payment Required */
+            402: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -7143,6 +8040,35 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    listPlans: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponseBillingPlan"];
+                };
+            };
+            /** @description Error */
+            default: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -8218,6 +9144,15 @@ export interface operations {
                     "application/json": components["schemas"]["Message"];
                 };
             };
+            /** @description Payment Required */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
             /** @description Not Found */
             404: {
                 headers: {
@@ -8992,6 +9927,15 @@ export interface operations {
                     "application/json": components["schemas"]["Message"];
                 };
             };
+            /** @description Payment Required */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
             /** @description Not Found */
             404: {
                 headers: {
@@ -9379,6 +10323,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Verification"];
+                };
+            };
+            /** @description Payment Required */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
                 };
             };
             /** @description Forbidden */

@@ -340,6 +340,12 @@ type AutomationSetting struct {
 	DefaultsCreatedAt time.Time
 }
 
+type BillingWebhookEvent struct {
+	ID         string
+	Type       string
+	ReceivedAt time.Time
+}
+
 type Broadcast struct {
 	ID              string
 	ProjectID       string
@@ -407,6 +413,7 @@ type Device struct {
 	Sims                   json.RawMessage
 	ForwardInbound         bool
 	NotifiedPresence       *string
+	DailySendLimit         int32
 }
 
 type DevicePairingToken struct {
@@ -571,6 +578,12 @@ type OrganizationMember struct {
 	CreatedAt      time.Time
 }
 
+type OrganizationUsage struct {
+	OrganizationID string
+	Period         pgtype.Date
+	LiveMessages   int32
+}
+
 type OtpBlock struct {
 	ID          string
 	ProjectID   string
@@ -603,6 +616,29 @@ type OtpVerification struct {
 	UpdatedAt         time.Time
 	AppID             *string
 	FailoverMessageID *string
+}
+
+type PasswordReset struct {
+	ID        string
+	UserID    string
+	TokenHash []byte
+	ExpiresAt time.Time
+	UsedAt    *time.Time
+	CreatedAt time.Time
+}
+
+type Plan struct {
+	ID              string
+	Name            string
+	PriceCents      int32
+	Currency        string
+	MaxPhones       *int32
+	MaxLiveMessages *int32
+	MaxProjects     *int32
+	MaxMembers      *int32
+	SortOrder       int32
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }
 
 type Project struct {
@@ -694,6 +730,18 @@ type StatusSample struct {
 	Status    string
 	Value     *float64
 	Detail    string
+}
+
+type Subscription struct {
+	OrganizationID         string
+	PlanID                 string
+	Status                 string
+	ProviderCustomerID     *string
+	ProviderSubscriptionID *string
+	CurrentPeriodEnd       *time.Time
+	CancelAtPeriodEnd      bool
+	CreatedAt              time.Time
+	UpdatedAt              time.Time
 }
 
 type User struct {

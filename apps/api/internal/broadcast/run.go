@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
 
+	"bridge/internal/billing"
 	"bridge/internal/db/dbq"
 	"bridge/internal/messaging"
 	"bridge/internal/webhook"
@@ -163,9 +164,12 @@ func (s *Service) sendOne(ctx context.Context, b dbq.Broadcast, tmpl Template, r
 	})
 	var oe *messaging.OptedOutError
 	var ve *messaging.ValidationError
+	var le *billing.LimitError
 	switch {
 	case err == nil, errors.Is(err, errRecipientTaken):
 		return nil
+	case errors.As(err, &le):
+		return s.q.MarkRecipientSkipped(ctx, dbq.MarkRecipientSkippedParams{BroadcastID: b.ID, Position: r.Position, SkipReason: ptr("plan_limit")})
 	case errors.As(err, &oe):
 		return s.q.MarkRecipientSkipped(ctx, dbq.MarkRecipientSkippedParams{BroadcastID: b.ID, Position: r.Position, SkipReason: ptr("opted_out")})
 	case errors.As(err, &ve):
