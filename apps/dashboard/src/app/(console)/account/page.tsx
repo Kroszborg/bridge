@@ -7,8 +7,16 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { type FormEvent, useState } from 'react';
 import { toast } from 'sonner';
+import {
+  EmailChangeDialog,
+  EmailVerifyDialog,
+  PhoneVerifyDialog,
+  useAuthConfig,
+  VerifiedBadge,
+} from '@/components/account-verification';
 import { PageHeader } from '@/components/kit/page-header';
 import { SectionCard } from '@/components/kit/section-card';
+import { StatusBadge } from '@/components/kit/status-badge';
 import { useConsole } from '@/components/layout/console-context';
 import { useSignOut } from '@/components/layout/user-menu';
 import { ThemeSelector } from '@/components/theme-toggle';
@@ -26,7 +34,7 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { showError } from '@/lib/errors';
 import { formatDate, formatRelative } from '@/lib/format';
-import { useAccountMutations, useSessions } from '@/lib/queries';
+import { useAccountMutations, useSessions, useVerificationMutations } from '@/lib/queries';
 
 /** "Chrome on Windows" from a user agent string; good enough to recognise a browser. */
 function describeAgent(ua: string): { label: string; mobile: boolean } {
@@ -59,13 +67,29 @@ function describeAgent(ua: string): { label: string; mobile: boolean } {
 function ProfileCard() {
   const { user } = useConsole();
   const { updateName } = useAccountMutations();
+  const { removePhone } = useVerificationMutations();
+  const config = useAuthConfig();
   const router = useRouter();
   const [name, setName] = useState(user.name);
+  const [emailOpen, setEmailOpen] = useState(false);
+  const [changeOpen, setChangeOpen] = useState(false);
+  const [phoneOpen, setPhoneOpen] = useState(false);
+  const emailVerification = config.data?.email_verification ?? false;
+  const phoneVerification = config.data?.phone_verification ?? false;
   async function submit(e: FormEvent) {
     e.preventDefault();
     try {
       await updateName.mutateAsync(name.trim());
       toast.success('Profile saved');
+      router.refresh();
+    } catch (err) {
+      showError(err);
+    }
+  }
+  async function remove() {
+    try {
+      await removePhone.mutateAsync();
+      toast.success('Phone number removed');
       router.refresh();
     } catch (err) {
       showError(err);
@@ -92,16 +116,87 @@ function ProfileCard() {
             </Button>
           </div>
         </div>
-        <div className="flex flex-col gap-2">
+        <div className="flex min-w-0 flex-col gap-2">
           <span className="text-sm font-medium">Email</span>
-          <span className="flex h-7 items-center truncate text-sm text-muted-foreground">
-            {user.email}
-          </span>
+          <div className="flex min-h-7 min-w-0 flex-wrap items-center gap-2">
+            <span className="min-w-0 truncate text-sm text-muted-foreground">{user.email}</span>
+            {user.email_verified ? (
+              <VerifiedBadge />
+            ) : emailVerification ? (
+              <StatusBadge kind="warning">Unverified</StatusBadge>
+            ) : null}
+            {emailVerification ? (
+              <div className="ml-auto flex items-center gap-2">
+                {!user.email_verified ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setEmailOpen(true)}
+                  >
+                    Verify
+                  </Button>
+                ) : null}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="text-muted-foreground"
+                  onClick={() => setChangeOpen(true)}
+                >
+                  Change
+                </Button>
+              </div>
+            ) : null}
+          </div>
         </div>
+        {phoneVerification || user.phone ? (
+          <div className="flex min-w-0 flex-col gap-2 sm:col-span-2">
+            <span className="text-sm font-medium">Phone</span>
+            <div className="flex min-h-7 flex-wrap items-center gap-2">
+              {user.phone ? (
+                <>
+                  <span className="font-mono text-sm">{user.phone}</span>
+                  <VerifiedBadge />
+                </>
+              ) : (
+                <span className="text-sm text-muted-foreground">No phone number yet.</span>
+              )}
+              <div className="ml-auto flex items-center gap-2">
+                {user.phone ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="text-muted-foreground hover:text-destructive"
+                    disabled={removePhone.isPending}
+                    onClick={() => void remove()}
+                  >
+                    Remove
+                  </Button>
+                ) : null}
+                {phoneVerification ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setPhoneOpen(true)}
+                  >
+                    {user.phone ? 'Change' : 'Add phone number'}
+                  </Button>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        ) : null}
         <p className="text-xs text-muted-foreground sm:col-span-2">
           Member since {formatDate(user.created_at)}.
         </p>
       </form>
+      {/* Outside the form: React submit events bubble out of portals. */}
+      <EmailVerifyDialog open={emailOpen} onOpenChange={setEmailOpen} />
+      <EmailChangeDialog open={changeOpen} onOpenChange={setChangeOpen} />
+      <PhoneVerifyDialog open={phoneOpen} onOpenChange={setPhoneOpen} />
     </SectionCard>
   );
 }

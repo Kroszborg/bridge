@@ -2,7 +2,7 @@
 
 import type { Organization, User } from '@bridge/api-types';
 import { useParams } from 'next/navigation';
-import { createContext, type ReactNode, useContext } from 'react';
+import { createContext, type ReactNode, useContext, useEffect, useState } from 'react';
 import { useProject } from '@/lib/queries';
 
 type ConsoleValue = {
@@ -28,6 +28,24 @@ export function useConsole(): ConsoleValue {
 export function useProjectId(): string | undefined {
   const params = useParams<{ projectId?: string }>();
   return params.projectId;
+}
+
+/**
+ * The project the sidebar is about: the one in the URL, else the last one opened
+ * (remembered in a cookie), so account and workspace pages keep a full menu.
+ */
+export function useNavProjectId(): string | undefined {
+  const fromUrl = useProjectId();
+  const [last, setLast] = useState<string>();
+  useEffect(() => {
+    if (fromUrl) return;
+    const m = document.cookie.match(/(?:^|;\s*)bridge_last_project=([^;]+)/);
+    setLast(m?.[1] ? decodeURIComponent(m[1]) : undefined);
+  }, [fromUrl]);
+  // A remembered project that no longer exists or is no longer ours is dropped.
+  const { isError } = useProject(fromUrl ? '' : (last ?? ''));
+  if (fromUrl) return fromUrl;
+  return isError ? undefined : last;
 }
 
 /** The organization in view: from the URL, else the current project's, else the first. */

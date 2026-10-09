@@ -666,6 +666,38 @@ export function useAccountMutations() {
   };
 }
 
+/** Email and phone verification of the signed-in user. Call router.refresh() after a success. */
+export function useVerificationMutations() {
+  return {
+    sendEmailCode: useMutation({
+      mutationFn: () => unwrap(api.POST('/v1/me/email/verification')),
+    }),
+    confirmEmail: useMutation({
+      mutationFn: (code: string) =>
+        unwrap(api.POST('/v1/me/email/verification/confirm', { body: { code } })),
+    }),
+    requestEmailChange: useMutation({
+      mutationFn: (body: { email: string; password: string }) =>
+        unwrap(api.POST('/v1/me/email/change', { body })),
+    }),
+    confirmEmailChange: useMutation({
+      mutationFn: (code: string) =>
+        unwrap(api.POST('/v1/me/email/change/confirm', { body: { code } })),
+    }),
+    sendPhoneCode: useMutation({
+      mutationFn: (phone: string) =>
+        unwrap(api.POST('/v1/me/phone/verification', { body: { phone } })),
+    }),
+    confirmPhone: useMutation({
+      mutationFn: (body: { phone: string; code: string }) =>
+        unwrap(api.POST('/v1/me/phone/verification/confirm', { body })),
+    }),
+    removePhone: useMutation({
+      mutationFn: () => unwrap(api.DELETE('/v1/me/phone')),
+    }),
+  };
+}
+
 // ---- status -------------------------------------------------------------------
 
 export function useStatusPage() {

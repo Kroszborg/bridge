@@ -6,8 +6,15 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import * as React from 'react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { usePlans } from '@/lib/queries';
 import { cn } from '@/lib/utils';
-import { useConsole, useProjectId } from './console-context';
+import {
+  useCan,
+  useConsole,
+  useNavProjectId,
+  useOrganization,
+  useProjectId,
+} from './console-context';
 import { buildNav, isActive } from './nav-items';
 
 /**
@@ -16,12 +23,23 @@ import { buildNav, isActive } from './nav-items';
  */
 export function NavList({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
-  const projectId = useProjectId();
-  const { apiUrl } = useConsole();
+  const inProject = useProjectId() !== undefined;
+  const projectId = useNavProjectId();
+  const { apiUrl, user } = useConsole();
+  const org = useOrganization();
+  const admin = useCan('admin');
+  // Plans exist only on hosted Bridge; self-hosted servers have no billing.
+  const hosted = (usePlans().data?.data.length ?? 0) > 0;
   const navRef = React.useRef<HTMLElement>(null);
   const [bar, setBar] = React.useState<{ top: number; height: number } | null>(null);
   const [settled, setSettled] = React.useState(false);
-  const groups = buildNav({ projectId, apiUrl });
+  const groups = buildNav({
+    projectId,
+    apiUrl,
+    workspace: inProject
+      ? undefined
+      : { organizationId: org?.id, hosted, admin, operator: user.operator },
+  });
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: re-measure when the route changes
   React.useLayoutEffect(() => {

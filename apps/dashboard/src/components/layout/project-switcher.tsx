@@ -14,7 +14,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useProjectsByOrg } from '@/lib/queries';
-import { useConsole, useProjectId } from './console-context';
+import { useConsole, useNavProjectId } from './console-context';
 import { CreateOrganizationDialog, CreateProjectDialog } from './create-dialogs';
 
 function initial(name: string) {
@@ -25,7 +25,7 @@ function initial(name: string) {
 export function ProjectSwitcher() {
   const router = useRouter();
   const { organizations } = useConsole();
-  const projectId = useProjectId();
+  const projectId = useNavProjectId();
   const projectsByOrg = useProjectsByOrg(organizations);
   const [newProjectOrg, setNewProjectOrg] = useState<string | null>(null);
   const [newOrgOpen, setNewOrgOpen] = useState(false);

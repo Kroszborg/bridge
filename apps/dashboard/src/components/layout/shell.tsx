@@ -4,6 +4,7 @@ import { Cancel01Icon, Menu01Icon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { usePathname } from 'next/navigation';
 import { type ReactNode, useEffect, useState } from 'react';
+import { EmailVerifyBanner } from '@/components/account-verification';
 import { Wordmark } from '@/components/brand';
 import { CommandPalette, CommandTrigger } from '@/components/command-palette';
 import { ThemeToggle } from '@/components/theme-toggle';
@@ -130,6 +131,7 @@ export function ConsoleShell({ children }: { children: ReactNode }) {
             <UserMenu compact />
           </div>
         </Topbar>
+        <EmailVerifyBanner />
         <main
           data-shell-scroll
           className="route-enter scroll-slim flex-1 overflow-y-auto p-4 sm:p-6"

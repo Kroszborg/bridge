@@ -2,16 +2,21 @@ import {
   BookOpen01Icon,
   ChartHistogramIcon,
   CloudServerIcon,
+  CreditCardIcon,
   DashboardSquare01Icon,
   Key01Icon,
   LeftToRightListBulletIcon,
   Message01Icon,
   PasswordValidationIcon,
   PlugSocketIcon,
+  SecurityCheckIcon,
   SentIcon,
+  ServerStack01Icon,
   Settings02Icon,
   SmartPhone01Icon,
   TestTube01Icon,
+  UserCircleIcon,
+  UserGroupIcon,
   WebhookIcon,
   WorkflowSquare03Icon,
 } from '@hugeicons/core-free-icons';
@@ -31,9 +36,16 @@ export type NavGroup = { title: string; items: NavItem[] };
 export type NavContext = {
   projectId?: string;
   apiUrl: string;
+  /** Set on pages outside a project (account, team, billing): the workspace links. */
+  workspace?: {
+    organizationId?: string;
+    hosted: boolean;
+    admin: boolean;
+    operator: boolean;
+  };
 };
 
-export function buildNav({ projectId, apiUrl }: NavContext): NavGroup[] {
+export function buildNav({ projectId, apiUrl, workspace }: NavContext): NavGroup[] {
   const groups: NavGroup[] = [];
   if (projectId) {
     const base = `/projects/${projectId}`;
@@ -80,7 +92,21 @@ export function buildNav({ projectId, apiUrl }: NavContext): NavGroup[] {
       ],
     });
   }
-  // Team, audit log, account and instance pages live in the account menu.
+  // Off a project, the workspace pages (also in the account menu) get their own group.
+  if (workspace) {
+    const org = workspace.organizationId ? `/organizations/${workspace.organizationId}` : null;
+    const items: NavItem[] = [{ href: '/account', label: 'Account', icon: UserCircleIcon }];
+    if (org) {
+      items.push({ href: `${org}/team`, label: 'Team', icon: UserGroupIcon });
+      if (workspace.hosted)
+        items.push({ href: `${org}/billing`, label: 'Billing', icon: CreditCardIcon });
+      if (workspace.admin)
+        items.push({ href: `${org}/audit`, label: 'Audit log', icon: SecurityCheckIcon });
+    }
+    if (workspace.operator)
+      items.push({ href: '/system', label: 'System health', icon: ServerStack01Icon });
+    groups.push({ title: 'Workspace', items });
+  }
   return groups;
 }
 
