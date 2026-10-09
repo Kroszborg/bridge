@@ -192,14 +192,16 @@
 /* Hero copy: CSS reveals, so the headline reads before JavaScript loads. */
 @media (prefers-reduced-motion: no-preference) {
   .word-in {
+    will-change: transform, opacity;
     animation: word-in 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
     animation-delay: calc(var(--i, 0) * 60ms);
   }
   @keyframes word-in {
+    /* Opacity and transform only: the compositor runs them, so they stay smooth
+       even while the page is still busy loading. */
     from {
       opacity: 0;
-      transform: translateY(18px);
-      filter: blur(10px);
+      transform: translate3d(0, 0.4em, 0);
     }
   }
   .fade-up {

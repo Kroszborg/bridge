@@ -289,397 +289,450 @@ export function Bridge3D({ className }: { className?: string }) {
     let cleanup = () => {};
     const stage = el.closest('section')?.querySelector<HTMLElement>('[data-bridge-stage]') ?? el;
 
-    import('three').then((THREE) => {
-      if (disposed) return;
-      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      const small = window.innerWidth < 768;
-      const primary = new THREE.Color();
-      const palette: Record<Kind, InstanceType<typeof THREE.Color>> = {
-        cable: new THREE.Color(),
-        hanger: new THREE.Color(),
-        tower: new THREE.Color(),
-        deck: new THREE.Color(),
-        water: new THREE.Color(),
+    // Three.js, the model and the shaders are real work for the main thread. Doing it while
+    // the headline animates makes the words stall and jump, so the bridge waits until the
+    // page has loaded, the headline has settled and the browser is idle.
+    const mounted = performance.now();
+    const settled = new Promise<void>((resolve) => {
+      const idle = () => {
+        const wait = Math.max(0, 1100 - (performance.now() - mounted));
+        setTimeout(() => {
+          if ('requestIdleCallback' in window)
+            requestIdleCallback(() => resolve(), { timeout: 700 });
+          else setTimeout(resolve, 50);
+        }, wait);
       };
-      let dark = true;
-      // Colours follow the theme's tokens, and change with it.
-      const readPalette = () => {
-        const css = getComputedStyle(document.documentElement);
-        const color = (name: string) =>
-          new THREE.Color(css.getPropertyValue(name).trim() || '#3eebc0');
-        const fg = color('--foreground');
-        dark = document.documentElement.classList.contains('dark');
-        primary.copy(color('--primary'));
-        if (dark) {
-          palette.cable.copy(primary);
-          palette.hanger.copy(primary).lerp(fg, 0.15);
-          palette.tower.copy(fg);
-          palette.deck.copy(fg).lerp(primary, 0.25);
-          palette.water.copy(primary).multiplyScalar(0.55);
-        } else {
-          // On a light page the bridge is inked in the brand green, darkest where it is solid.
-          const bg = color('--background');
-          palette.cable.copy(primary);
-          palette.hanger.copy(primary).lerp(bg, 0.35);
-          palette.tower.copy(primary).lerp(fg, 0.45);
-          palette.deck.copy(primary).lerp(fg, 0.3);
-          palette.water.copy(primary).lerp(bg, 0.55);
-        }
-      };
-      readPalette();
+      if (document.readyState === 'complete') idle();
+      else window.addEventListener('load', idle, { once: true });
+    });
 
-      const renderer = new THREE.WebGLRenderer({
-        antialias: false,
-        alpha: true,
-        powerPreference: 'high-performance',
+    // Hand the main thread back between the heavy steps, so none of them is one long task.
+    const breathe = () =>
+      new Promise<void>((resolve) => {
+        if ('requestIdleCallback' in window) requestIdleCallback(() => resolve(), { timeout: 200 });
+        else setTimeout(resolve, 0);
       });
-      const ratio = Math.min(window.devicePixelRatio, small ? 1.5 : 1.75);
-      renderer.setPixelRatio(ratio);
-      renderer.domElement.style.cssText = 'display:block;width:100%;height:100%';
-      el.appendChild(renderer.domElement);
-      renderer.domElement.setAttribute('aria-hidden', 'true');
 
-      const scene = new THREE.Scene();
-      const camera = new THREE.PerspectiveCamera(small ? 38 : 24, 1, 1, 2000);
-      const target = new THREE.Vector3(0, TOWER_TOP * 0.45, 0);
-      // The resting view: nearly straight on and a little above the deck, so the
-      // bridge reads level and symmetric, with just enough angle to feel 3D.
-      const AZ = -0.1;
-      const TILT = 0.2;
+    settled
+      .then(() => (disposed ? null : import('three')))
+      .then(async (THREE) => {
+        if (!THREE || disposed) return;
+        await breathe();
+        if (disposed) return;
+        const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const small = window.innerWidth < 768;
+        const primary = new THREE.Color();
+        const palette: Record<Kind, InstanceType<typeof THREE.Color>> = {
+          cable: new THREE.Color(),
+          hanger: new THREE.Color(),
+          tower: new THREE.Color(),
+          deck: new THREE.Color(),
+          water: new THREE.Color(),
+        };
+        let dark = true;
+        // Colours follow the theme's tokens, and change with it.
+        const readPalette = () => {
+          const css = getComputedStyle(document.documentElement);
+          const color = (name: string) =>
+            new THREE.Color(css.getPropertyValue(name).trim() || '#3eebc0');
+          const fg = color('--foreground');
+          dark = document.documentElement.classList.contains('dark');
+          primary.copy(color('--primary'));
+          if (dark) {
+            palette.cable.copy(primary);
+            palette.hanger.copy(primary).lerp(fg, 0.15);
+            palette.tower.copy(fg);
+            palette.deck.copy(fg).lerp(primary, 0.25);
+            palette.water.copy(primary).multiplyScalar(0.55);
+          } else {
+            // On a light page the bridge is inked in the brand green, darkest where it is solid.
+            const bg = color('--background');
+            palette.cable.copy(primary);
+            palette.hanger.copy(primary).lerp(bg, 0.35);
+            palette.tower.copy(primary).lerp(fg, 0.45);
+            palette.deck.copy(primary).lerp(fg, 0.3);
+            palette.water.copy(primary).lerp(bg, 0.55);
+          }
+        };
+        readPalette();
 
-      // Particles: target positions, scattered starts, colours, sizes and a
-      // random direction each one flies off in when the bridge comes apart.
-      const parts = build(small ? 14000 : 30000);
-      const count = parts.reduce((n, p) => n + p.points.length, 0);
-      const pos = new Float32Array(count * 3);
-      const start = new Float32Array(count * 3);
-      const dir = new Float32Array(count * 3);
-      const col = new Float32Array(count * 3);
-      const size = new Float32Array(count);
-      const rnd = new Float32Array(count);
-      const kind = new Float32Array(count);
-      let i = 0;
-      const r = seeded(11);
-      for (const part of parts) {
-        for (const p of part.points) {
-          pos.set(p, i * 3);
-          const a = r() * Math.PI * 2;
-          const b = (r() - 0.5) * Math.PI;
-          const dist = 60 + r() * 110;
-          start.set(
-            [
-              Math.cos(a) * Math.cos(b) * dist,
-              12 + Math.sin(b) * dist * 0.6,
-              Math.sin(a) * Math.cos(b) * dist,
-            ],
-            i * 3,
-          );
-          const u = r() * 2 - 1;
-          const phi = r() * Math.PI * 2;
-          const s = Math.sqrt(1 - u * u);
-          dir.set([s * Math.cos(phi), u, s * Math.sin(phi)], i * 3);
-          size[i] = part.size;
-          rnd[i] = part.kind === 'water' ? 0.95 * r() : r();
-          kind[i] = KIND_ID[part.kind];
-          i++;
+        const renderer = new THREE.WebGLRenderer({
+          antialias: false,
+          alpha: true,
+          powerPreference: 'high-performance',
+        });
+        const ratio = Math.min(window.devicePixelRatio, small ? 1.5 : 1.75);
+        renderer.setPixelRatio(ratio);
+        // Hidden until its first frame is drawn, then faded in.
+        renderer.domElement.style.cssText =
+          'display:block;width:100%;height:100%;opacity:0;transition:opacity .7s ease';
+        el.appendChild(renderer.domElement);
+        renderer.domElement.setAttribute('aria-hidden', 'true');
+
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(small ? 38 : 24, 1, 1, 2000);
+        const target = new THREE.Vector3(0, TOWER_TOP * 0.45, 0);
+        // The resting view: nearly straight on and a little above the deck, so the
+        // bridge reads level and symmetric, with just enough angle to feel 3D.
+        const AZ = -0.1;
+        const TILT = 0.2;
+
+        // Particles: target positions, scattered starts, colours, sizes and a
+        // random direction each one flies off in when the bridge comes apart.
+        const parts = build(small ? 14000 : 30000);
+        await breathe();
+        if (disposed) {
+          renderer.dispose();
+          renderer.domElement.remove();
+          return;
         }
-      }
-      const paint = () => {
-        let j = 0;
+        const count = parts.reduce((n, p) => n + p.points.length, 0);
+        const pos = new Float32Array(count * 3);
+        const start = new Float32Array(count * 3);
+        const dir = new Float32Array(count * 3);
+        const col = new Float32Array(count * 3);
+        const size = new Float32Array(count);
+        const rnd = new Float32Array(count);
+        const kind = new Float32Array(count);
+        let i = 0;
+        const r = seeded(11);
         for (const part of parts) {
-          const c = palette[part.kind];
-          for (let n = 0; n < part.points.length; n++, j++) col.set([c.r, c.g, c.b], j * 3);
+          for (const p of part.points) {
+            pos.set(p, i * 3);
+            const a = r() * Math.PI * 2;
+            const b = (r() - 0.5) * Math.PI;
+            const dist = 60 + r() * 110;
+            start.set(
+              [
+                Math.cos(a) * Math.cos(b) * dist,
+                12 + Math.sin(b) * dist * 0.6,
+                Math.sin(a) * Math.cos(b) * dist,
+              ],
+              i * 3,
+            );
+            const u = r() * 2 - 1;
+            const phi = r() * Math.PI * 2;
+            const s = Math.sqrt(1 - u * u);
+            dir.set([s * Math.cos(phi), u, s * Math.sin(phi)], i * 3);
+            size[i] = part.size;
+            rnd[i] = part.kind === 'water' ? 0.95 * r() : r();
+            kind[i] = KIND_ID[part.kind];
+            i++;
+          }
         }
-      };
-      paint();
-      const geo = new THREE.BufferGeometry();
-      geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-      geo.setAttribute('aStart', new THREE.BufferAttribute(start, 3));
-      geo.setAttribute('aDir', new THREE.BufferAttribute(dir, 3));
-      geo.setAttribute('aColor', new THREE.BufferAttribute(col, 3));
-      geo.setAttribute('aSize', new THREE.BufferAttribute(size, 1));
-      geo.setAttribute('aRand', new THREE.BufferAttribute(rnd, 1));
-      geo.setAttribute('aKind', new THREE.BufferAttribute(kind, 1));
-      // The model never leaves the frame enough to cull, and it moves in the shader.
-      const offsets = Array.from({ length: PULSES }, (_, n) => (n * END * 2) / PULSES + n * 7);
-      const uniforms = {
-        uProgress: { value: reduce ? 1 : 0 },
-        uTime: { value: 0 },
-        uPixelRatio: { value: ratio },
-        uScale: { value: 1 },
-        uScroll: { value: 0 },
-        uSpan: { value: END },
-        uSpeed: { value: PULSE_SPEED },
-        uOffsets: { value: offsets },
-        uBlasts: {
-          value: Array.from({ length: BLASTS }, () => new THREE.Vector4(0, 0, 0, -1000)),
-        },
-        uMouse: { value: new THREE.Vector3(0, -1000, 0) },
-        uHover: { value: 0 },
-        uGlow: { value: primary },
-      };
-      const mat = new THREE.ShaderMaterial({
-        vertexShader: VERTEX,
-        fragmentShader: FRAGMENT,
-        uniforms,
-        transparent: true,
-        depthWrite: false,
-      });
-      const cloud = new THREE.Points(geo, mat);
-      cloud.frustumCulled = false;
-      scene.add(cloud);
+        const paint = () => {
+          let j = 0;
+          for (const part of parts) {
+            const c = palette[part.kind];
+            for (let n = 0; n < part.points.length; n++, j++) col.set([c.r, c.g, c.b], j * 3);
+          }
+        };
+        paint();
+        await breathe();
+        if (disposed) {
+          renderer.dispose();
+          renderer.domElement.remove();
+          return;
+        }
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+        geo.setAttribute('aStart', new THREE.BufferAttribute(start, 3));
+        geo.setAttribute('aDir', new THREE.BufferAttribute(dir, 3));
+        geo.setAttribute('aColor', new THREE.BufferAttribute(col, 3));
+        geo.setAttribute('aSize', new THREE.BufferAttribute(size, 1));
+        geo.setAttribute('aRand', new THREE.BufferAttribute(rnd, 1));
+        geo.setAttribute('aKind', new THREE.BufferAttribute(kind, 1));
+        // The model never leaves the frame enough to cull, and it moves in the shader.
+        const offsets = Array.from({ length: PULSES }, (_, n) => (n * END * 2) / PULSES + n * 7);
+        const uniforms = {
+          uProgress: { value: reduce ? 1 : 0 },
+          uTime: { value: 0 },
+          uPixelRatio: { value: ratio },
+          uScale: { value: 1 },
+          uScroll: { value: 0 },
+          uSpan: { value: END },
+          uSpeed: { value: PULSE_SPEED },
+          uOffsets: { value: offsets },
+          uBlasts: {
+            value: Array.from({ length: BLASTS }, () => new THREE.Vector4(0, 0, 0, -1000)),
+          },
+          uMouse: { value: new THREE.Vector3(0, -1000, 0) },
+          uHover: { value: 0 },
+          uGlow: { value: primary },
+        };
+        const mat = new THREE.ShaderMaterial({
+          vertexShader: VERTEX,
+          fragmentShader: FRAGMENT,
+          uniforms,
+          transparent: true,
+          depthWrite: false,
+        });
+        const cloud = new THREE.Points(geo, mat);
+        cloud.frustumCulled = false;
+        scene.add(cloud);
 
-      // Messages crossing the deck, each with a fading tail.
-      const pg = new THREE.BufferGeometry();
-      const n = PULSES * TRAIL;
-      pg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
-      pg.setAttribute(
-        'aOffset',
-        new THREE.BufferAttribute(
-          Float32Array.from({ length: n }, (_, q) => offsets[Math.floor(q / TRAIL)] ?? 0),
-          1,
-        ),
-      );
-      pg.setAttribute(
-        'aLane',
-        new THREE.BufferAttribute(
-          Float32Array.from({ length: n }, (_, q) => (Math.floor(q / TRAIL) % 2 ? 0.6 : -0.6)),
-          1,
-        ),
-      );
-      pg.setAttribute(
-        'aTrail',
-        new THREE.BufferAttribute(
-          Float32Array.from({ length: n }, (_, q) => (q % TRAIL) / TRAIL),
-          1,
-        ),
-      );
-      const pulseUniforms = {
-        uTime: uniforms.uTime,
-        uPixelRatio: uniforms.uPixelRatio,
-        uScale: uniforms.uScale,
-        uSpan: uniforms.uSpan,
-        uSpeed: uniforms.uSpeed,
-        uDeck: { value: DECK_Y + TRUSS / 2 + 0.35 },
-        uVisible: { value: 0 },
-        uColor: { value: primary },
-      };
-      const pulseMat = new THREE.ShaderMaterial({
-        vertexShader: PULSE_VERTEX,
-        fragmentShader: PULSE_FRAGMENT,
-        uniforms: pulseUniforms,
-        transparent: true,
-        depthWrite: false,
-        blending: THREE.AdditiveBlending,
-      });
-      const pulses = new THREE.Points(pg, pulseMat);
-      pulses.frustumCulled = false;
-      scene.add(pulses);
+        // Messages crossing the deck, each with a fading tail.
+        const pg = new THREE.BufferGeometry();
+        const n = PULSES * TRAIL;
+        pg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+        pg.setAttribute(
+          'aOffset',
+          new THREE.BufferAttribute(
+            Float32Array.from({ length: n }, (_, q) => offsets[Math.floor(q / TRAIL)] ?? 0),
+            1,
+          ),
+        );
+        pg.setAttribute(
+          'aLane',
+          new THREE.BufferAttribute(
+            Float32Array.from({ length: n }, (_, q) => (Math.floor(q / TRAIL) % 2 ? 0.6 : -0.6)),
+            1,
+          ),
+        );
+        pg.setAttribute(
+          'aTrail',
+          new THREE.BufferAttribute(
+            Float32Array.from({ length: n }, (_, q) => (q % TRAIL) / TRAIL),
+            1,
+          ),
+        );
+        const pulseUniforms = {
+          uTime: uniforms.uTime,
+          uPixelRatio: uniforms.uPixelRatio,
+          uScale: uniforms.uScale,
+          uSpan: uniforms.uSpan,
+          uSpeed: uniforms.uSpeed,
+          uDeck: { value: DECK_Y + TRUSS / 2 + 0.35 },
+          uVisible: { value: 0 },
+          uColor: { value: primary },
+        };
+        const pulseMat = new THREE.ShaderMaterial({
+          vertexShader: PULSE_VERTEX,
+          fragmentShader: PULSE_FRAGMENT,
+          uniforms: pulseUniforms,
+          transparent: true,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+        });
+        const pulses = new THREE.Points(pg, pulseMat);
+        pulses.frustumCulled = false;
+        scene.add(pulses);
 
-      // Light adds up on a dark page; on a light page, plain blending keeps it crisp.
-      const blend = () => {
-        mat.blending = dark ? THREE.AdditiveBlending : THREE.NormalBlending;
-        pulseMat.blending = dark ? THREE.AdditiveBlending : THREE.NormalBlending;
-        mat.needsUpdate = true;
-        pulseMat.needsUpdate = true;
-      };
-      blend();
+        // Light adds up on a dark page; on a light page, plain blending keeps it crisp.
+        const blend = () => {
+          mat.blending = dark ? THREE.AdditiveBlending : THREE.NormalBlending;
+          pulseMat.blending = dark ? THREE.AdditiveBlending : THREE.NormalBlending;
+          mat.needsUpdate = true;
+          pulseMat.needsUpdate = true;
+        };
+        blend();
 
-      // The pointer: the view leans toward it, and particles near it part.
-      const look = { x: 0, y: 0, tx: 0, ty: 0 };
-      const ndc = new THREE.Vector2();
-      let inside = false;
-      const onPointer = (e: PointerEvent) => {
-        look.tx = (e.clientX / window.innerWidth - 0.5) * 2;
-        look.ty = (e.clientY / window.innerHeight - 0.5) * 2;
-        const rect = el.getBoundingClientRect();
-        inside =
-          e.pointerType === 'mouse' &&
-          e.clientX >= rect.left &&
-          e.clientX <= rect.right &&
-          e.clientY >= rect.top &&
-          e.clientY <= rect.bottom;
-        if (inside) {
-          ndc.set(
+        // The pointer: the view leans toward it, and particles near it part.
+        const look = { x: 0, y: 0, tx: 0, ty: 0 };
+        const ndc = new THREE.Vector2();
+        let inside = false;
+        const onPointer = (e: PointerEvent) => {
+          look.tx = (e.clientX / window.innerWidth - 0.5) * 2;
+          look.ty = (e.clientY / window.innerHeight - 0.5) * 2;
+          const rect = el.getBoundingClientRect();
+          inside =
+            e.pointerType === 'mouse' &&
+            e.clientX >= rect.left &&
+            e.clientX <= rect.right &&
+            e.clientY >= rect.top &&
+            e.clientY <= rect.bottom;
+          if (inside) {
+            ndc.set(
+              ((e.clientX - rect.left) / rect.width) * 2 - 1,
+              -((e.clientY - rect.top) / rect.height) * 2 + 1,
+            );
+          }
+        };
+        window.addEventListener('pointermove', onPointer, { passive: true });
+
+        // Where a screen point lands on the bridge: the plane through its middle.
+        const ray = new THREE.Raycaster();
+        const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+        const hit = new THREE.Vector3();
+        const toBridge = (at: InstanceType<typeof THREE.Vector2>) => {
+          ray.setFromCamera(at, camera);
+          if (!ray.ray.intersectPlane(plane, hit)) hit.copy(target);
+          hit.x = Math.max(-END, Math.min(END, hit.x));
+          hit.y = Math.max(0, Math.min(TOWER_TOP + 4, hit.y));
+          return hit;
+        };
+
+        // A click or tap throws the bridge apart from where it lands.
+        let slot = 0;
+        const onPress = (e: PointerEvent) => {
+          if (reduce || uniforms.uProgress.value < 0.9) return;
+          const rect = el.getBoundingClientRect();
+          const at = new THREE.Vector2(
             ((e.clientX - rect.left) / rect.width) * 2 - 1,
             -((e.clientY - rect.top) / rect.height) * 2 + 1,
           );
-        }
-      };
-      window.addEventListener('pointermove', onPointer, { passive: true });
+          const p = toBridge(at);
+          uniforms.uBlasts.value[slot]?.set(p.x, p.y, p.z, uniforms.uTime.value);
+          slot = (slot + 1) % BLASTS;
+        };
+        el.addEventListener('pointerdown', onPress);
 
-      // Where a screen point lands on the bridge: the plane through its middle.
-      const ray = new THREE.Raycaster();
-      const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
-      const hit = new THREE.Vector3();
-      const toBridge = (at: InstanceType<typeof THREE.Vector2>) => {
-        ray.setFromCamera(at, camera);
-        if (!ray.ray.intersectPlane(plane, hit)) hit.copy(target);
-        hit.x = Math.max(-END, Math.min(END, hit.x));
-        hit.y = Math.max(0, Math.min(TOWER_TOP + 4, hit.y));
-        return hit;
-      };
+        // How far the hero has scrolled out of view, as 0 to 1.
+        let scrollTarget = 0;
+        const onScroll = () => {
+          const rect = stage.getBoundingClientRect();
+          const vh = window.innerHeight;
+          scrollTarget = Math.max(0, Math.min(1, (vh * 0.1 - rect.top) / (rect.height * 1.3)));
+        };
+        window.addEventListener('scroll', onScroll, { passive: true });
+        onScroll();
 
-      // A click or tap throws the bridge apart from where it lands.
-      let slot = 0;
-      const onPress = (e: PointerEvent) => {
-        if (reduce || uniforms.uProgress.value < 0.9) return;
-        const rect = el.getBoundingClientRect();
-        const at = new THREE.Vector2(
-          ((e.clientX - rect.left) / rect.width) * 2 - 1,
-          -((e.clientY - rect.top) / rect.height) * 2 + 1,
+        // Back the camera off until the whole bridge, ends and tower tops included,
+        // sits inside the stage box, whatever its shape.
+        const towers = [-1, 1].flatMap((sx) =>
+          [-1, 1].flatMap((sz) => [
+            new THREE.Vector3(sx * HALF, TOWER_TOP, sz * CABLE_Z),
+            new THREE.Vector3(sx * HALF, 0, sz * CABLE_Z),
+          ]),
         );
-        const p = toBridge(at);
-        uniforms.uBlasts.value[slot]?.set(p.x, p.y, p.z, uniforms.uTime.value);
-        slot = (slot + 1) % BLASTS;
-      };
-      el.addEventListener('pointerdown', onPress);
+        const ends = [-1, 1].flatMap((sx) =>
+          [-1, 1].map((sz) => new THREE.Vector3(sx * (END + 2.4), DECK_Y, sz * DECK_W)),
+        );
+        const probe = new THREE.Vector3();
+        let top = 1; // where the tower tops land in the stage, in clip space
+        const fit = () => {
+          let r = 150;
+          for (let k = 0; k < 6; k++) {
+            camera.position.set(
+              Math.sin(AZ) * r * Math.cos(TILT),
+              target.y + Math.sin(TILT) * r,
+              Math.cos(AZ) * r * Math.cos(TILT),
+            );
+            camera.lookAt(target);
+            camera.updateMatrixWorld();
+            camera.updateProjectionMatrix();
+            // Towers well inside the frame, the approach spans running to its edges.
+            let tx = 0;
+            let ty = 0;
+            top = -1;
+            let ex = 0;
+            for (const c of towers) {
+              probe.copy(c).project(camera);
+              tx = Math.max(tx, Math.abs(probe.x));
+              ty = Math.max(ty, Math.abs(probe.y));
+              if (c.y > 0) top = Math.max(top, probe.y);
+            }
+            for (const c of ends) {
+              probe.copy(c).project(camera);
+              ex = Math.max(ex, Math.abs(probe.x));
+            }
+            r *= Math.max(tx / (small ? 0.92 : 0.8), ex / 2.2, ty / 0.94);
+          }
+          return r;
+        };
 
-      // How far the hero has scrolled out of view, as 0 to 1.
-      let scrollTarget = 0;
-      const onScroll = () => {
-        const rect = stage.getBoundingClientRect();
-        const vh = window.innerHeight;
-        scrollTarget = Math.max(0, Math.min(1, (vh * 0.1 - rect.top) / (rect.height * 1.3)));
-      };
-      window.addEventListener('scroll', onScroll, { passive: true });
-      onScroll();
+        let radius = 180;
+        const resize = () => {
+          const w = el.clientWidth;
+          const h = el.clientHeight;
+          renderer.setSize(w, h, false);
+          // Frame the bridge for the stage box, then widen the view to the whole canvas.
+          const box = stage.getBoundingClientRect();
+          const own = el.getBoundingClientRect();
+          const sw = Math.max(1, box.width);
+          const sh = Math.max(1, box.height);
+          camera.aspect = sw / sh;
+          camera.clearViewOffset();
+          radius = fit();
+          uniforms.uScale.value = radius / 128;
+          // Lift the bridge so its towers stand just inside the top of the stage.
+          const lift = Math.max(0, ((1 - top) / 2) * sh - 28);
+          camera.setViewOffset(sw, sh, own.left - box.left, own.top - box.top + lift, w, h);
+          if (reduce) {
+            place(0);
+            renderer.render(scene, camera);
+          }
+        };
+        const ro = new ResizeObserver(resize);
+        ro.observe(el);
+        if (stage !== el) ro.observe(stage);
 
-      // Back the camera off until the whole bridge, ends and tower tops included,
-      // sits inside the stage box, whatever its shape.
-      const towers = [-1, 1].flatMap((sx) =>
-        [-1, 1].flatMap((sz) => [
-          new THREE.Vector3(sx * HALF, TOWER_TOP, sz * CABLE_Z),
-          new THREE.Vector3(sx * HALF, 0, sz * CABLE_Z),
-        ]),
-      );
-      const ends = [-1, 1].flatMap((sx) =>
-        [-1, 1].map((sz) => new THREE.Vector3(sx * (END + 2.4), DECK_Y, sz * DECK_W)),
-      );
-      const probe = new THREE.Vector3();
-      let top = 1; // where the tower tops land in the stage, in clip space
-      const fit = () => {
-        let r = 150;
-        for (let k = 0; k < 6; k++) {
+        const themes = new MutationObserver(() => {
+          readPalette();
+          paint();
+          blend();
+          geo.getAttribute('aColor').needsUpdate = true;
+          if (reduce) renderer.render(scene, camera);
+        });
+        themes.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+
+        let visible = true;
+        const io = new IntersectionObserver(([e]) => {
+          visible = e?.isIntersecting ?? true;
+        });
+        io.observe(el);
+
+        // A slow drift plus the pointer.
+        const place = (time: number) => {
+          look.x += (look.tx - look.x) * 0.04;
+          look.y += (look.ty - look.y) * 0.04;
+          const az = AZ + Math.sin(time * 0.06) * 0.06 + look.x * 0.1;
+          const tilt = TILT + look.y * -0.04;
           camera.position.set(
-            Math.sin(AZ) * r * Math.cos(TILT),
-            target.y + Math.sin(TILT) * r,
-            Math.cos(AZ) * r * Math.cos(TILT),
+            Math.sin(az) * radius * Math.cos(tilt),
+            target.y + Math.sin(tilt) * radius,
+            Math.cos(az) * radius * Math.cos(tilt),
           );
           camera.lookAt(target);
-          camera.updateMatrixWorld();
-          camera.updateProjectionMatrix();
-          // Towers well inside the frame, the approach spans running to its edges.
-          let tx = 0;
-          let ty = 0;
-          top = -1;
-          let ex = 0;
-          for (const c of towers) {
-            probe.copy(c).project(camera);
-            tx = Math.max(tx, Math.abs(probe.x));
-            ty = Math.max(ty, Math.abs(probe.y));
-            if (c.y > 0) top = Math.max(top, probe.y);
-          }
-          for (const c of ends) {
-            probe.copy(c).project(camera);
-            ex = Math.max(ex, Math.abs(probe.x));
-          }
-          r *= Math.max(tx / (small ? 0.92 : 0.8), ex / 2.2, ty / 0.94);
-        }
-        return r;
-      };
+        };
 
-      let radius = 180;
-      const resize = () => {
-        const w = el.clientWidth;
-        const h = el.clientHeight;
-        renderer.setSize(w, h, false);
-        // Frame the bridge for the stage box, then widen the view to the whole canvas.
-        const box = stage.getBoundingClientRect();
-        const own = el.getBoundingClientRect();
-        const sw = Math.max(1, box.width);
-        const sh = Math.max(1, box.height);
-        camera.aspect = sw / sh;
-        camera.clearViewOffset();
-        radius = fit();
-        uniforms.uScale.value = radius / 128;
-        // Lift the bridge so its towers stand just inside the top of the stage.
-        const lift = Math.max(0, ((1 - top) / 2) * sh - 28);
-        camera.setViewOffset(sw, sh, own.left - box.left, own.top - box.top + lift, w, h);
-        if (reduce) {
-          place(0);
+        let begin = 0;
+        let frame = 0;
+        const tick = (now: number) => {
+          frame = requestAnimationFrame(tick);
+          if (!visible || document.hidden) return;
+          if (!begin) begin = now;
+          const t = (now - begin) / 1000;
+          uniforms.uTime.value = t;
+          uniforms.uProgress.value = Math.min(1, t / 2.6);
+          pulseUniforms.uVisible.value = Math.min(1, Math.max(0, (t - 2.4) / 0.8));
+          uniforms.uScroll.value += (scrollTarget - uniforms.uScroll.value) * 0.12;
+          place(t);
+          if (inside) uniforms.uMouse.value.copy(toBridge(ndc));
+          uniforms.uHover.value += ((inside ? 1 : 0) - uniforms.uHover.value) * 0.08;
           renderer.render(scene, camera);
-        }
-      };
-      const ro = new ResizeObserver(resize);
-      ro.observe(el);
-      if (stage !== el) ro.observe(stage);
+        };
+        resize();
+        place(0);
+        // Compile the shaders off the main thread where the browser can, then draw.
+        renderer
+          .compileAsync(scene, camera)
+          .catch(() => undefined)
+          .then(() => {
+            if (disposed) return;
+            if (reduce) renderer.render(scene, camera);
+            else frame = requestAnimationFrame(tick);
+            requestAnimationFrame(() => {
+              renderer.domElement.style.opacity = '1';
+            });
+          });
 
-      const themes = new MutationObserver(() => {
-        readPalette();
-        paint();
-        blend();
-        geo.getAttribute('aColor').needsUpdate = true;
-        if (reduce) renderer.render(scene, camera);
+        cleanup = () => {
+          cancelAnimationFrame(frame);
+          window.removeEventListener('pointermove', onPointer);
+          window.removeEventListener('scroll', onScroll);
+          el.removeEventListener('pointerdown', onPress);
+          ro.disconnect();
+          io.disconnect();
+          themes.disconnect();
+          geo.dispose();
+          mat.dispose();
+          pg.dispose();
+          pulseMat.dispose();
+          renderer.dispose();
+          renderer.domElement.remove();
+        };
       });
-      themes.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-
-      let visible = true;
-      const io = new IntersectionObserver(([e]) => {
-        visible = e?.isIntersecting ?? true;
-      });
-      io.observe(el);
-
-      // A slow drift plus the pointer.
-      const place = (time: number) => {
-        look.x += (look.tx - look.x) * 0.04;
-        look.y += (look.ty - look.y) * 0.04;
-        const az = AZ + Math.sin(time * 0.06) * 0.06 + look.x * 0.1;
-        const tilt = TILT + look.y * -0.04;
-        camera.position.set(
-          Math.sin(az) * radius * Math.cos(tilt),
-          target.y + Math.sin(tilt) * radius,
-          Math.cos(az) * radius * Math.cos(tilt),
-        );
-        camera.lookAt(target);
-      };
-
-      const begin = performance.now();
-      let frame = 0;
-      const tick = (now: number) => {
-        frame = requestAnimationFrame(tick);
-        if (!visible || document.hidden) return;
-        const t = (now - begin) / 1000;
-        uniforms.uTime.value = t;
-        uniforms.uProgress.value = Math.min(1, t / 2.6);
-        pulseUniforms.uVisible.value = Math.min(1, Math.max(0, (t - 2.4) / 0.8));
-        uniforms.uScroll.value += (scrollTarget - uniforms.uScroll.value) * 0.12;
-        place(t);
-        if (inside) uniforms.uMouse.value.copy(toBridge(ndc));
-        uniforms.uHover.value += ((inside ? 1 : 0) - uniforms.uHover.value) * 0.08;
-        renderer.render(scene, camera);
-      };
-      resize();
-      place(0);
-      if (reduce) renderer.render(scene, camera);
-      else frame = requestAnimationFrame(tick);
-
-      cleanup = () => {
-        cancelAnimationFrame(frame);
-        window.removeEventListener('pointermove', onPointer);
-        window.removeEventListener('scroll', onScroll);
-        el.removeEventListener('pointerdown', onPress);
-        ro.disconnect();
-        io.disconnect();
-        themes.disconnect();
-        geo.dispose();
-        mat.dispose();
-        pg.dispose();
-        pulseMat.dispose();
-        renderer.dispose();
-        renderer.domElement.remove();
-      };
-    });
 
     return () => {
       disposed = true;
