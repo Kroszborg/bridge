@@ -4,6 +4,10 @@ import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 
 /** A send job as received from the server. */
 data class SendJob(
@@ -23,6 +27,9 @@ sealed interface SendOutcome {
     data class Failed(val code: Int) : SendOutcome
 }
 
+/** The newest message this phone handled: its state (see [Outbox] STATE_*) and when that last changed. */
+data class LastMessage(val state: String, val updatedAt: Long)
+
 /** The outcome once every segment has a final delivery report. */
 sealed interface DeliveryOutcome {
     data object Delivered : DeliveryOutcome
@@ -37,6 +44,12 @@ sealed interface DeliveryOutcome {
  */
 class Outbox(context: Context, name: String? = "outbox.db") :
     SQLiteOpenHelper(context, name, null, VERSION) {
+    private val _changes = MutableStateFlow(0L)
+
+    /** Bumps on every change to a job, so the widget can refresh without polling. */
+    val changes: StateFlow<Long> = _changes.asStateFlow()
+
+    private fun changed() = _changes.update { it + 1 }
 
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
@@ -88,7 +101,7 @@ class Outbox(context: Context, name: String? = "outbox.db") :
             put("created_at", now)
             put("updated_at", now)
         }
-        return writableDatabase.insertWithOnConflict("jobs", null, values, SQLiteDatabase.CONFLICT_IGNORE) != -1L
+        return (writableDatabase.insertWithOnConflict("jobs", null, values, SQLiteDatabase.CONFLICT_IGNORE) != -1L).also { if (it) changed() }
     }
 
     /** Records how many segments Android will send, and drops the body: it is no longer needed. */
@@ -98,6 +111,7 @@ class Outbox(context: Context, name: String? = "outbox.db") :
             "UPDATE jobs SET parts_total = ?, body = NULL, state = ?, updated_at = ? WHERE message_id = ? AND attempt = ?",
             arrayOf<Any>(parts, STATE_SENDING, System.currentTimeMillis(), messageId, attempt),
         )
+        changed()
     }
 
     /** Applies one segment's send result. Returns the outcome when the last segment reports. */
@@ -165,6 +179,7 @@ class Outbox(context: Context, name: String? = "outbox.db") :
             "UPDATE jobs SET state = ?, updated_at = ? WHERE message_id = ? AND attempt = ?",
             arrayOf<Any>(state, System.currentTimeMillis(), messageId, attempt),
         )
+        changed()
     }
 
     @Synchronized
@@ -208,6 +223,13 @@ class Outbox(context: Context, name: String? = "outbox.db") :
             arrayOf(sinceMs.toString()),
         ).use { c -> if (c.moveToFirst()) c.getInt(0) to c.getInt(1) else 0 to 0 }
 
+    /** The most recently updated job, or null when this phone has handled none. */
+    @Synchronized
+    fun lastMessage(): LastMessage? =
+        readableDatabase.rawQuery("SELECT state, updated_at FROM jobs ORDER BY updated_at DESC LIMIT 1", null).use { c ->
+            if (c.moveToFirst()) LastMessage(c.getString(0), c.getLong(1)) else null
+        }
+
     /** Forgets finished jobs older than [olderThanMs]. Reports are kept until acknowledged. */
     @Synchronized
     fun prune(olderThanMs: Long) {
@@ -222,6 +244,7 @@ class Outbox(context: Context, name: String? = "outbox.db") :
     fun clear() {
         writableDatabase.delete("jobs", null, null)
         writableDatabase.delete("reports", null, null)
+        changed()
     }
 
     companion object {

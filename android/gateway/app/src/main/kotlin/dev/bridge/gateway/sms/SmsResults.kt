@@ -52,7 +52,12 @@ fun sendFailure(resultCode: Int, modemError: Int = -1): SendFailure {
         122 -> SendFailure("access_barred", "The network barred this SIM from sending.", false)
 
         // Ambiguous: the SMS may have gone out.
-        1 -> SendFailure("generic_failure", "Android reported a generic send failure." + MAYBE_SENT, false)
+        1 -> SendFailure(
+            "generic_failure",
+            "Android reported a generic failure, usually the carrier refusing the SMS. Check the SIM has an SMS plan or balance, " +
+                "and try turning off Wi-Fi Calling: some carriers refuse SMS sent over Wi-Fi." + MAYBE_SENT,
+            false,
+        )
         else -> SendFailure("android_error_$resultCode", "Android could not confirm sending (code $resultCode)." + MAYBE_SENT, false)
     }
     return if (modemError > 0) f.copy(message = f.message.removeSuffix(MAYBE_SENT) + " Modem cause $modemError." + if (f.message.endsWith(MAYBE_SENT)) MAYBE_SENT else "") else f

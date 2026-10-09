@@ -1,0 +1,9 @@
+Bridge 1.0, the first stable release.
+
+- Pair by QR code, or sign in to your account and pair in one tap.
+- Messages, Send, Phones and Account tabs while signed in, with your plan on hosted Bridge.
+- A daily send cap per phone keeps your SIM within its operator's limit.
+- Steadier connection: reconnects after network changes and restarts when opened.
+- Connection log with Copy, and help with phone makers' battery managers.
+- Home-screen status widgets.
+- About & privacy screen.

@@ -21,13 +21,20 @@ class BridgeApiException(
     val code: String,
     override val message: String,
     val requestId: String?,
+    /** From the Retry-After header of a 429. */
+    val retryAfterSeconds: Int? = null,
 ) : IOException(message) {
     /** The server no longer accepts this device's credential; the app must forget it. */
     val isCredentialRejected: Boolean
         get() = status == 401 && code in REJECTED_CODES
 
+    /** The organization's plan does not allow this; upgrading happens in the dashboard. */
+    val isPlanLimit: Boolean
+        get() = status == 402 || code == PLAN_LIMIT_REACHED
+
     companion object {
         val REJECTED_CODES = setOf("device_revoked", "invalid_device_credential")
+        const val PLAN_LIMIT_REACHED = "plan_limit_reached"
     }
 }
 
@@ -75,19 +82,20 @@ class BridgeApi(private val http: OkHttpClient) {
         if (credential != null) builder.header("Authorization", "Bearer $credential")
         val response = http.newCall(builder.build()).await()
         if (!response.isSuccessful) {
-            response.use { throw parseError(it.code, it.body.string(), it.header("X-Request-Id")) }
+            response.use { throw parseError(it.code, it.body.string(), it.header("X-Request-Id"), it.header("Retry-After")) }
         }
         return response
     }
 
     companion object {
-        fun parseError(status: Int, body: String, requestId: String?): BridgeApiException {
+        fun parseError(status: Int, body: String, requestId: String?, retryAfter: String? = null): BridgeApiException {
             val parsed = runCatching { BridgeJson.decodeFromString(ErrorEnvelope.serializer(), body).error }.getOrNull()
             return BridgeApiException(
                 status = status,
                 code = parsed?.code ?: "http_$status",
                 message = parsed?.message ?: "The server returned HTTP $status.",
                 requestId = parsed?.requestId ?: requestId,
+                retryAfterSeconds = retryAfter?.trim()?.toIntOrNull(),
             )
         }
     }

@@ -32,7 +32,7 @@ data class BridgeColors(
 
 private val DarkBridge = BridgeColors(
     success = Color(0xFF4ADE80), warning = Color(0xFFFBBF24), danger = Color(0xFFF87171),
-    faint = Color(0xFF776F66), card = Color(0xFF14120F), raised = Color(0xFF1C1915), border = Color(0xFF2B2722),
+    faint = Color(0xFF71717A), card = Color(0xFF111113), raised = Color(0xFF18181B), border = Color(0xFF27272A),
 )
 
 private val LightBridge = BridgeColors(
@@ -45,17 +45,17 @@ val LocalBridgeColors = staticCompositionLocalOf { DarkBridge }
 private val DarkScheme = darkColorScheme(
     primary = Color(0xFF3EEBC0),
     onPrimary = Color(0xFF0A0A0B),
-    background = Color(0xFF0C0B0A),
-    onBackground = Color(0xFFF7F4EF),
-    surface = Color(0xFF0C0B0A),
-    onSurface = Color(0xFFF7F4EF),
-    surfaceVariant = Color(0xFF1C1915),
-    onSurfaceVariant = Color(0xFFA8A097),
-    surfaceContainer = Color(0xFF14120F),
-    surfaceContainerHigh = Color(0xFF1C1915),
-    surfaceContainerHighest = Color(0xFF221F1A),
-    outline = Color(0xFF2B2722),
-    outlineVariant = Color(0xFF221F1A),
+    background = Color(0xFF09090B),
+    onBackground = Color(0xFFFAFAFA),
+    surface = Color(0xFF09090B),
+    onSurface = Color(0xFFFAFAFA),
+    surfaceVariant = Color(0xFF18181B),
+    onSurfaceVariant = Color(0xFFA1A1AA),
+    surfaceContainer = Color(0xFF111113),
+    surfaceContainerHigh = Color(0xFF18181B),
+    surfaceContainerHighest = Color(0xFF1F1F23),
+    outline = Color(0xFF27272A),
+    outlineVariant = Color(0xFF1F1F23),
     error = Color(0xFFF87171),
     onError = Color(0xFF0A0A0B),
 )

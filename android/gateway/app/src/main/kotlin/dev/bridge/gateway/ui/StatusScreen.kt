@@ -33,6 +33,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.bridge.gateway.BuildConfig
 import dev.bridge.gateway.data.Pairing
+import dev.bridge.gateway.diagnostics.BackgroundSettings
+import dev.bridge.gateway.diagnostics.GatewayEvent
+import dev.bridge.gateway.diagnostics.VendorSkin
 import dev.bridge.gateway.gateway.ConnectionState
 import dev.bridge.gateway.pairing.PairingRequest
 import dev.bridge.gateway.push.PushState
@@ -51,6 +54,10 @@ data class ReliabilityChecks(
     val push: PushStatus? = null,
     val sentToday: Int = 0,
     val failedToday: Int = 0,
+    /** A phone maker known to stop background apps on its own, if this phone is from one. */
+    val vendor: VendorSkin? = null,
+    /** The user opened that maker's settings from here at least once. */
+    val vendorSettingsOpened: Boolean = false,
 )
 
 data class StatusActions(
@@ -62,10 +69,24 @@ data class StatusActions(
     val setupPush: () -> Unit,
     val reconnect: () -> Unit,
     val unpair: () -> Unit,
+    val about: () -> Unit,
+    /** Null while signed in: the account lives in its own tab then. */
+    val signIn: (() -> Unit)? = null,
+    val openVendorSettings: () -> Unit = {},
+    val openLog: () -> Unit = {},
+    /** Scan a new code, replacing this pairing once the server accepts it. */
+    val pairAgain: () -> Unit = {},
+    val dismissError: () -> Unit = {},
 )
 
 @Composable
-fun StatusScreen(state: UiState, pairing: Pairing, checks: ReliabilityChecks, actions: StatusActions) {
+fun StatusScreen(
+    state: UiState,
+    pairing: Pairing,
+    checks: ReliabilityChecks,
+    actions: StatusActions,
+    recentEvents: List<GatewayEvent> = emptyList(),
+) {
     val now = rememberNow(1_000)
     var menu by remember { mutableStateOf(false) }
     var confirmUnpair by remember { mutableStateOf(false) }
@@ -90,6 +111,12 @@ fun StatusScreen(state: UiState, pairing: Pairing, checks: ReliabilityChecks, ac
                 TextButton(onClick = { menu = true }) { Text("More") }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     DropdownMenuItem(text = { Text("Reconnect now") }, onClick = { menu = false; actions.reconnect() })
+                    DropdownMenuItem(text = { Text("Connection log") }, onClick = { menu = false; actions.openLog() })
+                    DropdownMenuItem(text = { Text("Pair with a new code") }, onClick = { menu = false; actions.pairAgain() })
+                    actions.signIn?.let { signIn ->
+                        DropdownMenuItem(text = { Text("Sign in to your account") }, onClick = { menu = false; signIn() })
+                    }
+                    DropdownMenuItem(text = { Text("About & privacy") }, onClick = { menu = false; actions.about() })
                     DropdownMenuItem(
                         text = { Text("Disconnect this phone", color = MaterialTheme.colorScheme.error) },
                         onClick = { menu = false; confirmUnpair = true },
@@ -97,6 +124,10 @@ fun StatusScreen(state: UiState, pairing: Pairing, checks: ReliabilityChecks, ac
                 }
             }
         }
+
+        // Pairing errors land here too: a code scanned while still paired must never fail silently.
+        state.error?.let { Notice(it, action = "Dismiss" to actions.dismissError) }
+        if (state.busy) Notice("Pairing…", color = MaterialTheme.colorScheme.onSurfaceVariant)
 
         ConnectionCard(state.connection, pairing, host, now, actions.reconnect)
         ChecklistCard(checks, pairing, actions)
@@ -119,6 +150,8 @@ fun StatusScreen(state: UiState, pairing: Pairing, checks: ReliabilityChecks, ac
                 }
             }
         }
+
+        ConnectionLogCard(recentEvents, actions.openLog)
 
         SectionCard {
             Eyebrow("This phone")
@@ -238,6 +271,21 @@ private fun ChecklistCard(checks: ReliabilityChecks, pairing: Pairing, actions: 
             detail = if (checks.batteryUnrestricted) "Battery optimisation will not stop the gateway." else "Android may pause the gateway to save battery. Allow unrestricted background use.",
             action = "Allow" to actions.allowBackground,
         )
+        checks.vendor?.let { vendor ->
+            val brand = BackgroundSettings.brand(vendor)
+            CheckRow(
+                ok = checks.vendorSettingsOpened,
+                warnOnly = true,
+                title = "$brand battery manager",
+                detail = if (checks.vendorSettingsOpened) {
+                    "If Bridge still goes offline in the background, check $brand's settings again: allow ${vendor.setting}."
+                } else {
+                    "$brand phones can stop Bridge in the background on their own. Allow ${vendor.setting} for Bridge."
+                },
+                action = "Open" to actions.openVendorSettings,
+                alwaysShowAction = true,
+            )
+        }
         checks.push?.let { push ->
             CheckRow(
                 ok = push.state == PushState.Ready,
@@ -260,7 +308,14 @@ private fun ChecklistCard(checks: ReliabilityChecks, pairing: Pairing, actions: 
 }
 
 @Composable
-private fun CheckRow(ok: Boolean, title: String, detail: String, action: Pair<String, () -> Unit>?, warnOnly: Boolean = false) {
+private fun CheckRow(
+    ok: Boolean,
+    title: String,
+    detail: String,
+    action: Pair<String, () -> Unit>?,
+    warnOnly: Boolean = false,
+    alwaysShowAction: Boolean = false,
+) {
     val colors = Bridge.colors
     Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.Top) {
         StatusDot(if (ok) colors.success else if (warnOnly) colors.warning else colors.danger, live = false, size = 8.dp)
@@ -269,7 +324,7 @@ private fun CheckRow(ok: Boolean, title: String, detail: String, action: Pair<St
             Text(title, style = MaterialTheme.typography.titleSmall)
             Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        if (!ok && action != null) {
+        if ((!ok || alwaysShowAction) && action != null) {
             Spacer(Modifier.width(8.dp))
             FilledTonalButton(onClick = action.second) { Text(action.first) }
         }

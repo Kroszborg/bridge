@@ -5,8 +5,8 @@ plugins {
 }
 
 // Release builds take their version from the git tag (BRIDGE_VERSION_NAME, set by
-// .github/workflows/release.yml). 0.3.0-rc.1 → 30001, 0.3.0 → 30099: always increasing.
-val releaseVersion: String = System.getenv("BRIDGE_VERSION_NAME") ?: "0.4.0"
+// .github/workflows/release.yml). 1.0.0-rc.1 → 1000001, 1.0.0 → 1000099: always increasing.
+val releaseVersion: String = System.getenv("BRIDGE_VERSION_NAME") ?: "1.0.0"
 
 fun versionCodeOf(version: String): Int {
     val match = Regex("""^(\d+)\.(\d+)\.(\d+)(?:-rc\.(\d+))?$""").matchEntire(version)
@@ -104,6 +104,8 @@ dependencies {
     implementation(libs.androidx.lifecycle.service)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.work.runtime)
+    // Home-screen widget (AndroidX, open source; in both flavors).
+    implementation(libs.androidx.glance.appwidget)
 
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)

@@ -1,0 +1,29 @@
+<p>Bridge turns an Android phone with a SIM into an SMS gateway for <b>Bridge</b>, an open-source SMS platform you can run yourself or use as a hosted service. Your applications send messages through Bridge's REST API; this phone delivers them through its own SIM and reports every status change back.</p>
+
+<p><b>Gateway</b></p>
+<ul>
+<li>Pair by scanning the QR code from the dashboard, entering the code by hand, or signing in with your account.</li>
+<li>Sends the SMS your server queues, on the SIM you choose on dual-SIM phones, with multipart messages and delivery reports.</li>
+<li>Optionally forwards the SMS this phone receives to your server, only after you turn it on in the dashboard.</li>
+<li>Keeps a battery-friendly connection with adaptive heartbeats, reconnects with backoff, and can be woken by UnifiedPush (for example ntfy) when the connection drops.</li>
+<li>A reliability checklist shows what Android needs so the gateway keeps running.</li>
+</ul>
+
+<p><b>Your account in your pocket</b></p>
+<ul>
+<li>Sign in to see recent sent and received messages with their status, for live and test traffic.</li>
+<li>Send a message from the phone and watch it go from queued to delivered.</li>
+<li>See the project's phones, which are online, and rename or remove them.</li>
+<li>Check your plan and usage on hosted Bridge.</li>
+</ul>
+
+<p><b>Private by design</b></p>
+<ul>
+<li>The app talks only to the server you pair it with or sign in to. No analytics, no ads, no trackers.</li>
+<li>The device credential and your session are encrypted with keys held in the Android Keystore.</li>
+<li>Your phone number is never read. The camera is used only to scan the pairing code.</li>
+</ul>
+
+<p>Bridge is free software under the GNU Affero General Public License v3.0. Source code, documentation and the server are at https://github.com/kroszborg/bridge</p>
+
+<p>Bridge sends SMS through your SIM and your mobile plan. Carrier charges and limits apply, and Android asks for approval when an app sends more than about 30 SMS in 30 minutes; the documentation explains how to raise that limit.</p>

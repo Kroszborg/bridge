@@ -12,6 +12,7 @@ import dev.bridge.gateway.gateway.SocketOpener
 import dev.bridge.gateway.gateway.StatusSnapshot
 import dev.bridge.gateway.net.DeviceStatus
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
@@ -23,6 +24,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.IOException
@@ -43,7 +45,12 @@ class ConnectionManagerTest {
         val sockets = mutableListOf<FakeSocket>()
         val events = mutableListOf<SocketEvents>()
         var lastCredential: String? = null
+        var failNext = false
         override fun open(url: String, credential: String, events: SocketEvents): GatewaySocket {
+            if (failNext) {
+                failNext = false
+                throw IllegalStateException("socket factory broke")
+            }
             lastCredential = credential
             this.events += events
             return FakeSocket().also { sockets += it }
@@ -53,7 +60,11 @@ class ConnectionManagerTest {
     private class Harness(val scope: TestScope, charging: Boolean = true) {
         val opener = FakeOpener()
         val network = MutableStateFlow(true)
+        val networkChanges = MutableStateFlow(0L)
         var revokedWith: String? = null
+        var revokeHook: suspend () -> Unit = {}
+        var snapshotFails = false
+        val log = mutableListOf<String>()
         var syncs = 0
         val frames = mutableListOf<dev.bridge.gateway.gateway.ServerFrame>()
         var connects = 0
@@ -62,11 +73,22 @@ class ConnectionManagerTest {
             opener = opener,
             networkAvailable = network,
             session = { GatewaySession("wss://bridge.test/v1/device/connect", "bd_secret", HeartbeatSchedule(15, 600, 60, 300)) },
-            snapshot = { StatusSnapshot(DeviceStatus(batteryLevel = 50), charging = charging, powerSave = false) },
-            onRevoked = { revokedWith = it },
+            snapshot = {
+                check(!snapshotFails) { "status unavailable" }
+                StatusSnapshot(DeviceStatus(batteryLevel = 50), charging = charging, powerSave = false)
+            },
+            onRevoked = {
+                revokedWith = it
+                revokeHook()
+            },
             onSync = { syncs++ },
-            onFrame = { frames += it },
+            onFrame = {
+                check(it.type != "explode") { "bad frame handler" }
+                frames += it
+            },
             onConnected = { connects++ },
+            networkChanges = networkChanges,
+            log = { log += it },
             backoff = Backoff(random = Random(42)),
             clock = { scope.testScheduler.currentTime },
         )
@@ -141,7 +163,7 @@ class ConnectionManagerTest {
         h.manager.start()
         runCurrent()
         assertEquals(ConnectionState.WaitingForNetwork, h.manager.state.value)
-        advanceTimeBy(600_000)
+        advanceTimeBy(60_000)
         runCurrent()
         assertEquals(0, h.opener.sockets.size)
 
@@ -161,7 +183,7 @@ class ConnectionManagerTest {
         runCurrent()
         assertTrue(h.opener.sockets[0].closedWith != null)
         assertEquals(ConnectionState.WaitingForNetwork, h.manager.state.value)
-        advanceTimeBy(600_000)
+        advanceTimeBy(60_000)
         runCurrent()
         assertEquals(1, h.opener.sockets.size)
 
@@ -279,5 +301,127 @@ class ConnectionManagerTest {
         h.events.onClosed(1000, "")
         runCurrent()
         assertEquals(false, h.manager.sendRaw("x"))
+    }
+
+    // The incident behind the tests below: the app closed its socket a few seconds after pairing and
+    // never tried again, because Android's network report said "offline" and nothing else woke it.
+
+    @Test
+    fun `a stuck offline report still tries now and then`() = runTest {
+        val h = Harness(this)
+        h.network.value = false
+        h.manager.start()
+        runCurrent()
+        assertEquals(0, h.opener.sockets.size)
+        advanceTimeBy(5 * 60_000 + 1_000)
+        runCurrent()
+        assertEquals(1, h.opener.sockets.size)
+        // The probe is not cut short by the (wrong) offline report.
+        h.events.onOpen()
+        runCurrent()
+        assertNull(h.socket.closedWith)
+        assertTrue(h.manager.state.value is ConnectionState.Connected)
+    }
+
+    @Test
+    fun `reconnect now works while waiting for the network`() = runTest {
+        val h = Harness(this)
+        h.network.value = false
+        h.manager.start()
+        runCurrent()
+        assertEquals(ConnectionState.WaitingForNetwork, h.manager.state.value)
+        h.manager.nudge()
+        runCurrent()
+        assertEquals(1, h.opener.sockets.size)
+    }
+
+    @Test
+    fun `a network change checks an open connection and reconnects if it is dead`() = runTest {
+        val h = Harness(this)
+        h.manager.start()
+        runCurrent()
+        h.events.onOpen()
+        runCurrent()
+        h.ack(1)
+        runCurrent()
+        h.networkChanges.value = 1
+        runCurrent()
+        assertEquals(2, h.heartbeats().size)
+        advanceTimeBy(20_500) // no acknowledgement on the old network
+        runCurrent()
+        assertEquals(CloseCodes.ACK_TIMEOUT, h.opener.sockets[0].closedWith)
+        assertTrue(h.manager.state.value is ConnectionState.Retrying)
+    }
+
+    @Test
+    fun `a network change during the backoff retries at once`() = runTest {
+        val h = Harness(this)
+        h.manager.start()
+        runCurrent()
+        h.events.onFailure(IOException("down"), null, null)
+        runCurrent()
+        assertTrue(h.manager.state.value is ConnectionState.Retrying)
+        h.networkChanges.value = 1
+        runCurrent()
+        assertEquals(2, h.opener.sockets.size)
+    }
+
+    @Test
+    fun `a failing frame handler does not drop the connection`() = runTest {
+        val h = Harness(this)
+        h.manager.start()
+        runCurrent()
+        h.events.onOpen()
+        h.events.onMessage("""{"type":"explode"}""")
+        h.events.onMessage("""{"type":"send_sms","message_id":"msg_1","to":"+91","body":"hi","attempt":1}""")
+        runCurrent()
+        assertNull(h.socket.closedWith)
+        assertEquals(listOf("send_sms"), h.frames.map { it.type })
+        assertTrue(h.log.any { it.contains("bad frame handler") })
+    }
+
+    @Test
+    fun `heartbeats continue when the status cannot be read`() = runTest {
+        val h = Harness(this)
+        h.snapshotFails = true
+        h.manager.start()
+        runCurrent()
+        h.events.onOpen()
+        runCurrent()
+        assertEquals(1, h.heartbeats().size)
+        assertTrue(h.manager.state.value is ConnectionState.Connected)
+    }
+
+    @Test
+    fun `an internal error retries instead of ending the loop`() = runTest {
+        val h = Harness(this)
+        h.opener.failNext = true
+        h.manager.start()
+        runCurrent()
+        assertTrue(h.manager.state.value is ConnectionState.Retrying)
+        advanceTimeBy(10_000)
+        runCurrent()
+        assertEquals(1, h.opener.sockets.size)
+    }
+
+    @Test
+    fun `revoke cleanup that stops the manager still runs to the end`() = runTest {
+        val h = Harness(this)
+        var cleanedUp = false
+        // Like AppContainer.forget: stop the manager first, then clear the pairing (a suspending write).
+        h.revokeHook = {
+            h.manager.stop()
+            delay(10)
+            cleanedUp = true
+        }
+        h.manager.start()
+        runCurrent()
+        h.events.onOpen()
+        h.events.onClosed(CloseCodes.UNPAIRED, "device unpaired")
+        runCurrent()
+        advanceTimeBy(100)
+        runCurrent()
+        assertTrue("the pairing must be cleared after a revoke", cleanedUp)
+        assertEquals(1, h.opener.sockets.size)
     }
 }

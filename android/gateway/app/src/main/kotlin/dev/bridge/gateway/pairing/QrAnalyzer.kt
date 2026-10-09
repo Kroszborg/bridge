@@ -25,6 +25,8 @@ class QrAnalyzer(private val onText: (String) -> Unit) : ImageAnalysis.Analyzer 
             onText(result.text)
         } catch (_: ReaderException) {
             // No QR code in this frame.
+        } catch (_: RuntimeException) {
+            // An odd frame format from some cameras; this runs on CameraX's thread, so throwing would crash the app.
         } finally {
             reader.reset()
             image.close()

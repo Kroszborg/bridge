@@ -2,6 +2,7 @@ package dev.bridge.gateway.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -27,6 +28,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import dev.bridge.gateway.pairing.PairingConfirm
 import dev.bridge.gateway.pairing.PairingRequest
 import dev.bridge.gateway.pairing.PairingUri
 import dev.bridge.gateway.ui.theme.Bridge
@@ -39,6 +41,14 @@ fun WelcomeScreen(
     onManual: (PairingRequest) -> Unit,
     onManualError: (String) -> Unit,
     onDismissReason: () -> Unit,
+    onAbout: () -> Unit,
+    /** Signed out: offers sign-in. */
+    onSignIn: (() -> Unit)? = null,
+    /** Signed in with a project: pairs with it without a QR code. */
+    onPairWithAccount: (() -> Unit)? = null,
+    /** Opens the plan page when pairing hit a plan limit. */
+    onUpgrade: (() -> Unit)? = null,
+    onOpenLog: (() -> Unit)? = null,
 ) {
     var manualOpen by rememberSaveable { mutableStateOf(false) }
 
@@ -71,20 +81,32 @@ fun WelcomeScreen(
             }
         }
 
-        SectionCard {
-            Eyebrow("How to pair")
-            Spacer(Modifier.height(10.dp))
-            listOf(
-                "Open the Bridge dashboard and go to Devices.",
-                "Click Pair device to show a pairing code.",
-                "Scan it here. The code works once and expires after 10 minutes.",
-            ).forEachIndexed { i, step ->
-                Text("${i + 1}.  $step", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(vertical = 3.dp))
+        val project = state.account?.project
+        if (onPairWithAccount != null && project != null) {
+            SectionCard {
+                Eyebrow("Signed in")
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    "Pair this phone with ${project.name} directly, without a QR code. Needs an admin or owner role.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+        } else {
+            SectionCard {
+                Eyebrow("How to pair")
+                Spacer(Modifier.height(10.dp))
+                listOf(
+                    "Open the Bridge dashboard and go to Devices.",
+                    "Click Pair device to show a pairing code.",
+                    "Scan it here. The code works once and expires after 10 minutes.",
+                ).forEachIndexed { i, step ->
+                    Text("${i + 1}.  $step", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(vertical = 3.dp))
+                }
             }
         }
 
         state.error?.let {
-            Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+            Notice(it, action = if (state.planLimit && onUpgrade != null) "Upgrade" to onUpgrade else null)
         }
 
         if (state.busy) {
@@ -94,9 +116,24 @@ fun WelcomeScreen(
                 Text("Pairing…", style = MaterialTheme.typography.bodyMedium)
             }
         } else {
-            Button(onClick = onScan, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Scan pairing code") }
+            if (onPairWithAccount != null && project != null) {
+                Button(onClick = onPairWithAccount, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Pair with ${project.name}") }
+                OutlinedButton(onClick = onScan, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Scan pairing code") }
+            } else {
+                Button(onClick = onScan, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Scan pairing code") }
+            }
             OutlinedButton(onClick = { manualOpen = true }, modifier = Modifier.fillMaxWidth().height(52.dp)) {
                 Text("Enter code manually")
+            }
+            if (onSignIn != null) {
+                OutlinedButton(onClick = onSignIn, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Sign in with your account") }
+            }
+        }
+
+        Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+            TextButton(onClick = onAbout, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) { Text("About & privacy") }
+            if (onOpenLog != null) {
+                TextButton(onClick = onOpenLog, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) { Text("Connection log") }
             }
         }
     }
@@ -147,7 +184,8 @@ private fun ManualPairDialog(onDismiss: () -> Unit, onSubmit: (String, String) -
 
 /** Confirms the server before trusting it; pairing links can come from anywhere. */
 @Composable
-fun ConfirmPairingDialog(request: PairingRequest, onConfirm: () -> Unit, onCancel: () -> Unit) {
+fun ConfirmPairingDialog(confirm: PairingConfirm, onConfirm: () -> Unit, onCancel: () -> Unit) {
+    val request = confirm.request
     AlertDialog(
         onDismissRequest = onCancel,
         title = { Text("Connect to ${request.host}?") },
@@ -158,6 +196,13 @@ fun ConfirmPairingDialog(request: PairingRequest, onConfirm: () -> Unit, onCance
                         "Only continue if you run this server or trust whoever does.",
                     style = MaterialTheme.typography.bodyMedium,
                 )
+                confirm.replacing?.let { current ->
+                    Text(
+                        "This phone is still paired with $current. Connecting replaces that pairing once the server accepts the code.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Bridge.colors.warning,
+                    )
+                }
                 if (request.isCleartext) {
                     Text(
                         "This server uses plain HTTP. Anyone on the network path can read the phone's credential and messages. " +
@@ -169,6 +214,35 @@ fun ConfirmPairingDialog(request: PairingRequest, onConfirm: () -> Unit, onCance
             }
         },
         confirmButton = { Button(onClick = onConfirm) { Text("Connect") } },
+        dismissButton = { TextButton(onClick = onCancel) { Text("Cancel") } },
+    )
+}
+
+/** After picking a project on an unpaired phone: offer to make this phone one of its gateways. */
+@Composable
+fun OfferPairingDialog(projectName: String, onPair: () -> Unit, onLater: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onLater,
+        title = { Text("Use this phone for $projectName?") },
+        text = {
+            Text(
+                "It will send the SMS that $projectName asks it to, using this phone's SIM and mobile plan. " +
+                    "You can disconnect it at any time.",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        },
+        confirmButton = { Button(onClick = onPair) { Text("Pair this phone") } },
+        dismissButton = { TextButton(onClick = onLater) { Text("Not now") } },
+    )
+}
+
+@Composable
+fun DisconnectDialog(projectName: String, onConfirm: () -> Unit, onCancel: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onCancel,
+        title = { Text("Disconnect this phone?") },
+        text = { Text("It stops sending messages for $projectName and is removed from the dashboard. You can pair it again later.") },
+        confirmButton = { Button(onClick = onConfirm) { Text("Disconnect") } },
         dismissButton = { TextButton(onClick = onCancel) { Text("Cancel") } },
     )
 }

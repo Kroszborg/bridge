@@ -1,4 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Bridge</string>
+
+    <string name="widget_small_label">Gateway status</string>
+    <string name="widget_wide_label">Gateway status, wide</string>
+    <string name="widget_description">Whether this phone is online for Bridge, and what it sent today.</string>
+    <string name="widget_preview_status">Online</string>
+    <string name="widget_preview_project">Your project</string>
+    <string name="widget_preview_count">12</string>
+    <string name="widget_preview_sent">sent today</string>
 </resources>

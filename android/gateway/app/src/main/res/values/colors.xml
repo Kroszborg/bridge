@@ -2,4 +2,13 @@
 <resources>
     <color name="window_background">#FAF8F4</color>
     <color name="launcher_background">#3EEBC0</color>
+
+    <!-- Home-screen widget picker previews and backgrounds; dark values in values-night. GatewayWidget.kt mirrors these. -->
+    <color name="widget_background">#FFFFFF</color>
+    <color name="widget_border">#E5E0D8</color>
+    <color name="widget_text">#1A1714</color>
+    <color name="widget_muted">#5E564C</color>
+    <color name="widget_success">#15803D</color>
+    <color name="widget_primary">#0F7A62</color>
+    <color name="widget_on_primary">#FFFFFF</color>
 </resources>

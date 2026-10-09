@@ -7,15 +7,14 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
-import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
-import dev.bridge.gateway.AppContainer
 import dev.bridge.gateway.BridgeApplication
 import dev.bridge.gateway.R
 import dev.bridge.gateway.container
+import dev.bridge.gateway.diagnostics.EventLog
 import dev.bridge.gateway.ui.MainActivity
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -24,12 +23,19 @@ import kotlinx.coroutines.launch
 /**
  * Keeps the gateway connection alive while the phone is idle. Android requires
  * a visible notification for this; it doubles as an at-a-glance status.
+ *
+ * The connection does not belong to the service: if Android (or a vendor
+ * battery manager) stops the service, the connection keeps going while the
+ * process lives and the watchdog brings the service back.
  */
 class GatewayService : LifecycleService() {
     override fun onCreate() {
         super.onCreate()
         promote(buildNotification(ConnectionState.Connecting(0), null))
+        isRunning = true
+        stopRequested = false
         val c = container
+        c.events.record(EventLog.SERVICE, "Gateway service started")
         lifecycleScope.launch {
             combine(c.connection.state, c.store.pairing) { state, pairing -> state to pairing?.projectName }
                 .distinctUntilChanged()
@@ -37,18 +43,33 @@ class GatewayService : LifecycleService() {
                     getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, buildNotification(state, project))
                 }
         }
-        c.connection.start()
+        c.connection.start("service started")
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
+        // A null intent means Android restarted this sticky service after stopping the process.
+        if (intent == null) container.events.record(EventLog.SERVICE, "Android restarted the gateway service", warn = true)
         if (intent?.action == ACTION_NUDGE) container.connection.nudge()
-        container.connection.start()
+        container.connection.start("service start")
         return START_STICKY
     }
 
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        // Several vendors stop an app's services when it is swiped away from recents.
+        container.events.record(EventLog.SERVICE, "App removed from recent apps; scheduling a restart check")
+        SyncWorker.restartSoon(this)
+        super.onTaskRemoved(rootIntent)
+    }
+
     override fun onDestroy() {
-        container.connection.stop()
+        isRunning = false
+        if (stopRequested) {
+            container.events.record(EventLog.SERVICE, "Gateway service stopped")
+        } else {
+            container.events.record(EventLog.SERVICE, "Android stopped the gateway service; restarting shortly", warn = true)
+            SyncWorker.restartSoon(this)
+        }
         super.onDestroy()
     }
 
@@ -89,6 +110,12 @@ class GatewayService : LifecycleService() {
         private const val NOTIFICATION_ID = 1
         private const val ACTION_NUDGE = "dev.bridge.gateway.action.NUDGE"
 
+        /** Whether the service is running in this process. */
+        @Volatile var isRunning = false
+            private set
+
+        @Volatile private var stopRequested = false
+
         /**
          * Starts the service. Returns false when Android refuses a background
          * start (the app is not exempt from battery optimisation); the caller
@@ -102,12 +129,16 @@ class GatewayService : LifecycleService() {
                 true
             } catch (e: IllegalStateException) {
                 // ForegroundServiceStartNotAllowedException on Android 12+.
-                Log.w(AppContainer.TAG, "Foreground service start refused: ${e.message}")
+                context.container.events.record(EventLog.SERVICE, "Foreground service start refused: ${e.message}", warn = true)
+                false
+            } catch (e: SecurityException) {
+                context.container.events.record(EventLog.SERVICE, "Foreground service start refused: ${e.message}", warn = true)
                 false
             }
         }
 
         fun stop(context: Context) {
+            stopRequested = true
             context.stopService(Intent(context, GatewayService::class.java))
         }
     }
