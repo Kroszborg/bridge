@@ -22,8 +22,10 @@ export default function PrivacyPage() {
       <h2>What we collect</h2>
       <ul>
         <li>
-          <strong>Your account:</strong> email address, name (optional), and your password, which is
-          stored only as an Argon2id hash.
+          <strong>Your account:</strong> email address, name (optional), your password, which is
+          stored only as an Argon2id hash, and, if you add one, a mobile number you verify. We send
+          a one-time code to confirm your email address and number; codes are stored only as hashes
+          and expire within 15 minutes.
         </li>
         <li>
           <strong>Messages you send and receive:</strong> phone numbers, message text, delivery
@@ -65,8 +67,9 @@ export default function PrivacyPage() {
           and tax.
         </li>
         <li>
-          <strong>Your email provider and ours</strong> deliver account email such as password reset
-          links.
+          <strong>Your email provider and ours</strong> deliver account email such as verification
+          codes and password reset links. Codes for your mobile number are sent as SMS through
+          Bridge itself, from a phone we operate.
         </li>
         <li>
           <strong>SMS providers you connect</strong> (MSG91, Twilio, Vonage or Plivo) receive the
