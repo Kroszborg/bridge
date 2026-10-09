@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # Bridge dashboard: Next.js standalone server on Node 24 LTS.
 
-FROM node:24-alpine AS base
+FROM node:25-alpine AS base
 ENV PNPM_HOME=/pnpm COREPACK_ENABLE_DOWNLOAD_PROMPT=0 NEXT_TELEMETRY_DISABLED=1
 ENV PATH=$PNPM_HOME:$PATH
 # Node 25+ no longer ships corepack, so install it explicitly; it then provides the
@@ -22,7 +22,7 @@ COPY packages/api-types packages/api-types
 COPY apps/dashboard apps/dashboard
 RUN pnpm --filter @bridge/dashboard build
 
-FROM node:24-alpine AS runtime
+FROM node:25-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
 RUN addgroup -S bridge && adduser -S -G bridge bridge
