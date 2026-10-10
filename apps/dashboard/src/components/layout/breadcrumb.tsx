@@ -25,6 +25,7 @@ const LABELS: Record<string, string> = {
   audit: 'Audit log',
   billing: 'Billing',
   system: 'System health',
+  insights: 'Insights',
 };
 
 function ProjectCrumb({ projectId }: { projectId: string }) {
@@ -66,8 +67,14 @@ export function Breadcrumb() {
     if (o) crumbs.push({ key: 'org', label: o.name });
     crumbs.push({ key: 'page', label: LABELS[section ?? ''] ?? section });
   } else {
-    const seg = pathname.split('/')[1] ?? '';
-    crumbs.push({ key: 'page', label: LABELS[seg] ?? seg });
+    const [, seg = '', sub] = pathname.split('/');
+    const sublabel = sub ? LABELS[sub] : undefined;
+    if (sublabel) {
+      crumbs.push({ key: 'page', label: LABELS[seg] ?? seg, href: `/${seg}` });
+      crumbs.push({ key: 'sub', label: sublabel });
+    } else {
+      crumbs.push({ key: 'page', label: LABELS[seg] ?? seg });
+    }
   }
 
   return (

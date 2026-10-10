@@ -40,8 +40,10 @@ export function NavList({ onNavigate }: { onNavigate?: () => void }) {
       ? undefined
       : { organizationId: org?.id, hosted, admin, operator: user.operator },
   });
+  // Items such as Billing arrive after their queries load and shift the rows below them.
+  const layoutKey = groups.map((g) => g.items.map((i) => i.href).join()).join('|');
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: re-measure when the route changes
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-measure when the route or the items change
   React.useLayoutEffect(() => {
     const nav = navRef.current;
     if (!nav) return;
@@ -56,7 +58,7 @@ export function NavList({ onNavigate }: { onNavigate?: () => void }) {
       cancelAnimationFrame(raf);
       window.removeEventListener('resize', measure);
     };
-  }, [pathname, projectId]);
+  }, [pathname, projectId, layoutKey]);
 
   const itemClass = 'group flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors';
 
