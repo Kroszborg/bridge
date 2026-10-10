@@ -55,7 +55,8 @@ fun sendFailure(resultCode: Int, modemError: Int = -1): SendFailure {
         1 -> SendFailure(
             "generic_failure",
             "Android reported a generic failure, usually the carrier refusing the SMS. Check the SIM has an SMS plan or balance, " +
-                "and try turning off Wi-Fi Calling: some carriers refuse SMS sent over Wi-Fi." + MAYBE_SENT,
+                "and try turning off Wi-Fi Calling: some carriers refuse SMS sent over Wi-Fi. If only verification codes fail, " +
+                "the carrier is filtering them: in India, codes must go through a DLT-registered provider such as MSG91." + MAYBE_SENT,
             false,
         )
         else -> SendFailure("android_error_$resultCode", "Android could not confirm sending (code $resultCode)." + MAYBE_SENT, false)
