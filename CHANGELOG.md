@@ -7,6 +7,8 @@ and the CLI come only with a new major version, and are called out here with mig
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-10
+
 ### Added
 
 - Bot protection for the account forms, all optional. With `BRIDGE_TURNSTILE_SITE_KEY` and
@@ -52,6 +54,25 @@ and the CLI come only with a new major version, and are called out here with mig
   `GET /v1/system/insights` answer them with the same `404 not_found` as an unknown route (System
   health returned `403 forbidden` before), and the dashboard shows its 404 page instead of an
   "operators only" notice.
+
+### Android gateway
+
+- The pairing scanner fills whatever window the app has: portrait, landscape, split screen and
+  foldables. The viewfinder is a square sized to the window, only codes inside it are read, and
+  there is a torch button.
+- Release builds are shrunk and obfuscated by R8 (classes repackaged, verbose and debug logging
+  stripped). Credentials, pairing codes, phone numbers and message text print as redacted, so a
+  stray log line or crash report leaks none of them.
+- The boot receiver is no longer exported, and the app refuses plain HTTP to hosted Bridge.
+- Signed APKs (`foss` and `gms`) are attached to the GitHub release, and each release keeps its R8
+  mapping file as a workflow artifact for 90 days.
+- The welcome screen says "go to Phones", matching the dashboard.
+
+### Fixed
+
+- Dashboard: on Insights, the sidebar marker sat beside System health because it was measured
+  before Billing loaded; it now follows items that appear late. The breadcrumb reads
+  "System health / Insights".
 
 ## [1.0.0] - 2026-10-09
 

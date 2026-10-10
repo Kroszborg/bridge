@@ -196,7 +196,7 @@ const jsonLd = {
       description: SITE.description,
       applicationCategory: 'DeveloperApplication',
       operatingSystem: 'Linux, macOS, Windows (Docker); Android (gateway app)',
-      softwareVersion: '1.0.0',
+      softwareVersion: '1.1.0',
       license: 'https://spdx.org/licenses/AGPL-3.0-only.html',
       isAccessibleForFree: true,
       offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },

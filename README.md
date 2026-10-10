@@ -82,7 +82,7 @@ docker compose up -d
 | Status page | http://localhost:3000/status |
 
 This builds the images from source. To run a published release instead, set
-`BRIDGE_IMAGE_PREFIX=ghcr.io/kroszborg/` and `BRIDGE_VERSION=1.0.0` in `.env` (see
+`BRIDGE_IMAGE_PREFIX=ghcr.io/kroszborg/` and `BRIDGE_VERSION=1.1.0` in `.env` (see
 [Releases](https://github.com/kroszborg/bridge/releases)). Self-hosted servers have no plans or
 limits. For a public server, read the [self-hosting guide](docs/self-hosting/README.md); configuration
 lives in environment variables, see [`.env.example`](.env.example).

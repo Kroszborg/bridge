@@ -26,8 +26,8 @@ android {
         minSdk = 26
         targetSdk = 37
         // Bump both, and add fastlane/.../changelogs/<versionCode>.txt, in the release commit.
-        versionCode = 1000099
-        versionName = "1.0.0"
+        versionCode = 1010099
+        versionName = "1.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

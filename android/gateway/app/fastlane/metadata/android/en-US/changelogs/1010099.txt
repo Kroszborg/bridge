@@ -1,0 +1,5 @@
+Bridge 1.1
+
+- A QR scanner that fits any screen, in portrait, landscape and split screen, with a torch.
+- Release builds are shrunk and obfuscated, and keep codes, numbers and messages out of logs.
+- Pairing instructions match the dashboard: go to Phones, then Pair device.

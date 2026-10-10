@@ -28,7 +28,7 @@ import {
   type WebhookEventType,
 } from './webhooks';
 
-export const VERSION = '1.0.0';
+export const VERSION = '1.1.0';
 
 const DEFAULT_BASE_URL = 'http://localhost:8080';
 

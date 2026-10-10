@@ -96,7 +96,7 @@ fun WelcomeScreen(
                 Eyebrow("How to pair")
                 Spacer(Modifier.height(10.dp))
                 listOf(
-                    "Open the Bridge dashboard and go to Devices.",
+                    "Open the Bridge dashboard and go to Phones.",
                     "Click Pair device to show a pairing code.",
                     "Scan it here. The code works once and expires after 10 minutes.",
                 ).forEachIndexed { i, step ->

@@ -21,9 +21,9 @@ RepoType: git
 Repo: https://github.com/kroszborg/bridge.git
 
 Builds:
-  - versionName: 1.0.0
-    versionCode: 1000099
-    commit: v1.0.0
+  - versionName: 1.1.0
+    versionCode: 1010099
+    commit: v1.1.0
     subdir: android/gateway/app
     # The app compiles Kotlin with a JDK 25 toolchain (jvmToolchain(25)); Gradle's foojay
     # resolver downloads one when none is installed. If the build server's policy prefers a
@@ -40,13 +40,12 @@ Builds:
     # Bridge's own key, which lets F-Droid and GitHub installs update each other.
     # binary: https://github.com/kroszborg/bridge/releases/download/v%v/bridge-gateway-%v-foss.apk
 
-# TODO: SHA-256 of the release signing certificate, lowercase hex without colons, from
-#   apksigner verify --print-certs bridge-gateway-1.0.0-foss.apk
+# SHA-256 of the release signing certificate (apksigner verify --print-certs on a release APK).
 # Only needed together with `binary` (reproducible builds).
-# AllowedAPKSigningKeys: <sha256-of-release-certificate>
+# AllowedAPKSigningKeys: e6d124be58e7e05d9ce70ef4f879eb97987b586672b330d03dfdb0a92218d871
 
 AutoUpdateMode: Version
 # Final releases only: vX.Y.Z. Release candidates (vX.Y.Z-rc.N) do not match.
 UpdateCheckMode: Tags ^v[0-9.]+$
-CurrentVersion: 1.0.0
-CurrentVersionCode: 1000099
+CurrentVersion: 1.1.0
+CurrentVersionCode: 1010099
