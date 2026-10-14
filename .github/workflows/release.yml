@@ -268,7 +268,7 @@ jobs:
       # kept as a workflow artifact, not a public release asset, so the obfuscation stays useful;
       # download and archive them for every release (see docs/android/README.md).
       - if: env.SIGNING == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: android-mapping-${{ needs.prepare.outputs.version }}
           path: android/gateway/app/build/outputs/mapping/*Release/mapping.txt
