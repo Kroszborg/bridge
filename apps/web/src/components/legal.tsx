@@ -35,7 +35,7 @@ export function LegalPage({
           {children}
         </div>
       </main>
-      <footer className="border-t">
+      <footer>
         <div className="mx-auto flex max-w-3xl flex-col gap-2 px-4 py-6 text-xs text-muted-foreground sm:flex-row sm:justify-between sm:px-6">
           <span>
             Bridge is open source: <a href={REPO_URL}>read the code</a>.

@@ -373,7 +373,7 @@ export default function Home() {
       >
         Skip to content
       </a>
-      <header className="sticky top-0 z-40 border-b bg-background">
+      <header className="sticky top-0 z-40 bg-background">
         <nav
           aria-label="Main"
           className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-6 px-4 sm:px-6"
@@ -1101,7 +1101,7 @@ export default function Home() {
         </section>
       </main>
 
-      <footer className="border-t">
+      <footer>
         <div className="mx-auto grid max-w-7xl gap-10 px-4 py-12 text-sm sm:px-6 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
           <div className="flex flex-col gap-4">
             <Wordmark />
