@@ -160,7 +160,7 @@ export function MobileMenu({
         id="mobile-menu"
         aria-label="Menu"
         data-open={open}
-        className="mobile-menu absolute inset-x-0 top-16 border-b bg-background/95 px-4 pb-5 backdrop-blur-md sm:px-6"
+        className="mobile-menu absolute inset-x-0 top-16 border-b bg-background px-4 pb-5 sm:px-6"
       >
         <ul className="flex flex-col py-2">
           {links.map(([href, label]) => (

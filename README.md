@@ -60,7 +60,7 @@ phone, or a messaging provider as a fallback or instead) can change without rewr
 ### Hosted Bridge
 
 [Create an account](https://dashboard.bridge.kroszborg.co/signup). You get a workspace and a
-default project on the Free plan (1 phone, 300 live SMS a month); test messages are always free and
+default project on the Free plan (1 phone, 100 live SMS a month); test messages are always free and
 unlimited. Pro ($5/month) and Team ($15/month) add phones, SMS, projects and members; see
 [plans and billing](docs/hosted/billing.md). The API is at `https://api.bridge.kroszborg.co`.
 

@@ -26,40 +26,42 @@
   --color-warning: var(--warning);
   --color-destructive: var(--destructive);
 
-  --radius-lg: 0.75rem;
-  --radius-xl: 1rem;
-  --radius-2xl: 1.25rem;
+  /* One radius for everything that is not a pill. */
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.5rem;
+  --radius-2xl: 0.5rem;
 }
 
 :root {
-  --background: #faf8f4;
-  --foreground: #1a1714;
-  --card: #ffffff;
-  --raised: #f2efe9;
-  --primary: #0f7a62;
-  --primary-foreground: #ffffff;
-  --muted: #f2efe9;
-  --muted-foreground: #5e564c;
-  --faint: #8a8176;
-  --border: #e5e0d8;
+  /* Cool graphite neutrals in both themes, with one green accent. */
+  --background: #f6f7f8;
+  --foreground: #111418;
+  --card: #fdfdfd;
+  --raised: #eef0f2;
+  --primary: #0b7a57;
+  --primary-foreground: #f6fffa;
+  --muted: #eef0f2;
+  --muted-foreground: #525963;
+  --faint: #7d848e;
+  --border: #dfe2e6;
   --success: #15803d;
   --warning: #b45309;
   --destructive: #dc2626;
   /* Shadows are tinted to the page, never pure black. */
-  --shadow: rgb(60 48 32 / 0.28);
+  --shadow: rgb(17 24 39 / 0.22);
 }
 
 .dark {
-  --background: #09090b;
-  --foreground: #fafafa;
-  --card: #111113;
-  --raised: #18181b;
-  --primary: #3eebc0;
-  --primary-foreground: #0a0a0b;
-  --muted: #18181b;
-  --muted-foreground: #a1a1aa;
-  --faint: #71717a;
-  --border: #27272a;
+  --background: #0f1114;
+  --foreground: #eceef1;
+  --card: #161a1e;
+  --raised: #1c2126;
+  --primary: #4cc38a;
+  --primary-foreground: #08130d;
+  --muted: #1c2126;
+  --muted-foreground: #9aa2ad;
+  --faint: #6c737d;
+  --border: #272c33;
   --success: #4ade80;
   --warning: #fbbf24;
   --destructive: #f87171;
@@ -136,44 +138,6 @@
   }
 }
 
-/* One soft glow behind the hero screenshot; no motion. */
-.hero-glow {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: radial-gradient(
-    60% 55% at 50% 30%,
-    color-mix(in srgb, var(--primary) 9%, transparent),
-    transparent 70%
-  );
-}
-
-/* Faint glows down the page so long scrolls have depth; one black underneath. */
-.page-bg {
-  background-image:
-    radial-gradient(
-      48rem 26rem at 85% 22%,
-      color-mix(in srgb, var(--primary) 5%, transparent),
-      transparent 70%
-    ),
-    radial-gradient(
-      44rem 30rem at 10% 42%,
-      color-mix(in srgb, var(--primary) 4%, transparent),
-      transparent 70%
-    ),
-    radial-gradient(
-      48rem 28rem at 90% 64%,
-      color-mix(in srgb, var(--primary) 4%, transparent),
-      transparent 70%
-    ),
-    radial-gradient(
-      56rem 30rem at 50% 96%,
-      color-mix(in srgb, var(--primary) 6%, transparent),
-      transparent 70%
-    );
-  background-repeat: no-repeat;
-}
-
 /* The logo row drifts slowly and fades at both edges. */
 .marquee {
   mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
@@ -218,24 +182,6 @@
     justify-content: center;
     width: auto;
   }
-}
-
-/* Cards that light up under the cursor. */
-.spotlight::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  background: radial-gradient(
-    22rem circle at var(--mx, -999px) var(--my, -999px),
-    color-mix(in srgb, var(--primary) 12%, transparent),
-    transparent 70%
-  );
-}
-.spotlight:hover::before {
-  opacity: 1;
 }
 
 /* Mobile menu: slides down, hidden from assistive tech when closed. */

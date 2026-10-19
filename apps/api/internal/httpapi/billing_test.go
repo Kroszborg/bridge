@@ -48,7 +48,7 @@ func TestPlanLimits(t *testing.T) {
 	if b["enabled"] != true || plan["id"] != "free" || b["status"] != "none" || b["payments"] != false {
 		t.Fatalf("new workspace billing: %v", b)
 	}
-	if lim := plan["limits"].(map[string]any); lim["projects"] != float64(1) || lim["live_messages"] != float64(300) {
+	if lim := plan["limits"].(map[string]any); lim["projects"] != float64(1) || lim["live_messages"] != float64(100) {
 		t.Fatalf("free limits: %v", lim)
 	}
 	if plans := c.mustStatus(c.do("GET", "/v1/plans", nil), http.StatusOK).Body["data"].([]any); len(plans) != 3 {
@@ -66,9 +66,9 @@ func TestPlanLimits(t *testing.T) {
 		t.Fatalf("second seat on Free: %d %s", r.Status, r.Raw)
 	}
 
-	// Live messages: 299 used, so one more is accepted and the next refused.
+	// Live messages: 99 used, so one more is accepted and the next refused.
 	if _, err := testDB.Pool.Exec(context.Background(),
-		`INSERT INTO organization_usage (organization_id, period, live_messages) VALUES ($1, date_trunc('month', now() AT TIME ZONE 'UTC')::date, 299)`,
+		`INSERT INTO organization_usage (organization_id, period, live_messages) VALUES ($1, date_trunc('month', now() AT TIME ZONE 'UTC')::date, 99)`,
 		orgID); err != nil {
 		t.Fatal(err)
 	}
@@ -77,14 +77,14 @@ func TestPlanLimits(t *testing.T) {
 	}
 	c.mustStatus(send(), http.StatusAccepted)
 	r = send()
-	if r.Status != http.StatusPaymentRequired || r.errCode() != "plan_limit_reached" || !strings.Contains(r.errMessage(), "300 live SMS") {
+	if r.Status != http.StatusPaymentRequired || r.errCode() != "plan_limit_reached" || !strings.Contains(r.errMessage(), "100 live SMS") {
 		t.Fatalf("over the monthly allowance: %d %s", r.Status, r.Raw)
 	}
 	// Test messages are never limited.
 	c.mustStatus(c.do("POST", "/v1/projects/"+projectID+"/messages?environment=test", map[string]any{"to": "+15550000001", "message": "hello"}), http.StatusAccepted)
 
 	b = c.mustStatus(c.do("GET", "/v1/organizations/"+orgID+"/billing", nil), http.StatusOK).Body
-	if u := b["usage"].(map[string]any); u["live_messages"] != float64(300) || u["projects"] != float64(1) || u["members"] != float64(1) {
+	if u := b["usage"].(map[string]any); u["live_messages"] != float64(100) || u["projects"] != float64(1) || u["members"] != float64(1) {
 		t.Fatalf("usage: %v", u)
 	}
 }

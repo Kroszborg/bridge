@@ -8,7 +8,7 @@ merchant of record (it takes payment, issues invoices and handles tax). All of i
 | --- | --- | --- | --- |
 | Price | $0 | $5/month | $15/month |
 | Phones | 1 | 3 | 10 |
-| Live SMS a month | 300 | 5,000 | 25,000 |
+| Live SMS a month | 100 | 5,000 | 25,000 |
 | Projects | 1 | 3 | Unlimited |
 | Members (incl. open invites) | 1 | 3 | 10 |
 

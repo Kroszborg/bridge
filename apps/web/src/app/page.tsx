@@ -300,7 +300,7 @@ function SecondaryCta() {
   return (
     <a
       href="#self-host"
-      className="inline-flex h-12 items-center rounded-xl border bg-card/70 px-6 text-sm font-semibold backdrop-blur transition-[background-color,transform] hover:bg-muted active:translate-y-px"
+      className="inline-flex h-12 items-center rounded-xl border bg-card px-6 text-sm font-semibold transition-[background-color,transform] hover:bg-muted active:translate-y-px"
     >
       Self-host it
     </a>
@@ -338,7 +338,7 @@ const PLANS = [
     name: 'Free',
     price: '$0',
     blurb: 'Try Bridge on one phone.',
-    items: ['1 phone', '300 live SMS a month', '1 project', 'Just you'],
+    items: ['1 phone', '100 live SMS a month', '1 project', 'Just you'],
     cta: 'Start free',
   },
   {
@@ -373,7 +373,7 @@ export default function Home() {
       >
         Skip to content
       </a>
-      <header className="sticky top-0 z-40 bg-background/85 backdrop-blur-md supports-[backdrop-filter]:bg-background/70">
+      <header className="sticky top-0 z-40 border-b bg-background">
         <nav
           aria-label="Main"
           className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-6 px-4 sm:px-6"
@@ -411,23 +411,16 @@ export default function Home() {
         </nav>
       </header>
 
-      <main id="main" className="page-bg">
+      <main id="main">
         {/*
           Hero: the promise, then the bridge itself, assembling out of points of light. The
           bridge's canvas covers the whole hero, behind the copy, so a click anywhere but the
           buttons can throw it apart and the pieces have the full hero to fly through.
         */}
         <section className="relative isolate flex flex-col items-center overflow-hidden px-4 pt-20 pb-10 sm:px-6 sm:pt-24 sm:pb-14">
-          <div className="hero-glow" aria-hidden />
           <Bridge3D />
           <div className="pointer-events-none relative z-10 flex flex-col items-center [&_a]:pointer-events-auto">
-            <FadeUp>
-              <p className="inline-flex items-center gap-2 rounded-full border bg-card/60 px-3 py-1 text-xs font-medium text-muted-foreground backdrop-blur-sm">
-                <span className="size-1.5 rounded-full bg-primary" aria-hidden />
-                Open source · SMS and phone verification
-              </p>
-            </FadeUp>
-            <h1 className="mt-6 text-balance text-center text-[2.4rem] font-bold leading-[1.06] tracking-[-0.035em] sm:text-6xl lg:text-[4.25rem]">
+            <h1 className="text-balance text-center text-[2.4rem] font-bold leading-[1.06] tracking-[-0.035em] sm:text-6xl lg:text-[4.25rem]">
               <HeadlineReveal
                 lines={[
                   { text: 'Send SMS through phones' },
@@ -444,11 +437,6 @@ export default function Home() {
             <FadeUp delay={0.6} className="mt-8 flex flex-wrap justify-center gap-3">
               <PrimaryCta />
               <SecondaryCta />
-            </FadeUp>
-            <FadeUp delay={0.7}>
-              <p className="mt-4 text-center text-xs text-faint">
-                Free plan, no card needed · AGPL-3.0 to self-host
-              </p>
             </FadeUp>
           </div>
           {/* Where the bridge stands, right under the buttons; the canvas frames it into this box. */}
@@ -864,7 +852,7 @@ export default function Home() {
         {/* Pricing: hosted plans; self-hosting below is free. */}
         <section id="pricing" className="scroll-mt-20 border-t">
           <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:py-28">
-            <div data-reveal className="mx-auto max-w-2xl text-center">
+            <div data-reveal className="max-w-2xl">
               <h2 className="text-3xl font-bold sm:text-4xl">
                 Simple pricing. Your SIMs do the sending.
               </h2>
@@ -873,7 +861,7 @@ export default function Home() {
                 are unlimited on every plan.
               </p>
             </div>
-            <div className="mx-auto mt-14 grid max-w-5xl gap-4 md:grid-cols-3">
+            <div className="mt-14 grid gap-4 md:grid-cols-3">
               {PLANS.map((p) => (
                 <SpotlightCard
                   key={p.name}
@@ -881,12 +869,7 @@ export default function Home() {
                     'featured' in p ? 'border-primary/50 bg-primary/[0.04]' : 'bg-card/60'
                   }`}
                 >
-                  <div className="flex items-baseline justify-between">
-                    <h3 className="font-display text-lg font-semibold">{p.name}</h3>
-                    {'featured' in p ? (
-                      <span className="text-xs font-medium text-primary">Most popular</span>
-                    ) : null}
-                  </div>
+                  <h3 className="font-display text-lg font-semibold">{p.name}</h3>
                   <p className="mt-3">
                     <span className="font-display text-4xl font-bold tracking-tight">
                       {p.price}
@@ -919,7 +902,7 @@ export default function Home() {
                 </SpotlightCard>
               ))}
             </div>
-            <p className="mx-auto mt-8 max-w-2xl text-center text-sm text-muted-foreground">
+            <p className="mt-8 max-w-2xl text-sm text-muted-foreground">
               Prices in USD, before tax. Each phone sends at most 100 SMS a day by default, within
               what most operators allow a SIM, so your numbers stay safe.{' '}
               <a
