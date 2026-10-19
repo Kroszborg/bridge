@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Red_Hat_Display, Red_Hat_Mono, Red_Hat_Text } from 'next/font/google';
 import { ThemeProvider } from '@/components/theme';
-import { MAKER, SITE, SITE_URL } from '@/lib/site';
+import { MAKER, OG_IMAGE, SITE, SITE_URL } from '@/lib/site';
 import './globals.css';
 
 const display = Red_Hat_Display({ subsets: ['latin'], variable: '--font-redhat-display' });
@@ -34,23 +34,16 @@ export const metadata: Metadata = {
     siteName: SITE.name,
     title: SITE.title,
     description:
-      'Send SMS and one-time codes through Android phones you own, with delivery reports and signed webhooks. Open source and self-hosted.',
-    images: [
-      {
-        url: '/og.png',
-        width: 1200,
-        height: 630,
-        alt: 'Bridge: send SMS through phones you already own',
-      },
-    ],
+      'Send SMS and one-time codes through Android phones you own, with delivery reports and signed webhooks. Open source, hosted or self-hosted.',
+    images: [OG_IMAGE],
   },
   twitter: {
     card: 'summary_large_image',
     creator: MAKER.xHandle,
     title: SITE.title,
     description:
-      'Send SMS and one-time codes through Android phones you own. Open source and self-hosted.',
-    images: ['/og.png'],
+      'Send SMS and one-time codes through Android phones you own. Open source, hosted or self-hosted.',
+    images: [OG_IMAGE.url],
   },
   robots: { index: true, follow: true },
 };

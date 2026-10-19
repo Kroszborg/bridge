@@ -3,7 +3,8 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { IntegrationsGrid } from '@/components/docs/integrations-grid';
 import { getMDXComponents } from '@/components/docs/mdx';
-import { MAKER, repoFile, SITE } from '@/lib/site';
+import { docsUrl } from '@/lib/docs/paths';
+import { pageMeta, repoFile } from '@/lib/site';
 import { source } from '@/lib/source';
 
 type Props = { params: Promise<{ slug?: string[] }> };
@@ -38,25 +39,5 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const title =
     page.slugs.length === 0 ? 'Bridge documentation' : `${page.data.title} · Bridge docs`;
-  const { description } = page.data;
-  return {
-    title,
-    description,
-    alternates: { canonical: page.url },
-    openGraph: {
-      type: 'article',
-      url: page.url,
-      siteName: SITE.name,
-      title,
-      description,
-      images: [{ url: '/og.png', width: 1200, height: 630, alt: SITE.title }],
-    },
-    twitter: {
-      card: 'summary_large_image',
-      creator: MAKER.xHandle,
-      title,
-      description,
-      images: ['/og.png'],
-    },
-  };
+  return pageMeta({ title, description: page.data.description, path: docsUrl(page.slugs) });
 }

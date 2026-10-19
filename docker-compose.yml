@@ -115,6 +115,7 @@ services:
     environment:
       BRIDGE_API_URL: http://api:8080
       BRIDGE_PUBLIC_API_URL: ${BRIDGE_PUBLIC_URL:-http://localhost:8080}
+      BRIDGE_DASHBOARD_URL: ${BRIDGE_DASHBOARD_URL:-http://localhost:3000}
     ports:
       - "${BRIDGE_DASHBOARD_PORT:-3000}:3000"
     depends_on:

@@ -1,3 +1,5 @@
+import type { Metadata } from 'next';
+
 /** Where the console lives. Set NEXT_PUBLIC_DASHBOARD_URL when you deploy. */
 export const DASHBOARD_URL = (
   process.env.NEXT_PUBLIC_DASHBOARD_URL ?? 'http://localhost:3000'
@@ -76,3 +78,38 @@ export const MAKER = {
     },
   ],
 } as const;
+
+/** The link preview image, apps/web/public/og.png. */
+export const OG_IMAGE = {
+  url: '/og.png',
+  width: 1200,
+  height: 630,
+  alt: 'Bridge: send SMS through phones you already own',
+} as const;
+
+/** Title, description and link preview tags for a page other than the home page. */
+export function pageMeta({
+  title,
+  description,
+  path,
+  type = 'article',
+}: {
+  title: string;
+  description?: string;
+  path: string;
+  type?: 'article' | 'website';
+}): Metadata {
+  return {
+    title,
+    description,
+    alternates: { canonical: path },
+    openGraph: { type, url: path, siteName: SITE.name, title, description, images: [OG_IMAGE] },
+    twitter: {
+      card: 'summary_large_image',
+      creator: MAKER.xHandle,
+      title,
+      description,
+      images: [OG_IMAGE.url],
+    },
+  };
+}

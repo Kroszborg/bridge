@@ -1,12 +1,12 @@
 import type { Metadata } from 'next';
 import { LegalPage } from '@/components/legal';
-import { CONTACT_EMAIL, DASHBOARD_URL, REPO_URL } from '@/lib/site';
+import { CONTACT_EMAIL, DASHBOARD_URL, pageMeta, REPO_URL } from '@/lib/site';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMeta({
   title: 'Privacy Policy · Bridge',
   description: 'What hosted Bridge and the Bridge Android app collect, why, and for how long.',
-  alternates: { canonical: '/privacy/' },
-};
+  path: '/privacy/',
+});
 
 export default function PrivacyPage() {
   return (

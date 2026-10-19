@@ -1,12 +1,12 @@
 import type { Metadata } from 'next';
 import { LegalPage } from '@/components/legal';
-import { CONTACT_EMAIL, MAKER, REPO_URL } from '@/lib/site';
+import { CONTACT_EMAIL, MAKER, pageMeta, REPO_URL } from '@/lib/site';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMeta({
   title: 'Terms of Service · Bridge',
   description: 'The terms for using hosted Bridge.',
-  alternates: { canonical: '/terms/' },
-};
+  path: '/terms/',
+});
 
 export default function TermsPage() {
   return (
