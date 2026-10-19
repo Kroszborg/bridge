@@ -754,6 +754,7 @@ type Subscription struct {
 	CancelAtPeriodEnd      bool
 	CreatedAt              time.Time
 	UpdatedAt              time.Time
+	Environment            *string
 }
 
 type User struct {

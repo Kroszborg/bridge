@@ -2790,6 +2790,17 @@
             "format": "int64",
             "type": "integer"
           },
+          "payments_mode": {
+            "description": "The Dodo mode Bridge takes payments in; null without payments. Billing figures count only this mode's subscriptions, so in test_mode they are not real revenue.",
+            "enum": [
+              "test_mode",
+              "live_mode"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "plan_mix": {
             "description": "Workspaces per plan in effect; active and past-due subscriptions keep their plan, the rest are on Free.",
             "items": {
@@ -2808,6 +2819,7 @@
         "required": [
           "plan_mix",
           "mrr_cents",
+          "payments_mode",
           "currency",
           "recent_changes"
         ],

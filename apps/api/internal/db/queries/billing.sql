@@ -16,8 +16,8 @@ SELECT * FROM subscriptions WHERE provider_customer_id = $1 ORDER BY updated_at 
 -- name: UpsertSubscription :one
 INSERT INTO subscriptions (
     organization_id, plan_id, status, provider_customer_id, provider_subscription_id,
-    current_period_end, cancel_at_period_end
-) VALUES ($1, $2, $3, $4, $5, $6, $7)
+    current_period_end, cancel_at_period_end, environment
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 ON CONFLICT (organization_id) DO UPDATE SET
     plan_id = EXCLUDED.plan_id,
     status = EXCLUDED.status,
@@ -25,8 +25,17 @@ ON CONFLICT (organization_id) DO UPDATE SET
     provider_subscription_id = EXCLUDED.provider_subscription_id,
     current_period_end = EXCLUDED.current_period_end,
     cancel_at_period_end = EXCLUDED.cancel_at_period_end,
+    environment = EXCLUDED.environment,
     updated_at = now()
 RETURNING *;
+
+-- name: ListSubscriptionsWithoutEnvironment :many
+SELECT organization_id, provider_subscription_id FROM subscriptions
+WHERE environment IS NULL AND provider_subscription_id IS NOT NULL;
+
+-- name: SetSubscriptionEnvironment :exec
+-- Does not touch updated_at: this records where the row came from, not a change.
+UPDATE subscriptions SET environment = $2 WHERE organization_id = $1 AND environment IS NULL;
 
 -- name: ClaimBillingWebhookEvent :one
 INSERT INTO billing_webhook_events (id, type) VALUES ($1, $2)

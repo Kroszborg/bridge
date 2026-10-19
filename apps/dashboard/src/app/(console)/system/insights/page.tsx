@@ -212,7 +212,11 @@ function Insights({ data }: { data: SystemInsights }) {
           <StatTile
             label="MRR (estimate)"
             value={money(billing.mrr_cents, billing.currency)}
-            note={`${number.format(totals.subscriptions_active)} paid subscriptions`}
+            note={
+              billing.payments_mode === 'test_mode'
+                ? 'Dodo test mode: not real revenue'
+                : `${number.format(totals.subscriptions_active)} paid subscriptions`
+            }
           />
         ) : (
           <StatTile

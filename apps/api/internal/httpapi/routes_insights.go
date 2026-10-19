@@ -112,6 +112,7 @@ type InsightsBilling struct {
 	_             struct{}                `nullable:"true"`
 	PlanMix       []InsightsPlanShare     `json:"plan_mix" doc:"Workspaces per plan in effect; active and past-due subscriptions keep their plan, the rest are on Free."`
 	MRRCents      int64                   `json:"mrr_cents" doc:"Estimated monthly recurring revenue: the monthly price of every active subscription."`
+	PaymentsMode  *string                 `json:"payments_mode" enum:"test_mode,live_mode" doc:"The Dodo mode Bridge takes payments in; null without payments. Billing figures count only this mode's subscriptions, so in test_mode they are not real revenue."`
 	Currency      string                  `json:"currency" example:"USD"`
 	RecentChanges []InsightsBillingChange `json:"recent_changes" doc:"The 10 most recently changed subscriptions."`
 }
@@ -207,7 +208,7 @@ func (s *Server) systemInsights(ctx context.Context, days int, now time.Time) (S
 	defer func() { _ = tx.Rollback(ctx) }()
 	q := s.q.WithTx(tx)
 
-	t, err := q.InsightsTotals(ctx, first)
+	t, err := q.InsightsTotals(ctx, dbq.InsightsTotalsParams{Since: first, Environment: s.billing.Environment()})
 	if err != nil {
 		return out, err
 	}
@@ -286,7 +287,9 @@ func (s *Server) systemInsights(ctx context.Context, days int, now time.Time) (S
 	out.Verify = InsightsVerify{Started: int(v.Started), Verified: int(v.Verified), VerifyRate: rate(int(v.Verified), int(v.Started))}
 
 	hosted := s.billing.Enabled()
-	top, err := q.InsightsTopOrganizations(ctx, dbq.InsightsTopOrganizationsParams{FreePlan: billing.FreePlan, Since: first})
+	top, err := q.InsightsTopOrganizations(ctx, dbq.InsightsTopOrganizationsParams{
+		FreePlan: billing.FreePlan, Since: first, Environment: s.billing.Environment(),
+	})
 	if err != nil {
 		return out, err
 	}
@@ -312,7 +315,7 @@ func (s *Server) systemInsights(ctx context.Context, days int, now time.Time) (S
 	}
 
 	if hosted {
-		b, err := insightsBilling(ctx, q)
+		b, err := insightsBilling(ctx, q, s.billing.Environment())
 		if err != nil {
 			return out, err
 		}
@@ -321,22 +324,23 @@ func (s *Server) systemInsights(ctx context.Context, days int, now time.Time) (S
 	return out, nil
 }
 
-func insightsBilling(ctx context.Context, q *dbq.Queries) (*InsightsBilling, error) {
-	mix, err := q.InsightsPlanMix(ctx, billing.FreePlan)
+// insightsBilling counts subscriptions of the Dodo mode Bridge runs in (env).
+func insightsBilling(ctx context.Context, q *dbq.Queries, env *string) (*InsightsBilling, error) {
+	mix, err := q.InsightsPlanMix(ctx, dbq.InsightsPlanMixParams{FreePlan: billing.FreePlan, Environment: env})
 	if err != nil {
 		return nil, err
 	}
-	b := &InsightsBilling{Currency: "USD", PlanMix: make([]InsightsPlanShare, 0, len(mix))}
+	b := &InsightsBilling{Currency: "USD", PaymentsMode: env, PlanMix: make([]InsightsPlanShare, 0, len(mix))}
 	for _, p := range mix {
 		b.PlanMix = append(b.PlanMix, InsightsPlanShare{Plan: p.ID, Name: p.Name, PriceCents: p.PriceCents, Organizations: int(p.Organizations)})
 		if p.PriceCents > 0 && p.Currency != "" {
 			b.Currency = p.Currency
 		}
 	}
-	if b.MRRCents, err = q.InsightsMRR(ctx); err != nil {
+	if b.MRRCents, err = q.InsightsMRR(ctx, env); err != nil {
 		return nil, err
 	}
-	changes, err := q.InsightsRecentSubscriptions(ctx)
+	changes, err := q.InsightsRecentSubscriptions(ctx, env)
 	if err != nil {
 		return nil, err
 	}

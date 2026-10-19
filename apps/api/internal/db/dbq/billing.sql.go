@@ -123,7 +123,7 @@ func (q *Queries) GetPlan(ctx context.Context, id string) (Plan, error) {
 }
 
 const getSubscription = `-- name: GetSubscription :one
-SELECT organization_id, plan_id, status, provider_customer_id, provider_subscription_id, current_period_end, cancel_at_period_end, created_at, updated_at FROM subscriptions WHERE organization_id = $1
+SELECT organization_id, plan_id, status, provider_customer_id, provider_subscription_id, current_period_end, cancel_at_period_end, created_at, updated_at, environment FROM subscriptions WHERE organization_id = $1
 `
 
 func (q *Queries) GetSubscription(ctx context.Context, organizationID string) (Subscription, error) {
@@ -139,12 +139,13 @@ func (q *Queries) GetSubscription(ctx context.Context, organizationID string) (S
 		&i.CancelAtPeriodEnd,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Environment,
 	)
 	return i, err
 }
 
 const getSubscriptionByCustomer = `-- name: GetSubscriptionByCustomer :one
-SELECT organization_id, plan_id, status, provider_customer_id, provider_subscription_id, current_period_end, cancel_at_period_end, created_at, updated_at FROM subscriptions WHERE provider_customer_id = $1 ORDER BY updated_at DESC LIMIT 1
+SELECT organization_id, plan_id, status, provider_customer_id, provider_subscription_id, current_period_end, cancel_at_period_end, created_at, updated_at, environment FROM subscriptions WHERE provider_customer_id = $1 ORDER BY updated_at DESC LIMIT 1
 `
 
 func (q *Queries) GetSubscriptionByCustomer(ctx context.Context, providerCustomerID *string) (Subscription, error) {
@@ -160,12 +161,13 @@ func (q *Queries) GetSubscriptionByCustomer(ctx context.Context, providerCustome
 		&i.CancelAtPeriodEnd,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Environment,
 	)
 	return i, err
 }
 
 const getSubscriptionByProviderID = `-- name: GetSubscriptionByProviderID :one
-SELECT organization_id, plan_id, status, provider_customer_id, provider_subscription_id, current_period_end, cancel_at_period_end, created_at, updated_at FROM subscriptions WHERE provider_subscription_id = $1
+SELECT organization_id, plan_id, status, provider_customer_id, provider_subscription_id, current_period_end, cancel_at_period_end, created_at, updated_at, environment FROM subscriptions WHERE provider_subscription_id = $1
 `
 
 func (q *Queries) GetSubscriptionByProviderID(ctx context.Context, providerSubscriptionID *string) (Subscription, error) {
@@ -181,12 +183,13 @@ func (q *Queries) GetSubscriptionByProviderID(ctx context.Context, providerSubsc
 		&i.CancelAtPeriodEnd,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Environment,
 	)
 	return i, err
 }
 
 const getSubscriptionForUpdate = `-- name: GetSubscriptionForUpdate :one
-SELECT organization_id, plan_id, status, provider_customer_id, provider_subscription_id, current_period_end, cancel_at_period_end, created_at, updated_at FROM subscriptions WHERE organization_id = $1 FOR UPDATE
+SELECT organization_id, plan_id, status, provider_customer_id, provider_subscription_id, current_period_end, cancel_at_period_end, created_at, updated_at, environment FROM subscriptions WHERE organization_id = $1 FOR UPDATE
 `
 
 // Locks the workspace's subscription row while a webhook decides what to store.
@@ -203,6 +206,7 @@ func (q *Queries) GetSubscriptionForUpdate(ctx context.Context, organizationID s
 		&i.CancelAtPeriodEnd,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Environment,
 	)
 	return i, err
 }
@@ -267,6 +271,36 @@ func (q *Queries) ListPlans(ctx context.Context) ([]Plan, error) {
 	return items, nil
 }
 
+const listSubscriptionsWithoutEnvironment = `-- name: ListSubscriptionsWithoutEnvironment :many
+SELECT organization_id, provider_subscription_id FROM subscriptions
+WHERE environment IS NULL AND provider_subscription_id IS NOT NULL
+`
+
+type ListSubscriptionsWithoutEnvironmentRow struct {
+	OrganizationID         string
+	ProviderSubscriptionID *string
+}
+
+func (q *Queries) ListSubscriptionsWithoutEnvironment(ctx context.Context) ([]ListSubscriptionsWithoutEnvironmentRow, error) {
+	rows, err := q.db.Query(ctx, listSubscriptionsWithoutEnvironment)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListSubscriptionsWithoutEnvironmentRow{}
+	for rows.Next() {
+		var i ListSubscriptionsWithoutEnvironmentRow
+		if err := rows.Scan(&i.OrganizationID, &i.ProviderSubscriptionID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const organizationExists = `-- name: OrganizationExists :one
 SELECT EXISTS (SELECT 1 FROM organizations WHERE id = $1)
 `
@@ -278,11 +312,26 @@ func (q *Queries) OrganizationExists(ctx context.Context, id string) (bool, erro
 	return exists, err
 }
 
+const setSubscriptionEnvironment = `-- name: SetSubscriptionEnvironment :exec
+UPDATE subscriptions SET environment = $2 WHERE organization_id = $1 AND environment IS NULL
+`
+
+type SetSubscriptionEnvironmentParams struct {
+	OrganizationID string
+	Environment    *string
+}
+
+// Does not touch updated_at: this records where the row came from, not a change.
+func (q *Queries) SetSubscriptionEnvironment(ctx context.Context, arg SetSubscriptionEnvironmentParams) error {
+	_, err := q.db.Exec(ctx, setSubscriptionEnvironment, arg.OrganizationID, arg.Environment)
+	return err
+}
+
 const upsertSubscription = `-- name: UpsertSubscription :one
 INSERT INTO subscriptions (
     organization_id, plan_id, status, provider_customer_id, provider_subscription_id,
-    current_period_end, cancel_at_period_end
-) VALUES ($1, $2, $3, $4, $5, $6, $7)
+    current_period_end, cancel_at_period_end, environment
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 ON CONFLICT (organization_id) DO UPDATE SET
     plan_id = EXCLUDED.plan_id,
     status = EXCLUDED.status,
@@ -290,8 +339,9 @@ ON CONFLICT (organization_id) DO UPDATE SET
     provider_subscription_id = EXCLUDED.provider_subscription_id,
     current_period_end = EXCLUDED.current_period_end,
     cancel_at_period_end = EXCLUDED.cancel_at_period_end,
+    environment = EXCLUDED.environment,
     updated_at = now()
-RETURNING organization_id, plan_id, status, provider_customer_id, provider_subscription_id, current_period_end, cancel_at_period_end, created_at, updated_at
+RETURNING organization_id, plan_id, status, provider_customer_id, provider_subscription_id, current_period_end, cancel_at_period_end, created_at, updated_at, environment
 `
 
 type UpsertSubscriptionParams struct {
@@ -302,6 +352,7 @@ type UpsertSubscriptionParams struct {
 	ProviderSubscriptionID *string
 	CurrentPeriodEnd       *time.Time
 	CancelAtPeriodEnd      bool
+	Environment            *string
 }
 
 func (q *Queries) UpsertSubscription(ctx context.Context, arg UpsertSubscriptionParams) (Subscription, error) {
@@ -313,6 +364,7 @@ func (q *Queries) UpsertSubscription(ctx context.Context, arg UpsertSubscription
 		arg.ProviderSubscriptionID,
 		arg.CurrentPeriodEnd,
 		arg.CancelAtPeriodEnd,
+		arg.Environment,
 	)
 	var i Subscription
 	err := row.Scan(
@@ -325,6 +377,7 @@ func (q *Queries) UpsertSubscription(ctx context.Context, arg UpsertSubscription
 		&i.CancelAtPeriodEnd,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Environment,
 	)
 	return i, err
 }

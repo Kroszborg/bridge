@@ -144,6 +144,11 @@ func serve(ctx context.Context, args []string) error {
 		return err
 	}
 	bill := billing.New(pool, cfg, logger)
+	go func() {
+		if err := bill.SortEnvironments(gctx); err != nil {
+			logger.Error("billing: sorting subscriptions by Dodo mode", "error", err)
+		}
+	}()
 	msgs := messaging.New(messaging.Options{
 		Pool: pool, Logger: logger, Publisher: hub.Send, Waker: pushService, Emitter: hooks,
 		Providers: providers, Quota: bill, Config: messaging.Config{Retention: cfg.MessageRetention},

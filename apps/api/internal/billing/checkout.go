@@ -3,9 +3,11 @@ package billing
 import (
 	"context"
 	"errors"
+	"net/http"
 
 	"github.com/jackc/pgx/v5"
 
+	"bridge/internal/config"
 	"bridge/internal/db/dbq"
 )
 
@@ -43,7 +45,7 @@ func (s *Service) Checkout(ctx context.Context, in CheckoutInput) (string, error
 		ProductID: product, Email: in.Email, Name: in.Name, ReturnURL: in.ReturnURL, CancelURL: in.CancelURL,
 		Metadata: map[string]string{"organization_id": in.OrganizationID, "plan": in.Plan},
 	}
-	sub, err := s.q.GetSubscription(ctx, in.OrganizationID)
+	sub, err := s.subscription(ctx, s.q, in.OrganizationID)
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
 	case err != nil:
@@ -72,7 +74,7 @@ func (s *Service) Checkout(ctx context.Context, in CheckoutInput) (string, error
 
 // Resume withdraws a scheduled cancellation, so the plan renews as usual.
 func (s *Service) Resume(ctx context.Context, orgID string) error {
-	sub, err := s.q.GetSubscription(ctx, orgID)
+	sub, err := s.subscription(ctx, s.q, orgID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNothingToResume
 	}
@@ -114,7 +116,7 @@ func (s *Service) store(ctx context.Context, sub Subscription, orgID string) err
 
 // Portal returns a Dodo customer portal link for the organization.
 func (s *Service) Portal(ctx context.Context, orgID, returnURL string) (string, error) {
-	sub, err := s.q.GetSubscription(ctx, orgID)
+	sub, err := s.subscription(ctx, s.q, orgID)
 	if errors.Is(err, pgx.ErrNoRows) || (err == nil && sub.ProviderCustomerID == nil) {
 		return "", ErrNoCustomer
 	}
@@ -141,6 +143,47 @@ func (s *Service) CheckJoin(ctx context.Context, q *dbq.Queries, orgID string) e
 	}
 	if n >= int64(*plan.Limits.Members) {
 		return &LimitError{Resource: Members, Limit: *plan.Limits.Members, Plan: plan.Name}
+	}
+	return nil
+}
+
+// SortEnvironments records the Dodo mode of subscriptions stored before Bridge
+// tracked it. Dodo's modes do not share subscriptions: one Dodo finds in the
+// current mode belongs to it, one it does not know was bought in the other.
+// Rows Dodo cannot answer for now stay unsorted, and count for no mode, until
+// the next start.
+func (s *Service) SortEnvironments(ctx context.Context) error {
+	if !s.Payments() {
+		return nil
+	}
+	rows, err := s.q.ListSubscriptionsWithoutEnvironment(ctx)
+	if err != nil {
+		return err
+	}
+	current := s.cfg.Dodo.Environment
+	other := config.DodoTestMode
+	if current == config.DodoTestMode {
+		other = config.DodoLiveMode
+	}
+	for _, r := range rows {
+		env := current
+		_, err := s.dodo.GetSubscription(ctx, *r.ProviderSubscriptionID)
+		var apiErr *APIError
+		switch {
+		case err == nil:
+		case errors.As(err, &apiErr) && apiErr.Status == http.StatusNotFound:
+			env = other
+		default:
+			s.log.Warn("billing: could not tell which Dodo mode a subscription is from",
+				"organization_id", r.OrganizationID, "error", err)
+			continue
+		}
+		if err := s.q.SetSubscriptionEnvironment(ctx, dbq.SetSubscriptionEnvironmentParams{
+			OrganizationID: r.OrganizationID, Environment: &env,
+		}); err != nil {
+			return err
+		}
+		s.log.Info("billing: subscription mode recorded", "organization_id", r.OrganizationID, "environment", env)
 	}
 	return nil
 }

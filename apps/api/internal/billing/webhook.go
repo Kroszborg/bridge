@@ -166,8 +166,9 @@ func (s *Service) apply(ctx context.Context, q *dbq.Queries, sub Subscription, w
 		return "", err
 	}
 	// A workspace has one subscription at a time. An event about an older one
-	// that no longer grants access must not replace a newer, active one.
-	if err == nil && cur.ProviderSubscriptionID != nil && *cur.ProviderSubscriptionID != sub.SubscriptionID &&
+	// that no longer grants access must not replace a newer, active one (of
+	// this Dodo mode; the other mode's never grants anything).
+	if err == nil && s.sameEnvironment(cur.Environment) && cur.ProviderSubscriptionID != nil && *cur.ProviderSubscriptionID != sub.SubscriptionID &&
 		grants(cur.Status) && !grants(status) {
 		return orgID, nil
 	}
@@ -178,6 +179,7 @@ func (s *Service) apply(ctx context.Context, q *dbq.Queries, sub Subscription, w
 	_, err = q.UpsertSubscription(ctx, dbq.UpsertSubscriptionParams{
 		OrganizationID: orgID, PlanID: plan, Status: status, ProviderCustomerID: customer,
 		ProviderSubscriptionID: &sub.SubscriptionID, CurrentPeriodEnd: sub.NextBilling, CancelAtPeriodEnd: sub.CancelAtNext,
+		Environment: s.Environment(),
 	})
 	if err != nil {
 		return "", err

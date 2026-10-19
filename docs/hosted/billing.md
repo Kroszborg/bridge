@@ -76,7 +76,11 @@ ON CONFLICT (organization_id) DO UPDATE SET plan_id = EXCLUDED.plan_id, status =
    the test cards from Dodo's testing docs, and check the plan
    switches to Pro within a few seconds.
 7. To go live, repeat steps 2–4 in **Live mode** (live products and keys are different), set
-   `BRIDGE_DODO_ENVIRONMENT=live_mode` with the live values, and deploy.
+   `BRIDGE_DODO_ENVIRONMENT=live_mode` with the live values, and deploy. Bridge records the mode each
+   subscription was bought in: after the switch, test-mode subscriptions no longer grant a plan or
+   count in Insights' MRR, and a workspace that upgraded in test mode is back on Free until it buys
+   in live mode. Subscriptions stored before Bridge recorded the mode are sorted when the API
+   starts, by asking Dodo whether each one exists in the current mode.
 
 Without the Dodo settings, `BRIDGE_CLOUD=true` still enforces plans; the Billing page then says
 payments are not set up.

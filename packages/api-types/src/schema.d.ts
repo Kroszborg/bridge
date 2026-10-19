@@ -3410,6 +3410,11 @@ export interface components {
              * @description Estimated monthly recurring revenue: the monthly price of every active subscription.
              */
             mrr_cents: number;
+            /**
+             * @description The Dodo mode Bridge takes payments in; null without payments. Billing figures count only this mode's subscriptions, so in test_mode they are not real revenue.
+             * @enum {string|null}
+             */
+            payments_mode: "test_mode" | "live_mode" | null;
             /** @description Workspaces per plan in effect; active and past-due subscriptions keep their plan, the rest are on Free. */
             plan_mix: components["schemas"]["InsightsPlanShare"][];
             /** @description The 10 most recently changed subscriptions. */

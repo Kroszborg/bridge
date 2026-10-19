@@ -145,6 +145,35 @@ func (s *Service) Plans(ctx context.Context) ([]Plan, error) {
 	return out, nil
 }
 
+// Environment is the Dodo mode Bridge runs in (test_mode or live_mode), or nil
+// without payments. Subscriptions record the mode they were bought in.
+func (s *Service) Environment() *string {
+	if s == nil || s.cfg.Dodo == nil {
+		return nil
+	}
+	return &s.cfg.Dodo.Environment
+}
+
+// subscription returns the organization's subscription in the current Dodo
+// mode. One bought in the other mode (say, test purchases after switching to
+// live) is treated as missing: Dodo's other mode has its own customers and
+// subscriptions, so it neither grants a plan nor can be changed.
+func (s *Service) subscription(ctx context.Context, q *dbq.Queries, orgID string) (dbq.Subscription, error) {
+	sub, err := q.GetSubscription(ctx, orgID)
+	if err == nil && !s.sameEnvironment(sub.Environment) {
+		return dbq.Subscription{}, pgx.ErrNoRows
+	}
+	return sub, err
+}
+
+func (s *Service) sameEnvironment(env *string) bool {
+	want := s.Environment()
+	if want == nil || env == nil {
+		return want == nil && env == nil
+	}
+	return *want == *env
+}
+
 // grants reports whether a subscription status keeps its plan. past_due keeps
 // access while Dodo retries the payment.
 func grants(status string) bool { return status == StatusActive || status == StatusPastDue }
@@ -153,7 +182,7 @@ func grants(status string) bool { return status == StatusActive || status == Sta
 func (s *Service) Current(ctx context.Context, q *dbq.Queries, orgID string) (Plan, *dbq.Subscription, error) {
 	planID := FreePlan
 	var current *dbq.Subscription
-	sub, err := q.GetSubscription(ctx, orgID)
+	sub, err := s.subscription(ctx, q, orgID)
 	switch {
 	case err == nil:
 		current = &sub

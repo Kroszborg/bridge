@@ -7,6 +7,15 @@ and the CLI come only with a new major version, and are called out here with mig
 
 ## [Unreleased]
 
+### Hosted
+
+- Free allows 100 live SMS a month (was 300).
+- Subscriptions record the Dodo mode they were bought in. After switching from test to live mode,
+  test purchases no longer grant plans or count in Insights' MRR, plan mix and paid subscriptions;
+  Insights says when payments are still in test mode.
+- The website uses cool graphite neutrals in both themes, follows the system theme, and drops the
+  hero pill, glows and frosted-glass blur.
+
 ## [1.1.0] - 2026-10-10
 
 ### Added

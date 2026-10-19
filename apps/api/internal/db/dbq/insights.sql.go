@@ -42,12 +42,13 @@ const insightsMRR = `-- name: InsightsMRR :one
 SELECT COALESCE(sum(pl.price_cents), 0)::bigint AS mrr_cents
 FROM subscriptions s
 JOIN plans pl ON pl.id = s.plan_id
-WHERE s.status = 'active'
+WHERE s.status = 'active' AND s.environment IS NOT DISTINCT FROM $1::text
 `
 
-// Monthly recurring revenue of active subscriptions, in the plans' smallest unit.
-func (q *Queries) InsightsMRR(ctx context.Context) (int64, error) {
-	row := q.db.QueryRow(ctx, insightsMRR)
+// Monthly recurring revenue of active subscriptions in the Dodo mode Bridge runs
+// in, in the plans' smallest unit. Test-mode purchases are not revenue.
+func (q *Queries) InsightsMRR(ctx context.Context, environment *string) (int64, error) {
+	row := q.db.QueryRow(ctx, insightsMRR, environment)
 	var mrr_cents int64
 	err := row.Scan(&mrr_cents)
 	return mrr_cents, err
@@ -169,7 +170,7 @@ func (q *Queries) InsightsMessagesDaily(ctx context.Context, arg InsightsMessage
 
 const insightsPlanMix = `-- name: InsightsPlanMix :many
 WITH effective AS (
-    SELECT CASE WHEN s.status IN ('active', 'past_due') THEN s.plan_id ELSE $1::text END AS plan_id
+    SELECT CASE WHEN s.status IN ('active', 'past_due') AND s.environment IS NOT DISTINCT FROM $1::text THEN s.plan_id ELSE $2::text END AS plan_id
     FROM organizations o
     LEFT JOIN subscriptions s ON s.organization_id = o.id
 )
@@ -180,6 +181,11 @@ GROUP BY pl.id
 ORDER BY pl.sort_order, pl.id
 `
 
+type InsightsPlanMixParams struct {
+	Environment *string
+	FreePlan    string
+}
+
 type InsightsPlanMixRow struct {
 	ID            string
 	Name          string
@@ -188,10 +194,10 @@ type InsightsPlanMixRow struct {
 	Organizations int32
 }
 
-// Workspaces per plan in effect: active and past_due subscriptions keep their
-// plan, everything else is on @free_plan.
-func (q *Queries) InsightsPlanMix(ctx context.Context, freePlan string) ([]InsightsPlanMixRow, error) {
-	rows, err := q.db.Query(ctx, insightsPlanMix, freePlan)
+// Workspaces per plan in effect: active and past_due subscriptions of the Dodo
+// mode Bridge runs in (@environment) keep their plan, everything else is on @free_plan.
+func (q *Queries) InsightsPlanMix(ctx context.Context, arg InsightsPlanMixParams) ([]InsightsPlanMixRow, error) {
+	rows, err := q.db.Query(ctx, insightsPlanMix, arg.Environment, arg.FreePlan)
 	if err != nil {
 		return nil, err
 	}
@@ -222,6 +228,7 @@ SELECT s.organization_id, o.name AS organization_name, pl.name AS plan_name, s.s
 FROM subscriptions s
 JOIN organizations o ON o.id = s.organization_id
 JOIN plans pl ON pl.id = s.plan_id
+WHERE s.environment IS NOT DISTINCT FROM $1::text
 ORDER BY s.updated_at DESC, s.organization_id
 LIMIT 10
 `
@@ -235,8 +242,8 @@ type InsightsRecentSubscriptionsRow struct {
 	UpdatedAt         time.Time
 }
 
-func (q *Queries) InsightsRecentSubscriptions(ctx context.Context) ([]InsightsRecentSubscriptionsRow, error) {
-	rows, err := q.db.Query(ctx, insightsRecentSubscriptions)
+func (q *Queries) InsightsRecentSubscriptions(ctx context.Context, environment *string) ([]InsightsRecentSubscriptionsRow, error) {
+	rows, err := q.db.Query(ctx, insightsRecentSubscriptions, environment)
 	if err != nil {
 		return nil, err
 	}
@@ -400,7 +407,7 @@ const insightsTopOrganizations = `-- name: InsightsTopOrganizations :many
 WITH by_project AS (
     SELECT bm.project_id, count(*) AS n
     FROM messages bm
-    WHERE bm.created_at >= $2 AND bm.environment = 'live' AND bm.direction = 'outbound'
+    WHERE bm.created_at >= $3 AND bm.environment = 'live' AND bm.direction = 'outbound'
     GROUP BY bm.project_id
 ), top AS (
     SELECT p.organization_id, sum(b.n) AS messages
@@ -419,13 +426,14 @@ SELECT t.organization_id,
 FROM top t
 JOIN organizations o ON o.id = t.organization_id
 LEFT JOIN subscriptions s ON s.organization_id = t.organization_id
-JOIN plans pl ON pl.id = CASE WHEN s.status IN ('active', 'past_due') THEN s.plan_id ELSE $1::text END
+JOIN plans pl ON pl.id = CASE WHEN s.status IN ('active', 'past_due') AND s.environment IS NOT DISTINCT FROM $1::text THEN s.plan_id ELSE $2::text END
 ORDER BY t.messages DESC, t.organization_id
 `
 
 type InsightsTopOrganizationsParams struct {
-	FreePlan string
-	Since    time.Time
+	Environment *string
+	FreePlan    string
+	Since       time.Time
 }
 
 type InsightsTopOrganizationsRow struct {
@@ -439,7 +447,7 @@ type InsightsTopOrganizationsRow struct {
 // The ten workspaces that sent the most live messages since @since, with their
 // paired phones and the plan in effect (@free_plan without an active subscription).
 func (q *Queries) InsightsTopOrganizations(ctx context.Context, arg InsightsTopOrganizationsParams) ([]InsightsTopOrganizationsRow, error) {
-	rows, err := q.db.Query(ctx, insightsTopOrganizations, arg.FreePlan, arg.Since)
+	rows, err := q.db.Query(ctx, insightsTopOrganizations, arg.Environment, arg.FreePlan, arg.Since)
 	if err != nil {
 		return nil, err
 	}
@@ -475,10 +483,16 @@ SELECT (SELECT count(*) FROM users)::int AS users,
        (SELECT count(*) FROM projects)::int AS projects,
        (SELECT count(*) FROM api_keys
          WHERE revoked_at IS NULL AND (expires_at IS NULL OR expires_at > now()))::int AS api_keys,
-       (SELECT count(*) FROM subscriptions WHERE status = 'active')::int AS subscriptions_active,
+       (SELECT count(*) FROM subscriptions
+         WHERE status = 'active' AND environment IS NOT DISTINCT FROM $2::text)::int AS subscriptions_active,
        (SELECT count(DISTINCT user_id) FROM sessions
          WHERE last_seen_at >= now() - interval '7 days')::int AS active_users_7d
 `
+
+type InsightsTotalsParams struct {
+	Since       time.Time
+	Environment *string
+}
 
 type InsightsTotalsRow struct {
 	Users                int32
@@ -496,8 +510,8 @@ type InsightsTotalsRow struct {
 // Operator Insights: instance-wide aggregates for GET /v1/system/insights.
 // Every query is bounded by created_at >= @since or by a LIMIT, and none
 // returns message bodies or phone numbers.
-func (q *Queries) InsightsTotals(ctx context.Context, since time.Time) (InsightsTotalsRow, error) {
-	row := q.db.QueryRow(ctx, insightsTotals, since)
+func (q *Queries) InsightsTotals(ctx context.Context, arg InsightsTotalsParams) (InsightsTotalsRow, error) {
+	row := q.db.QueryRow(ctx, insightsTotals, arg.Since, arg.Environment)
 	var i InsightsTotalsRow
 	err := row.Scan(
 		&i.Users,

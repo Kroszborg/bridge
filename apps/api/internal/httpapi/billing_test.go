@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"bridge/internal/billing"
 	"bridge/internal/config"
 )
 
@@ -326,5 +327,70 @@ func TestDodoBilling(t *testing.T) {
 	// Other products on the same Dodo account are ignored.
 	if code := signedWebhook(t, srv, "evt_8", subscriptionEvent("subscription.active", "sub_x", "active", "pdt_someone_else"), webhookSecret); code != http.StatusOK {
 		t.Fatalf("foreign product: %d", code)
+	}
+}
+
+// Switching Dodo from test to live mode: subscriptions bought in test mode stop
+// granting plans, and rows stored before Bridge recorded the mode are sorted
+// by asking live Dodo whether it knows them.
+func TestDodoModes(t *testing.T) {
+	dodo, dodoURL := newFakeDodo(t)
+	cfg := func(c *config.Config) {
+		c.Cloud = true
+		c.Dodo = &config.DodoConfig{
+			APIKey: "dodo-key", WebhookSecret: webhookSecret, Environment: config.DodoLiveMode, BaseURL: dodoURL,
+			Products: map[string]string{"pro": "pdt_pro", "business": "pdt_business"},
+		}
+	}
+	srv := newServer(t, cfg)
+	plan := func(c *client, orgID string) string {
+		b := c.mustStatus(c.do("GET", "/v1/organizations/"+orgID+"/billing", nil), http.StatusOK).Body
+		return b["plan"].(map[string]any)["id"].(string)
+	}
+	ctx := context.Background()
+	insert := func(orgID, subID string) {
+		if _, err := testDB.Pool.Exec(ctx, `INSERT INTO subscriptions (organization_id, plan_id, status, provider_customer_id, provider_subscription_id)
+			VALUES ($1, 'pro', 'active', $2, $3)`, orgID, "cus_"+subID, subID); err != nil {
+			t.Fatal(err)
+		}
+	}
+	liveC, liveOrg, _ := signup(t, srv)
+	testC, testOrg, _ := signup(t, srv)
+	insert(liveOrg, "sub_live_"+liveOrg)
+	insert(testOrg, "sub_test_"+testOrg)
+	dodo.setSub("sub_live_"+liveOrg, "active", "pdt_pro", liveOrg, false) // live Dodo knows only this one
+
+	// Unsorted rows count for no mode.
+	if p := plan(liveC, liveOrg); p != "free" {
+		t.Fatalf("unsorted subscription grants %s", p)
+	}
+	c := &config.Config{}
+	cfg(c)
+	if err := billing.New(testDB.Pool, c, quietLogger()).SortEnvironments(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if p := plan(liveC, liveOrg); p != "pro" {
+		t.Fatalf("live subscription: %s", p)
+	}
+	if p := plan(testC, testOrg); p != "free" {
+		t.Fatalf("test-mode subscription still grants %s in live mode", p)
+	}
+
+	// Upgrading in live mode starts a fresh checkout, without the test-mode customer.
+	r := testC.do("POST", "/v1/organizations/"+testOrg+"/billing/checkout", map[string]any{"plan": "pro"})
+	if r.Status != http.StatusOK {
+		t.Fatalf("checkout: %d %s", r.Status, r.Raw)
+	}
+	if cust := dodo.request("POST /checkouts")["customer"].(map[string]any); cust["customer_id"] != nil {
+		t.Fatalf("live checkout reuses the test-mode customer: %v", cust)
+	}
+	// Its live subscription replaces the test-mode row.
+	sub := "sub_live_" + testOrg
+	dodo.setSub(sub, "active", "pdt_pro", testOrg, false)
+	if code := signedWebhook(t, srv, "evt_"+sub, subscriptionEvent("subscription.active", sub, "active", "pdt_pro"), webhookSecret); code != http.StatusOK {
+		t.Fatalf("webhook: %d", code)
+	}
+	if p := plan(testC, testOrg); p != "pro" {
+		t.Fatalf("after live purchase: %s", p)
 	}
 }

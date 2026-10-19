@@ -12,7 +12,8 @@ SELECT (SELECT count(*) FROM users)::int AS users,
        (SELECT count(*) FROM projects)::int AS projects,
        (SELECT count(*) FROM api_keys
          WHERE revoked_at IS NULL AND (expires_at IS NULL OR expires_at > now()))::int AS api_keys,
-       (SELECT count(*) FROM subscriptions WHERE status = 'active')::int AS subscriptions_active,
+       (SELECT count(*) FROM subscriptions
+         WHERE status = 'active' AND environment IS NOT DISTINCT FROM sqlc.narg(environment)::text)::int AS subscriptions_active,
        (SELECT count(DISTINCT user_id) FROM sessions
          WHERE last_seen_at >= now() - interval '7 days')::int AS active_users_7d;
 
@@ -130,7 +131,7 @@ SELECT t.organization_id,
 FROM top t
 JOIN organizations o ON o.id = t.organization_id
 LEFT JOIN subscriptions s ON s.organization_id = t.organization_id
-JOIN plans pl ON pl.id = CASE WHEN s.status IN ('active', 'past_due') THEN s.plan_id ELSE sqlc.arg(free_plan)::text END
+JOIN plans pl ON pl.id = CASE WHEN s.status IN ('active', 'past_due') AND s.environment IS NOT DISTINCT FROM sqlc.narg(environment)::text THEN s.plan_id ELSE sqlc.arg(free_plan)::text END
 ORDER BY t.messages DESC, t.organization_id;
 
 -- name: InsightsRecentUsers :many
@@ -141,10 +142,10 @@ ORDER BY u.created_at DESC, u.id DESC
 LIMIT 15;
 
 -- name: InsightsPlanMix :many
--- Workspaces per plan in effect: active and past_due subscriptions keep their
--- plan, everything else is on @free_plan.
+-- Workspaces per plan in effect: active and past_due subscriptions of the Dodo
+-- mode Bridge runs in (@environment) keep their plan, everything else is on @free_plan.
 WITH effective AS (
-    SELECT CASE WHEN s.status IN ('active', 'past_due') THEN s.plan_id ELSE sqlc.arg(free_plan)::text END AS plan_id
+    SELECT CASE WHEN s.status IN ('active', 'past_due') AND s.environment IS NOT DISTINCT FROM sqlc.narg(environment)::text THEN s.plan_id ELSE sqlc.arg(free_plan)::text END AS plan_id
     FROM organizations o
     LEFT JOIN subscriptions s ON s.organization_id = o.id
 )
@@ -155,11 +156,12 @@ GROUP BY pl.id
 ORDER BY pl.sort_order, pl.id;
 
 -- name: InsightsMRR :one
--- Monthly recurring revenue of active subscriptions, in the plans' smallest unit.
+-- Monthly recurring revenue of active subscriptions in the Dodo mode Bridge runs
+-- in, in the plans' smallest unit. Test-mode purchases are not revenue.
 SELECT COALESCE(sum(pl.price_cents), 0)::bigint AS mrr_cents
 FROM subscriptions s
 JOIN plans pl ON pl.id = s.plan_id
-WHERE s.status = 'active';
+WHERE s.status = 'active' AND s.environment IS NOT DISTINCT FROM sqlc.narg(environment)::text;
 
 -- name: InsightsRecentSubscriptions :many
 SELECT s.organization_id, o.name AS organization_name, pl.name AS plan_name, s.status,
@@ -167,5 +169,6 @@ SELECT s.organization_id, o.name AS organization_name, pl.name AS plan_name, s.s
 FROM subscriptions s
 JOIN organizations o ON o.id = s.organization_id
 JOIN plans pl ON pl.id = s.plan_id
+WHERE s.environment IS NOT DISTINCT FROM sqlc.narg(environment)::text
 ORDER BY s.updated_at DESC, s.organization_id
 LIMIT 10;
